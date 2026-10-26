@@ -60,7 +60,33 @@ nav.main a{text-decoration:none;padding:7px 12px;border-radius:999px;font-weight
 nav.main a:hover{color:var(--ink);background:var(--soft-agave)}
 nav.main a[aria-current="page"]{color:var(--ink);background:var(--soft-agave)}
 nav.main a.cta{background:var(--agave);color:var(--agave-ink)}
-@media (max-width:640px){nav.main{margin-left:0;width:100%;overflow-x:auto;flex-wrap:nowrap}nav.main a{white-space:nowrap}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.zsel{position:relative}
+.zsel select{width:auto;border-radius:999px;padding:7px 32px 7px 14px;font-weight:700;font-size:.9rem;background-color:var(--soft-agave);border-color:transparent;cursor:pointer}
+.tabbar{display:none}
+.short{display:none}
+@media (max-width:640px){
+  header.top .wrap{flex-wrap:nowrap;gap:10px}
+  .zsel{margin-left:auto;min-width:0}
+  .zsel select{max-width:130px;padding:7px 28px 7px 12px;font-size:.85rem;text-overflow:ellipsis}
+  .long{display:none}
+  .short{display:inline}
+  .logo{font-size:1.3rem}
+  nav.main{margin-left:0}
+  nav.main a:not(.cta){display:none}
+  nav.main a.cta{padding:7px 12px;font-size:.85rem;white-space:nowrap}
+  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:9;background:var(--surface);border-top:1px solid var(--line);padding:6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px))}
+  .tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border-radius:12px;text-decoration:none;color:var(--muted);font-size:.72rem;font-weight:700}
+  .tabbar a svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .tabbar a[aria-current="page"]{color:var(--agave);background:var(--soft-agave)}
+  body{padding-bottom:calc(72px + env(safe-area-inset-bottom, 0px))}
+  .toast{bottom:calc(84px + env(safe-area-inset-bottom, 0px))}
+  .chips.scrollrow{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  .chips.scrollrow::-webkit-scrollbar{display:none}
+  .chips.scrollrow .chip{flex:none;white-space:nowrap}
+  .filters .frow{grid-template-columns:1fr 1fr}
+  .filters .frow>label:first-child{grid-column:1/-1}
+}
 
 main{padding-block:28px 56px;display:flex;flex-direction:column;gap:44px}
 section{display:flex;flex-direction:column;gap:16px}
@@ -136,7 +162,7 @@ dialog::backdrop{background:rgba(10,18,13,.55)}
 .chip[aria-pressed="true"]{background:var(--agave);border-color:var(--agave);color:var(--agave-ink)}
 .chip small{font-weight:500;opacity:.8;font-variant-numeric:tabular-nums}
 .frow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-@media (max-width:640px){.frow{grid-template-columns:1fr}}
+
 label.fld{display:flex;flex-direction:column;gap:4px;font-size:.84rem;font-weight:600;color:var(--muted)}
 input[type=text],input[type=tel],input[type=search],input[type=date],select,textarea{background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:9px 11px;font-size:.95rem;color:var(--ink);width:100%}
 textarea{min-height:90px;resize:vertical}
@@ -232,12 +258,13 @@ footer a{color:var(--muted)}
 <div class="demo"><div class="wrap">Versión de prueba: todos los negocios, teléfonos y cupones son ejemplos.</div></div>
 <header class="top"><div class="wrap">
   <a class="logo" href="#inicio" aria-label="ZonaQro, inicio">Zona<b>Qro</b><span class="pin" aria-hidden="true"></span></a>
+  <label class="zsel"><span class="sr">Mi zona</span><select id="miZona" aria-label="Mi zona"></select></label>
   <nav class="main" aria-label="Principal">
     <a href="#directorio" data-nav="directorio">Directorio</a>
     <a href="#cupones" data-nav="cupones">Cupones</a>
     <a href="#eventos" data-nav="eventos">Eventos</a>
     <a href="#vecinos" data-nav="vecinos">Hecho por vecinos</a>
-    <a href="#registrar" data-nav="registrar" class="cta">Registra tu negocio</a>
+    <a href="#registrar" data-nav="registrar" class="cta"><span class="long">Registra tu negocio</span><span class="short">Registrar</span></a>
   </nav>
 </div></header>
 
@@ -248,6 +275,7 @@ footer a{color:var(--muted)}
   <span><a href="#privacidad">Aviso de privacidad</a> · <a href="#admin">Panel de administración</a></span>
 </div></footer>
 <div class="toast" id="toast" role="status" hidden></div>
+<nav class="tabbar" aria-label="Navegación principal"><a href="#inicio" data-nav="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Inicio</span></a><a href="#directorio" data-nav="directorio"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg><span>Directorio</span></a><a href="#eventos" data-nav="eventos"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Eventos</span></a><a href="#cupones" data-nav="cupones"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/></svg><span>Cupones</span></a><a href="#vecinos" data-nav="vecinos"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6M17 5a3.5 3.5 0 0 1 0 7M21.5 20c0-2.5-1.5-4.5-3.5-5.5"/></svg><span>Vecinos</span></a></nav>
 <dialog id="dlg" aria-labelledby="dlg-title"><div class="dlg-in" id="dlg-body"></div></dialog>
 
 <script>
@@ -324,7 +352,7 @@ const estado = {
   aprobados: leer("zq_aprobados", []),
   clics: leer("zq_clics", {}),
   vistasCupon: leer("zq_vistas", {}),
-  f: {q:"", zona:"", cat:"", tipo:""}
+  f: {q:"", zona:leer("zq_zona",""), cat:"", tipo:""}
 };
 
 /* ===== Utilidades ===== */
@@ -335,6 +363,11 @@ const PALETA = ["#2C674B","#6A4DB6","#B5651D","#1F6F8B","#9B3D5A","#4F6B1F","#7A
 function color(id){ let h = 0; for(const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PALETA[h % PALETA.length]; }
 function iniciales(n){ return n.split(/\s+/).filter(w => w.length > 2).slice(0,2).map(w => w[0]).join("").toUpperCase() || n[0]; }
 function negocios(){ return EJEMPLOS.concat(estado.aprobados); }
+const enZona = b => !estado.f.zona || b.zonas.includes(estado.f.zona);
+function pintarZona(){
+  const sel = document.getElementById("miZona"); if(!sel) return;
+  sel.innerHTML = '<option value="">Todas</option>' + zonasVisibles().map(z => `<option value="${z}"${estado.f.zona === z ? " selected" : ""}>${z}</option>`).join("");
+}
 function totalClics(b){ return (b.clics || 0) + (estado.clics[b.id] || 0); }
 function esNuevo(b){ const d = (Date.now() - Date.parse(b.alta)) / 864e5; return d >= 0 && d <= DIAS_NUEVO; }
 function favoritos(){
@@ -384,9 +417,11 @@ function tarjeta(b, fav){
 /* ===== Vistas ===== */
 function vInicio(){
   const fav = favoritos();
-  const destacados = ordenar(negocios().filter(b => b.promocionado || fav.has(b.id)), fav).slice(0,6);
-  const vecinos = negocios().filter(b => b.tipo === "emprendimiento").slice(0,3);
-  const cupones = negocios().flatMap(b => (b.cupones || []).map(c => ({b, c}))).slice(0,4);
+  const destacados = ordenar(negocios().filter(b => (b.promocionado || fav.has(b.id)) && enZona(b)), fav).slice(0,6);
+  const vecinos = negocios().filter(b => b.tipo === "emprendimiento" && enZona(b)).slice(0,3);
+  const cupones = negocios().filter(enZona).flatMap(b => (b.cupones || []).map(c => ({b, c}))).slice(0,4);
+  const proxEv = eventos().filter(e => !estado.f.zona || e.zona === estado.f.zona).slice(0,3);
+  const vacio = t => `<div class="empty">${t}</div>`;
   return `
   <section class="hero">
     <div>
@@ -411,22 +446,22 @@ function vInicio(){
 
   <section>
     <div class="sec-head"><h2>Recomendados en la zona</h2><a href="#directorio">Ver todo el directorio</a></div>
-    <div class="grid">${destacados.map(b => tarjeta(b, fav)).join("")}</div>
+    ${destacados.length ? `<div class="grid">${destacados.map(b => tarjeta(b, fav)).join("")}</div>` : vacio("Aún no hay recomendados en esta zona. <a href=\"#registrar\">Registra el primer negocio</a>.")}
   </section>
 
   <section>
     <div class="sec-head"><h2>Próximos eventos</h2><a href="#eventos">Ver la agenda</a></div>
-    <div class="ev-mini">${eventos().slice(0,3).map(eventoCard).join("")}</div>
+    ${proxEv.length ? `<div class="ev-mini">${proxEv.map(eventoCard).join("")}</div>` : vacio("No hay eventos próximos en esta zona. <a href=\"#publicar-evento\">Publica el primero</a>.")}
   </section>
 
   <section>
     <div class="sec-head"><h2>Cupones activos</h2><a href="#cupones">Ver todos</a></div>
-    <div class="tickets">${cupones.map(({b,c}) => boleto(b, c)).join("")}</div>
+    ${cupones.length ? `<div class="tickets">${cupones.map(({b,c}) => boleto(b, c)).join("")}</div>` : vacio("No hay cupones activos en esta zona por ahora.")}
   </section>
 
   <section>
     <div class="sec-head"><div><h2>Hecho por vecinos</h2><p class="muted">Emprendedores sin local que venden desde casa o en línea.</p></div><a href="#vecinos">Ver todos</a></div>
-    <div class="grid">${vecinos.map(b => tarjeta(b, fav)).join("")}</div>
+    ${vecinos.length ? `<div class="grid">${vecinos.map(b => tarjeta(b, fav)).join("")}</div>` : vacio("Todavía no hay emprendedores en esta zona.")}
   </section>
 
   <section class="mimx">
@@ -452,7 +487,7 @@ function vDirectorio(soloVecinos){
     <h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">${soloVecinos ? "Hecho por vecinos" : "Encuentra negocios y servicios"}</h1>
     ${soloVecinos ? '<p class="muted" style="margin-top:8px;max-width:60ch">Playeras, repostería, accesorios y más, hechos por gente de la zona. Pide directo por WhatsApp.</p>' : ""}</div>
     <div class="filters">
-      <div class="chips" role="group" aria-label="Zona">
+      <div class="chips scrollrow" role="group" aria-label="Zona">
         <button class="chip" data-fz="" aria-pressed="${!f.zona}">Todas las zonas</button>
         ${zonasVisibles().map(z => `<button class="chip" data-fz="${z}" aria-pressed="${f.zona === z}">${z} <small>${porZona(z)}</small></button>`).join("")}
       </div>
@@ -491,7 +526,7 @@ function vCupones(){
   return `<section>
     <div><p class="eyebrow">Cupones</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Descuentos de la zona</h1>
     <p class="muted" style="margin-top:8px">Muestra el código o el QR al pagar en el negocio.</p></div>
-    <div class="chips" role="group" aria-label="Zona">
+    <div class="chips scrollrow" role="group" aria-label="Zona">
       <button class="chip" data-fz="" aria-pressed="${!f.zona}">Todas las zonas</button>
       ${zonasVisibles().map(z => `<button class="chip" data-fz="${z}" aria-pressed="${f.zona === z}">${z}</button>`).join("")}
     </div>
@@ -664,11 +699,11 @@ function vEventos(){
     <div><p class="eyebrow">Agenda</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Eventos y conciertos</h1>
     <p class="muted" style="margin-top:8px;max-width:60ch">Bazares, conciertos, ferias y actividades de las cuatro zonas. ¿Organizas algo? Publícalo gratis.</p></div>
     <div class="filters">
-      <div class="chips" role="group" aria-label="Zona">
+      <div class="chips scrollrow" role="group" aria-label="Zona">
         <button class="chip" data-fz="" aria-pressed="${!f.zona}">Todas las zonas</button>
         ${ZONAS.map(z => `<button class="chip" data-fz="${z}" aria-pressed="${f.zona === z}">${z}</button>`).join("")}
       </div>
-      <div class="chips" role="group" aria-label="Tipo de evento">
+      <div class="chips scrollrow" role="group" aria-label="Tipo de evento">
         <button class="chip" data-fev="" aria-pressed="${!f.ev}">Todos</button>
         ${Object.entries(TIPOS_EV).map(([k,n]) => `<button class="chip" data-fev="${k}" aria-pressed="${f.ev === k}">${n}</button>`).join("")}
       </div>
@@ -768,7 +803,9 @@ function render(){
   else if(h === "privacidad") html = vPrivacidad();
   else { html = vInicio(); nav = "inicio"; }
   app.innerHTML = html;
-  document.querySelectorAll("nav.main a").forEach(a => a.toggleAttribute("aria-current", a.dataset.nav === nav) || a.dataset.nav === nav && a.setAttribute("aria-current","page"));
+  document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
+  pintarZona();
+  try{ document.querySelectorAll('.chips.scrollrow .chip[aria-pressed="true"]').forEach(c => c.scrollIntoView({block:"nearest", inline:"center"})); }catch(err){}
   if(h === "registrar") prepararRegistro();
 }
 function irA(hash){ if(location.hash === hash) render(); else location.hash = hash; window.scrollTo(0,0); }
@@ -778,9 +815,9 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0,0); })
 document.addEventListener("click", e => {
   const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-verqr],[data-wa],[data-copy],[data-aprobar],[data-rechazar],[data-atab]");
   if(!t) return;
-  if(t.dataset.zona !== undefined && t.matches("a")){ e.preventDefault(); estado.f = {q:"", zona:t.dataset.zona, cat:"", tipo:""}; irA("#directorio"); }
-  else if(t.dataset.cat !== undefined && t.matches("a")){ e.preventDefault(); estado.f = {q:"", zona:"", cat:t.dataset.cat, tipo:""}; irA("#directorio"); }
-  else if(t.dataset.fz !== undefined){ estado.f.zona = t.dataset.fz; render(); }
+  if(t.dataset.zona !== undefined && t.matches("a")){ e.preventDefault(); estado.f = {q:"", zona:t.dataset.zona, cat:"", tipo:""}; guardar("zq_zona", t.dataset.zona); irA("#directorio"); }
+  else if(t.dataset.cat !== undefined && t.matches("a")){ e.preventDefault(); estado.f = {q:"", zona:estado.f.zona, cat:t.dataset.cat, tipo:""}; irA("#directorio"); }
+  else if(t.dataset.fz !== undefined){ estado.f.zona = t.dataset.fz; guardar("zq_zona", estado.f.zona); render(); }
   else if(t.dataset.verqr){
     const box = t.parentElement.querySelector(".qr");
     if(box.hidden){
@@ -812,7 +849,7 @@ document.addEventListener("click", e => {
 });
 
 document.addEventListener("submit", e => {
-  if(e.target.id === "fBuscar"){ e.preventDefault(); estado.f = {q:document.getElementById("q").value, zona:"", cat:"", tipo:""}; irA("#directorio"); }
+  if(e.target.id === "fBuscar"){ e.preventDefault(); estado.f = {q:document.getElementById("q").value, zona:estado.f.zona, cat:"", tipo:""}; irA("#directorio"); }
   if(e.target.id === "fReg"){ e.preventDefault(); enviarRegistro(); }
 });
 
@@ -820,6 +857,7 @@ document.addEventListener("input", e => {
   if(e.target.id === "fq"){ estado.f.q = e.target.value; const pos = e.target.selectionStart; render(); const el = document.getElementById("fq"); el.focus(); el.setSelectionRange(pos,pos); }
 });
 document.addEventListener("change", e => {
+  if(e.target.id === "miZona"){ estado.f.zona = e.target.value; guardar("zq_zona", estado.f.zona); render(); }
   if(e.target.id === "fcat"){ estado.f.cat = e.target.value; render(); }
   if(e.target.id === "ftipo"){ estado.f.tipo = e.target.value; render(); }
   if(e.target.name === "tipo") mostrarCamposTipo();
@@ -856,5 +894,6 @@ function enviarRegistro(){
   app.innerHTML = vRegistrar(true); window.scrollTo(0,0);
 }
 
+if(!ZONAS.includes(estado.f.zona)) estado.f.zona = "";
 render();
 </script>
