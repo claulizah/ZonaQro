@@ -1,6 +1,6 @@
 <title>ZonaQro</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Directorio de negocios, servicios y cupones en Zibatá, Zakia, Juriquilla y El Refugio, Querétaro.">
+<meta name="description" content="Directorio de negocios, servicios, cupones y promociones en Zibatá, Zakia, Juriquilla y El Refugio, Querétaro.">
 <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta property="og:type" content="website">
@@ -308,7 +308,7 @@ footer a{color:var(--muted)}
   <label class="zsel"><span class="sr">Mi zona</span><select id="miZona" aria-label="Mi zona"></select></label>
   <nav class="main" aria-label="Principal">
     <a href="#directorio" data-nav="directorio">Directorio</a>
-    <a href="#cupones" data-nav="cupones">Cupones</a>
+    <a href="#cupones" data-nav="cupones">Cupones y promos</a>
     <a href="#eventos" data-nav="eventos">Eventos</a>
     <a href="#vecinos" data-nav="vecinos">Hecho por vecinos</a>
     <a href="#registrar" data-nav="registrar" class="cta"><span class="long">Registra tu negocio</span><span class="short">Registrar</span></a>
@@ -322,7 +322,7 @@ footer a{color:var(--muted)}
   <span><a href="#privacidad">Aviso de privacidad</a> · <a href="#admin">Panel de administración</a></span>
 </div></footer>
 <div class="toast" id="toast" role="status" hidden></div>
-<nav class="tabbar" aria-label="Navegación principal"><a href="#inicio" data-nav="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Inicio</span></a><a href="#directorio" data-nav="directorio"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg><span>Directorio</span></a><a href="#eventos" data-nav="eventos"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Eventos</span></a><a href="#cupones" data-nav="cupones"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/></svg><span>Cupones</span></a><a href="#vecinos" data-nav="vecinos"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6M17 5a3.5 3.5 0 0 1 0 7M21.5 20c0-2.5-1.5-4.5-3.5-5.5"/></svg><span>Vecinos</span></a></nav>
+<nav class="tabbar" aria-label="Navegación principal"><a href="#inicio" data-nav="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Inicio</span></a><a href="#directorio" data-nav="directorio"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg><span>Directorio</span></a><a href="#eventos" data-nav="eventos"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Eventos</span></a><a href="#cupones" data-nav="cupones"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/></svg><span>Promos</span></a><a href="#vecinos" data-nav="vecinos"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6M17 5a3.5 3.5 0 0 1 0 7M21.5 20c0-2.5-1.5-4.5-3.5-5.5"/></svg><span>Vecinos</span></a></nav>
 <dialog id="dlg" aria-labelledby="dlg-title"><div class="dlg-in" id="dlg-body"></div></dialog>
 
 <script>
@@ -663,8 +663,8 @@ function vInicio(){
   </section>
 
   <section>
-    <div class="sec-head"><h2>Cupones activos</h2><a href="#cupones">Ver todos</a></div>
-    ${cupones.length ? `<div class="tickets">${cupones.map(({b,c}) => boleto(b, c)).join("")}</div>` : vacio("No hay cupones activos en esta zona por ahora.")}
+    <div class="sec-head"><h2>Cupones y promociones</h2><a href="#cupones">Ver todos</a></div>
+    ${cupones.length ? `<div class="tickets">${cupones.map(({b,c}) => boleto(b, c)).join("")}</div>` : vacio("Todavía no hay cupones ni promociones en esta zona. Si tienes un negocio, puedes publicar los tuyos.")}
   </section>
 
   <section>
@@ -710,7 +710,7 @@ function vDirectorio(soloVecinos){
       ${soloVecinos ? "" : `<div class="frow hrs">
         <label class="fld" for="fdia">Día<select id="fdia"><option value="">Cualquiera</option>${DK.map(d => `<option value="${d}"${f.dia === d ? " selected" : ""}>${DL[d]}</option>`).join("")}</select></label>
         <label class="fld" for="fhora">Hora<select id="fhora"><option value="">Cualquiera</option>${HORAS.map(h => `<option value="${h}"${f.hora === h ? " selected" : ""}>${h12(h)}</option>`).join("")}</select></label>
-        <label class="fld" for="fmostrar">Mostrar<select id="fmostrar"><option value="">Todos</option>${[["ver","Verificados"],["cup","Con cupón"],["nue","Nuevos en la zona"],["fav","Favoritos de los vecinos"]].map(([k,t]) => `<option value="${k}"${f.mostrar === k ? " selected" : ""}>${t}</option>`).join("")}</select></label>
+        <label class="fld" for="fmostrar">Mostrar<select id="fmostrar"><option value="">Todos</option>${[["ver","Verificados"],["cup","Con cupón o promo"],["nue","Nuevos en la zona"],["fav","Favoritos de los vecinos"]].map(([k,t]) => `<option value="${k}"${f.mostrar === k ? " selected" : ""}>${t}</option>`).join("")}</select></label>
         <div class="fld" style="justify-content:flex-end"><button type="button" class="chip" data-fahora aria-pressed="${!!f.ahora}">Abierto ahora</button></div>
       </div>`}
     </div>
@@ -741,13 +741,13 @@ function vCupones(){
   const f = estado.f;
   const items = negocios().filter(b => !f.zona || b.zonas.includes(f.zona)).flatMap(b => (b.cupones || []).map(c => ({b,c})));
   return `<section>
-    <div><p class="eyebrow">Cupones</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Descuentos de la zona</h1>
+    <div><p class="eyebrow">Cupones y promociones</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Descuentos y promos de la zona</h1>
     <p class="muted" style="margin-top:8px">Muestra el código o el QR al pagar en el negocio.</p></div>
     <div class="chips scrollrow" role="group" aria-label="Zona">
       <button class="chip" data-fz="" aria-pressed="${!f.zona}">Todas las zonas</button>
       ${zonasVisibles().map(z => `<button class="chip" data-fz="${z}" aria-pressed="${f.zona === z}">${z}</button>`).join("")}
     </div>
-    ${items.length ? `<div class="tickets">${items.map(({b,c}) => boleto(b,c)).join("")}</div>` : '<div class="empty">No hay cupones activos en esta zona por ahora.</div>'}
+    ${items.length ? `<div class="tickets">${items.map(({b,c}) => boleto(b,c)).join("")}</div>` : '<div class="empty">Todavía no hay cupones ni promociones en esta zona.</div>'}
   </section>`;
 }
 
@@ -766,7 +766,7 @@ function vNegocio(id){
       <div class="prod"><div class="swatch" style="background:${PALETA[(i + 2) % PALETA.length]}">${esc(iniciales(p.nombre))}</div>
       <strong>${esc(p.nombre)}</strong><span class="price">$${p.precio.toLocaleString("es-MX")}</span>
       <a class="btn sm wa" href="${waLink(b, "Hola, vi " + p.nombre + " en ZonaQro, ¿está disponible?")}" target="_blank" rel="noopener" data-wa="${b.id}">Lo quiero</a></div>`).join("")}</div></div>` : "";
-  const cupones = (b.cupones || []).length ? `<div class="panel"><h2>Cupones</h2><div class="tickets" style="grid-template-columns:1fr">${b.cupones.map(c => boleto(b,c,false)).join("")}</div></div>` : "";
+  const cupones = (b.cupones || []).length ? `<div class="panel"><h2>Cupones y promociones</h2><div class="tickets" style="grid-template-columns:1fr">${b.cupones.map(c => boleto(b,c,false)).join("")}</div></div>` : "";
   return `<section>
     <a class="back" href="#directorio">← Volver al directorio</a>
     <div class="biz-head">
