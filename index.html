@@ -1,0 +1,860 @@
+<title>ZonaQro</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Directorio de negocios, servicios y cupones en Zibatá, Zakia, Juriquilla y El Refugio, Querétaro.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+/* Layout: barra fija + contenedor de 1080px; portada con buscador, cuadrícula de fichas que baja a una columna en celular. Agave = acción, jacaranda = badges, sol = cupones. */
+:root{
+  --bg:#F4F7F2; --surface:#FFFFFF; --ink:#17231C; --muted:#56665B; --line:#D9E2D6;
+  --agave:#2C674B; --agave-ink:#FFFFFF; --soft-agave:#E2EEE6;
+  --jaca:#6A4DB6; --soft-jaca:#ECE7F7;
+  --sun:#B97A0C; --soft-sun:#FBF0D6; --sun-line:#E6C27A;
+  --wa:#1E8E4E; --danger:#B3402E;
+  --ink-soft:#3C4A41; --chip:#EAF0E7; --coral:#9A3F31; --soft-coral:#FBE6E1; --mint:#1F6B58; --soft-mint:#D8F0E5;
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1612; --surface:#17201B; --ink:#E4ECE6; --muted:#9BAAA0; --line:#2A362F;
+  --agave:#6CC596; --agave-ink:#0C1510; --soft-agave:#1C3226;
+  --jaca:#AE97EC; --soft-jaca:#28203D;
+  --sun:#F0BE55; --soft-sun:#33290F; --sun-line:#6E5418;
+  --wa:#4CCB82; --danger:#F08A76; --ink-soft:#C3D0C7; --chip:#202C25; --coral:#F2A596; --soft-coral:#3A2420; --mint:#7BD6B8; --soft-mint:#16342B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1612; --surface:#17201B; --ink:#E4ECE6; --muted:#9BAAA0; --line:#2A362F;
+  --agave:#6CC596; --agave-ink:#0C1510; --soft-agave:#1C3226;
+  --jaca:#AE97EC; --soft-jaca:#28203D;
+  --sun:#F0BE55; --soft-sun:#33290F; --sun-line:#6E5418;
+  --wa:#4CCB82; --danger:#F08A76; --ink-soft:#C3D0C7; --chip:#202C25; --coral:#F2A596; --soft-coral:#3A2420; --mint:#7BD6B8; --soft-mint:#16342B; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5}
+a{color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--agave);outline-offset:2px;border-radius:6px}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+h1,h2,h3{font-family:var(--f-display);line-height:1.1;text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem, 6vw, 3.4rem);font-weight:800;letter-spacing:-.02em}
+h2{font-size:clamp(1.4rem, 3.5vw, 1.9rem);font-weight:800;letter-spacing:-.01em}
+h3{font-size:1.15rem;font-weight:600}
+p{margin:0}
+.muted{color:var(--muted)}
+.eyebrow{font-size:.75rem;text-transform:uppercase;letter-spacing:.09em;font-weight:700;color:var(--muted)}
+
+/* barra demo + header */
+.demo{background:var(--soft-sun);color:var(--ink);font-size:.85rem;border-bottom:1px solid var(--sun-line)}
+.demo .wrap{padding-block:8px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);z-index:10;background:var(--surface)}
+header.top{position:sticky;top:env(safe-area-inset-top, 0px);z-index:9;background:var(--surface);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;align-items:center;gap:16px;padding-block:12px;flex-wrap:wrap}
+.logo{display:flex;align-items:baseline;gap:2px;text-decoration:none;font-family:var(--f-display);font-weight:800;font-size:1.45rem;letter-spacing:-.02em}
+.logo b{color:var(--agave)}
+.logo .pin{width:10px;height:10px;border-radius:50% 50% 50% 0;background:var(--jaca);transform:rotate(-45deg);margin-left:4px;align-self:center}
+nav.main{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+nav.main a{text-decoration:none;padding:7px 12px;border-radius:999px;font-weight:600;font-size:.92rem;color:var(--muted)}
+nav.main a:hover{color:var(--ink);background:var(--soft-agave)}
+nav.main a[aria-current="page"]{color:var(--ink);background:var(--soft-agave)}
+nav.main a.cta{background:var(--agave);color:var(--agave-ink)}
+@media (max-width:640px){nav.main{margin-left:0;width:100%;overflow-x:auto;flex-wrap:nowrap}nav.main a{white-space:nowrap}}
+
+main{padding-block:28px 56px;display:flex;flex-direction:column;gap:44px}
+section{display:flex;flex-direction:column;gap:16px}
+.sec-head{display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sec-head a{font-weight:600;color:var(--agave);text-decoration:none}
+.sec-head a.btn{color:var(--agave-ink)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.2fr .8fr;gap:28px;align-items:center}
+.hero .lead{font-size:1.1rem;color:var(--muted);max-width:52ch;margin-top:12px}
+.search{display:flex;gap:8px;margin-top:20px;background:var(--surface);border:1.5px solid var(--line);border-radius:999px;padding:6px 6px 6px 18px}
+.search input{flex:1;min-width:0;border:0;background:transparent;outline:none;font-size:1rem}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:10px 18px;font-weight:700;cursor:pointer;text-decoration:none;background:var(--agave);color:var(--agave-ink)}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.wa{background:var(--wa);color:#fff}
+.btn.sm{padding:6px 12px;font-size:.88rem}
+.btn:hover{filter:brightness(1.06)}
+.zones-board{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:10px}
+.zone-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;text-decoration:none;border:1px solid transparent}
+.zone-row:hover{border-color:var(--line);background:var(--bg)}
+.zone-row strong{font-family:var(--f-display);font-size:1.15rem}
+.zone-row span{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+@media (max-width:760px){.hero{grid-template-columns:1fr}}
+
+/* categorías */
+.cats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.cat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;text-decoration:none;display:flex;flex-direction:column;gap:2px;cursor:pointer;text-align:left}
+.cat:hover{border-color:var(--agave)}
+.cat strong{font-weight:700}
+.cat span{font-size:.82rem;color:var(--muted)}
+@media (max-width:640px){.cats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* fichas */
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:580px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 20px;text-decoration:none;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{position:relative}
+.card:hover{border-color:var(--agave)}
+.card a.stretch{text-decoration:none}
+.card a.stretch::after{content:"";position:absolute;inset:0;border-radius:var(--r)}
+.card .act{position:relative;z-index:1}
+.acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+button.badge{border:0;cursor:pointer;font-size:.8rem;padding:6px 12px;border-radius:999px}
+button.badge:hover{filter:brightness(.96)}
+.zone-row .zinfo{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+dialog{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--ink);padding:0;width:min(440px, calc(100vw - 32px));max-height:calc(100vh - 48px);overflow:auto}
+dialog::backdrop{background:rgba(10,18,13,.55)}
+.dlg-in{padding:18px;display:flex;flex-direction:column;gap:14px}
+.dlg-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.banner{background:var(--soft-agave);border-radius:var(--r);padding:16px 18px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.banner p{max-width:52ch}
+.card.promo{border-color:var(--jaca)}
+.card-top{display:flex;gap:12px;align-items:center;min-width:0}
+.avatar{flex:none;width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;font-size:1.1rem;color:#fff}
+.card-top div{min-width:0}
+.card-top h3{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:.84rem;color:var(--muted)}
+.card p.desc{font-size:.93rem;color:var(--ink-soft);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.badges{display:flex;flex-wrap:wrap;gap:6px}
+.badge{font-size:.72rem;font-weight:700;padding:3px 9px;border-radius:999px;letter-spacing:.02em}
+.b-promo{background:var(--jaca);color:var(--surface)}
+.b-fav{background:var(--soft-coral);color:var(--coral);display:inline-flex;align-items:center;gap:5px}
+.b-fav svg{width:11px;height:11px;fill:currentColor}
+.b-new{background:var(--soft-mint);color:var(--mint)}
+.b-cupon{background:var(--soft-sun);color:var(--sun)}
+.card-foot{margin-top:auto;display:flex;justify-content:space-between;align-items:center;font-size:.84rem;color:var(--muted);gap:8px}
+
+/* filtros */
+.filters{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1.5px solid var(--line);background:var(--chip);border-radius:999px;padding:6px 12px;font-size:.88rem;font-weight:600;cursor:pointer;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--agave);border-color:var(--agave);color:var(--agave-ink)}
+.chip small{font-weight:500;opacity:.8;font-variant-numeric:tabular-nums}
+.frow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media (max-width:640px){.frow{grid-template-columns:1fr}}
+label.fld{display:flex;flex-direction:column;gap:4px;font-size:.84rem;font-weight:600;color:var(--muted)}
+input[type=text],input[type=tel],input[type=search],input[type=date],select,textarea{background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:9px 11px;font-size:.95rem;color:var(--ink);width:100%}
+textarea{min-height:90px;resize:vertical}
+.count{font-size:.9rem;color:var(--muted)}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:28px;text-align:center;color:var(--muted)}
+
+/* cupones como boleto */
+.tickets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:640px){.tickets{grid-template-columns:1fr}}
+.ticket{display:grid;grid-template-columns:1fr auto;background:var(--soft-sun);border:1.5px solid var(--sun-line);border-radius:var(--r);overflow:hidden;min-width:0}
+.ticket .t-main{padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.ticket .t-side{border-left:2px dashed var(--sun-line);padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-width:120px}
+.ticket .code{font-family:var(--f-mono);font-weight:700;font-size:1.1rem;letter-spacing:.06em;color:var(--sun)}
+.ticket .t-biz{font-size:.82rem;font-weight:700;color:var(--muted);text-decoration:none}
+.ticket h3{font-size:1.05rem}
+.ticket .small{font-size:.8rem;color:var(--muted)}
+.qr{background:#fff;padding:6px;border-radius:8px;line-height:0}
+.qr svg{width:120px;height:120px}
+
+/* ficha detalle */
+.biz-head{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.biz-head .avatar{width:76px;height:76px;font-size:1.7rem;border-radius:18px}
+.biz-grid{display:grid;grid-template-columns:1.3fr .7fr;gap:20px;align-items:start}
+@media (max-width:820px){.biz-grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+dl.info{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0;font-size:.95rem}
+dl.info dt{font-weight:700;color:var(--muted)}
+dl.info dd{margin:0;min-width:0}
+.phone{font-family:var(--f-mono);font-weight:700;font-size:1.05rem;user-select:all}
+.catalog{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:640px){.catalog{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.prod{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg);min-width:0}
+.prod .swatch{aspect-ratio:4/3;max-width:100%;border-radius:8px;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;color:#fff;font-size:1.2rem}
+.prod strong{font-size:.92rem}
+.price{font-variant-numeric:tabular-nums;font-weight:700;color:var(--agave)}
+.mimx{background:var(--soft-agave);border-radius:var(--r);padding:18px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.back{font-weight:600;color:var(--agave);text-decoration:none;font-size:.92rem}
+
+/* formulario */
+form.reg{display:flex;flex-direction:column;gap:14px;max-width:680px}
+fieldset{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0;display:flex;flex-direction:column;gap:8px}
+legend{font-weight:700;font-size:.9rem;padding:0 6px}
+.opt{display:flex;gap:10px;align-items:flex-start;font-size:.95rem;cursor:pointer}
+.opt input{margin-top:4px}
+.opt span small{display:block;color:var(--muted)}
+.inline-opts{display:flex;flex-wrap:wrap;gap:6px 18px}
+.notice{border-radius:12px;padding:14px 16px;background:var(--soft-agave);font-weight:600}
+.notice.err{background:var(--soft-sun);color:var(--ink)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:580px){.two{grid-template-columns:1fr}}
+
+/* admin */
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tbl-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+.req{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:8px}
+.req-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn.danger{background:transparent;color:var(--danger);border:1.5px solid var(--danger)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:640px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.stat b{display:block;font-family:var(--f-display);font-size:1.7rem;font-variant-numeric:tabular-nums}
+.stat span{font-size:.82rem;color:var(--muted)}
+
+/* eventos */
+.evlist{display:flex;flex-direction:column;gap:12px}
+.evento{display:grid;grid-template-columns:72px 1fr;gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;min-width:0}
+.evento.dest{border-color:var(--jaca)}
+.fecha{display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--soft-jaca);color:var(--jaca);border-radius:12px;padding:8px 4px;align-self:start}
+.fecha b{font-family:var(--f-display);font-size:1.9rem;line-height:1;font-variant-numeric:tabular-nums}
+.fecha span{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.ev-body{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ev-body h3{font-size:1.2rem}
+.ev-meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.88rem;color:var(--muted)}
+.ev-foot{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:4px}
+.precio{font-weight:700;font-size:1.05rem;color:var(--agave);font-variant-numeric:tabular-nums}
+.b-tipo{background:transparent;color:var(--ink-soft);border:1px solid var(--line)}
+@media (max-width:480px){.evento{grid-template-columns:56px 1fr;gap:12px}.fecha b{font-size:1.5rem}}
+.ev-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:900px){.ev-mini{grid-template-columns:1fr}}
+
+footer{border-top:1px solid var(--line);background:var(--surface)}
+footer .wrap{padding-block:24px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:.88rem;color:var(--muted)}
+footer a{color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:600;font-size:.92rem;z-index:20}
+@media (prefers-reduced-motion:no-preference){.card,.cat,.btn{transition:border-color .15s, filter .15s}}
+</style>
+
+<div class="demo"><div class="wrap">Versión de prueba: todos los negocios, teléfonos y cupones son ejemplos.</div></div>
+<header class="top"><div class="wrap">
+  <a class="logo" href="#inicio" aria-label="ZonaQro, inicio">Zona<b>Qro</b><span class="pin" aria-hidden="true"></span></a>
+  <nav class="main" aria-label="Principal">
+    <a href="#directorio" data-nav="directorio">Directorio</a>
+    <a href="#cupones" data-nav="cupones">Cupones</a>
+    <a href="#eventos" data-nav="eventos">Eventos</a>
+    <a href="#vecinos" data-nav="vecinos">Hecho por vecinos</a>
+    <a href="#registrar" data-nav="registrar" class="cta">Registra tu negocio</a>
+  </nav>
+</div></header>
+
+<main class="wrap" id="app" tabindex="-1"></main>
+
+<footer><div class="wrap">
+  <span>ZonaQro · Zibatá, Zakia, Juriquilla y El Refugio, Querétaro</span>
+  <span><a href="#privacidad">Aviso de privacidad</a> · <a href="#admin">Panel de administración</a></span>
+</div></footer>
+<div class="toast" id="toast" role="status" hidden></div>
+<dialog id="dlg" aria-labelledby="dlg-title"><div class="dlg-in" id="dlg-body"></div></dialog>
+
+<script>
+/* ===== Configuración ===== */
+const ZONAS = ["Zibatá","Zakia","Juriquilla","El Refugio"];
+// En producción: 15. En la demo se baja para que se vean las cuatro zonas con pocos ejemplos.
+const MIN_FICHAS_ZONA = 3;
+const DIAS_NUEVO = 28;
+const MIN_CLICS_FAVORITO = 20;
+const CATEGORIAS = [
+  {id:"gastronomia", nombre:"Gastronomía", sub:"Restaurantes, cafés, comida a domicilio"},
+  {id:"hogar", nombre:"Servicios del hogar", sub:"Plomería, electricidad, agua y gas"},
+  {id:"salud", nombre:"Salud", sub:"Clínicas, dentistas, terapias"},
+  {id:"belleza", nombre:"Belleza y bienestar", sub:"Estéticas, uñas, yoga"},
+  {id:"mascotas", nombre:"Mascotas", sub:"Veterinarias, estéticas caninas"},
+  {id:"educacion", nombre:"Educación", sub:"Clases, tutorías, idiomas"},
+  {id:"autos", nombre:"Autos", sub:"Talleres, lavado, refacciones"},
+  {id:"tienda", nombre:"Tiendas y regalos", sub:"Ropa, repostería, detalles"}
+];
+const TIPOS = {
+  local:{nombre:"Local físico", corto:"Local"},
+  domicilio:{nombre:"Servicio a domicilio", corto:"A domicilio"},
+  emprendimiento:{nombre:"Desde casa o en línea", corto:"Desde casa"}
+};
+
+/* ===== Datos de ejemplo ===== */
+const EJEMPLOS = [
+ {id:"tacos-la-cantera",nombre:"Tacos La Cantera",categoria:"gastronomia",tipo:"local",zonas:["Zibatá"],descripcion:"Taquería de trompo y suadero con salsas de la casa. Pedidos para llevar por WhatsApp.",whatsapp:"4420000101",direccion:"Plaza Zibatá, local 12",horario:"Mar a dom, 6:00 pm a 12:00 am",promocionado:true,alta:"2026-06-10",clics:64,cupones:[{codigo:"ZIBATA10",titulo:"10% en tu orden",detalle:"En consumo en el local, de martes a jueves.",vigencia:"30 nov 2026"}]},
+ {id:"plomeria-don-chuy",nombre:"Plomería Don Chuy",categoria:"hogar",tipo:"domicilio",zonas:["Zibatá","Zakia"],descripcion:"Fugas, calentadores, tinacos y destapes. Atención el mismo día.",whatsapp:"4420000102",horario:"Lun a sáb, 8:00 am a 7:00 pm",alta:"2026-05-02",clics:41,cupones:[]},
+ {id:"vet-huellitas",nombre:"Veterinaria Huellitas",categoria:"mascotas",tipo:"local",zonas:["Zibatá"],descripcion:"Consulta, vacunas y estética canina. Urgencias con cita.",whatsapp:"4420000103",direccion:"Paseo Zibatá 210",horario:"Lun a sáb, 9:00 am a 8:00 pm",alta:"2026-10-12",clics:18,cupones:[{codigo:"VACUNA50",titulo:"$50 de descuento en vacuna",detalle:"Presenta el código en recepción.",vigencia:"15 dic 2026"}]},
+ {id:"agua-pura-zibata",nombre:"Agua Pura Express",categoria:"hogar",tipo:"domicilio",zonas:["Zibatá","Zakia","Juriquilla"],descripcion:"Garrafones de 20 L a domicilio en menos de 2 horas.",whatsapp:"4420000104",horario:"Todos los días, 8:00 am a 6:00 pm",alta:"2026-03-15",clics:37,cupones:[]},
+ {id:"pan-de-la-abuela",envio:"Entrega a domicilio en Zibatá",nombre:"Pan de la Abuela",categoria:"tienda",tipo:"emprendimiento",zonas:["Zibatá"],descripcion:"Pan de muerto, conchas y roles de canela hechos en casa. Pedidos con un día de anticipación.",whatsapp:"4420000105",entrega:"Entrega en Zibatá sin costo; envío a Zakia +$30",redes:"@pandelaabuela.qro",alta:"2026-10-05",clics:29,catalogo:[{nombre:"Pan de muerto chico",precio:45},{nombre:"Caja de 6 conchas",precio:120},{nombre:"Roles de canela (4)",precio:110}],cupones:[{codigo:"ZONA2X1",titulo:"2x1 en conchas",detalle:"En pedidos de lunes a miércoles.",vigencia:"30 nov 2026"}]},
+ {id:"yoga-jardin",nombre:"Yoga en el Jardín",categoria:"belleza",tipo:"domicilio",zonas:["Zibatá"],descripcion:"Clases grupales en áreas verdes del fraccionamiento y clases privadas en casa.",whatsapp:"4420000106",horario:"Lun, mié y vie, 7:00 am",alta:"2026-08-20",clics:12,cupones:[]},
+
+ {id:"electricista-zakia",nombre:"Electro Servicios Ramírez",categoria:"hogar",tipo:"domicilio",zonas:["Zakia","Zibatá"],descripcion:"Instalaciones, contactos, cortos y revisión de recibos de luz altos.",whatsapp:"4420000201",horario:"Lun a sáb, 8:00 am a 6:00 pm",alta:"2026-04-11",clics:33,cupones:[]},
+ {id:"cafe-mirador",nombre:"Café Mirador",categoria:"gastronomia",tipo:"local",zonas:["Zakia"],descripcion:"Café de especialidad, desayunos y pan dulce frente al parque.",whatsapp:"4420000202",direccion:"Plaza Zakia, local 4",horario:"Todos los días, 7:30 am a 9:00 pm",promocionado:true,alta:"2026-02-01",clics:52,cupones:[{codigo:"CAFEZAKIA",titulo:"Café americano gratis",detalle:"En la compra de cualquier desayuno.",vigencia:"31 dic 2026"}]},
+ {id:"playeras-tlaco",envio:"Entrega en punto de encuentro o envío",nombre:"Playeras Tlaco",categoria:"tienda",tipo:"emprendimiento",zonas:["Zakia","Zibatá","Juriquilla"],descripcion:"Playeras estampadas con diseños de Querétaro. Tallas de niño a adulto.",whatsapp:"4420000203",entrega:"Entrega en punto de encuentro en Zakia o envío a todo Querétaro",redes:"@playerastlaco",alta:"2026-10-18",clics:15,catalogo:[{nombre:"Playera Acueducto",precio:280},{nombre:"Playera Peña de Bernal",precio:280},{nombre:"Playera infantil",precio:220},{nombre:"Sudadera Querétaro",precio:520}],cupones:[]},
+ {id:"tutorias-mate",nombre:"Tutorías Mate Fácil",categoria:"educacion",tipo:"domicilio",zonas:["Zakia","Zibatá"],descripcion:"Regularización de matemáticas para primaria y secundaria, en casa o en línea.",whatsapp:"4420000204",horario:"Lun a vie, 4:00 pm a 8:00 pm",alta:"2026-09-01",clics:9,cupones:[{codigo:"PRIMERACLASE",titulo:"Primera clase gratis",detalle:"Para alumnos nuevos.",vigencia:"30 nov 2026"}]},
+ {id:"unas-studio-z",nombre:"Studio Z Uñas",categoria:"belleza",tipo:"local",zonas:["Zakia"],descripcion:"Uñas acrílicas, gelish y pedicure. Con cita.",whatsapp:"4420000205",direccion:"Av. Zakia 88, local 2",horario:"Mar a sáb, 10:00 am a 7:00 pm",alta:"2026-07-07",clics:22,cupones:[]},
+
+ {id:"trattoria-juriquilla",nombre:"Trattoria del Lago",categoria:"gastronomia",tipo:"local",zonas:["Juriquilla"],descripcion:"Pasta fresca, pizza a la leña y vinos. Ideal para comidas familiares.",whatsapp:"4420000301",direccion:"Blvd. Juriquilla 1050",horario:"Todos los días, 1:00 pm a 11:00 pm",promocionado:true,alta:"2026-01-20",clics:71,cupones:[{codigo:"LAGO15",titulo:"15% en tu cuenta",detalle:"De lunes a miércoles, no aplica con otras promociones.",vigencia:"31 dic 2026"}]},
+ {id:"dental-juriquilla",nombre:"Clínica Dental Sonríe",categoria:"salud",tipo:"local",zonas:["Juriquilla"],descripcion:"Limpiezas, ortodoncia y odontopediatría.",whatsapp:"4420000302",direccion:"Plaza Juriquilla, piso 2",horario:"Lun a vie, 9:00 am a 7:00 pm; sáb, 9:00 am a 2:00 pm",alta:"2026-03-03",clics:26,cupones:[{codigo:"LIMPIEZA",titulo:"Limpieza a $450",detalle:"Precio regular $650. Con cita.",vigencia:"15 dic 2026"}]},
+ {id:"estetica-bella",nombre:"Estética Bella Juriquilla",categoria:"belleza",tipo:"local",zonas:["Juriquilla"],descripcion:"Cortes, color y peinados para eventos.",whatsapp:"4420000303",direccion:"Paseo de la Rosa 32",horario:"Mar a dom, 10:00 am a 8:00 pm",alta:"2026-05-18",clics:31,cupones:[]},
+ {id:"ingles-kids",nombre:"English Kids Club",categoria:"educacion",tipo:"local",zonas:["Juriquilla"],descripcion:"Inglés para niños de 4 a 12 años en grupos pequeños.",whatsapp:"4420000304",direccion:"Av. Juriquilla 300, local 7",horario:"Lun a vie, 3:00 pm a 7:00 pm",alta:"2026-10-01",clics:8,cupones:[]},
+ {id:"reposteria-mia",envio:"Entrega a domicilio",nombre:"Repostería Mía",categoria:"tienda",tipo:"emprendimiento",zonas:["Juriquilla","Zibatá"],descripcion:"Pasteles personalizados para cumpleaños y mesas de postres.",whatsapp:"4420000305",entrega:"Entrega a domicilio en Juriquilla y Zibatá",redes:"@reposteriamia",alta:"2026-06-25",clics:27,catalogo:[{nombre:"Pastel personalizado (20 p.)",precio:850},{nombre:"Docena de cupcakes",precio:360},{nombre:"Caja de galletas decoradas",precio:280}],cupones:[]},
+
+ {id:"taller-refugio",nombre:"Taller Mecánico Hermanos Ortiz",categoria:"autos",tipo:"local",zonas:["El Refugio"],descripcion:"Afinación, frenos y suspensión. Negocio familiar con 20 años de servicio.",whatsapp:"4420000401",direccion:"Av. Paseo del Refugio 450",horario:"Lun a vie, 8:30 am a 6:30 pm; sáb, 8:30 am a 2:00 pm",alta:"2026-02-14",clics:44,cupones:[{codigo:"AFINA10",titulo:"10% en afinación",detalle:"Mano de obra, presentando el código.",vigencia:"31 dic 2026"}]},
+ {id:"lavanderia-refugio",nombre:"Lavandería Burbujas",categoria:"hogar",tipo:"local",zonas:["El Refugio"],descripcion:"Lavado por kilo, edredones y planchado. Servicio de recolección.",whatsapp:"4420000402",direccion:"Plaza El Refugio, local 9",horario:"Lun a sáb, 8:00 am a 8:00 pm",alta:"2026-10-20",clics:6,cupones:[]},
+ {id:"cocina-economica",nombre:"Cocina Doña Mary",categoria:"gastronomia",tipo:"local",zonas:["El Refugio"],descripcion:"Comida corrida casera, menú del día con postre y agua.",whatsapp:"4420000403",direccion:"Calle Refugio de Lourdes 15",horario:"Lun a sáb, 1:00 pm a 5:00 pm",alta:"2026-04-30",clics:38,cupones:[]},
+ {id:"estetica-canina",nombre:"Guau Spa Móvil",categoria:"mascotas",tipo:"domicilio",zonas:["El Refugio","Juriquilla","Zibatá"],descripcion:"Baño y corte para perros en una unidad móvil que llega a tu casa.",whatsapp:"4420000404",horario:"Mar a dom, 9:00 am a 6:00 pm",alta:"2026-08-08",clics:24,cupones:[{codigo:"GUAU20",titulo:"$20 de descuento",detalle:"En tu primer servicio.",vigencia:"30 nov 2026"}]},
+ {id:"psicologia-refugio",nombre:"Consultorio de Nutrición Vida",categoria:"salud",tipo:"local",zonas:["El Refugio"],descripcion:"Consulta de nutrición para adultos y niños.",whatsapp:"4420000405",direccion:"Torre Médica El Refugio, cons. 204",horario:"Lun a vie, 10:00 am a 6:00 pm",alta:"2026-06-02",clics:11,cupones:[]}
+];
+
+/* ===== Eventos de ejemplo ===== */
+const TIPOS_EV = {concierto:"Concierto", bazar:"Bazar", feria:"Feria y mercadito", clase:"Clase abierta", comunidad:"Comunidad"};
+const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const EVENTOS = [
+ {id:"ev-jazz-lago",titulo:"Jazz bajo las estrellas",tipo:"concierto",zona:"Juriquilla",lugar:"Terraza de Trattoria del Lago",fecha:"2026-11-14",hora:"8:00 pm",precio:"$350 por persona",organizador:"Trattoria del Lago",whatsapp:"4420000301",destacado:true,descripcion:"Cuarteto de jazz en vivo con menú de tres tiempos. Cupo limitado, reserva por WhatsApp."},
+ {id:"ev-bazar-muertos",titulo:"Bazar de Día de Muertos",tipo:"bazar",zona:"Zakia",lugar:"Parque central de Zakia",fecha:"2026-10-31",hora:"4:00 pm a 9:00 pm",precio:"Entrada libre",organizador:"Emprendedores de Zakia",whatsapp:"4420000203",descripcion:"Pan de muerto, artesanías, ropa y mesas de postres de emprendedores de la zona. Concurso de catrinas a las 7:00 pm."},
+ {id:"ev-boleros",titulo:"Noche de boleros en el parque",tipo:"concierto",zona:"Zibatá",lugar:"Parque Central Zibatá",fecha:"2026-11-07",hora:"7:00 pm",precio:"Entrada libre",organizador:"Comité de vecinos (ejemplo)",whatsapp:"4420000101",descripcion:"Trío de boleros al aire libre. Lleva tu silla o cobija."},
+ {id:"ev-adopcion",titulo:"Jornada de adopción de perritos",tipo:"comunidad",zona:"Zakia",lugar:"Plaza Zakia",fecha:"2026-11-15",hora:"11:00 am a 3:00 pm",precio:"Entrada libre",organizador:"Rescate Querétaro (ejemplo)",whatsapp:"4420000202",descripcion:"Perritos rescatados en adopción responsable, con vacunas y esterilización incluidas."},
+ {id:"ev-mariachi",titulo:"Mariachi en la plaza",tipo:"concierto",zona:"El Refugio",lugar:"Plaza El Refugio",fecha:"2026-11-20",hora:"7:30 pm",precio:"Entrada libre",organizador:"Locatarios de la plaza (ejemplo)",whatsapp:"4420000401",descripcion:"Mariachi para abrir la temporada del Buen Fin en la plaza, con antojitos de los locales."},
+ {id:"ev-yoga-familiar",titulo:"Clase abierta de yoga familiar",tipo:"clase",zona:"Zibatá",lugar:"Áreas verdes, Paseo Zibatá",fecha:"2026-11-02",hora:"9:00 am",precio:"Gratis",organizador:"Yoga en el Jardín",whatsapp:"4420000106",descripcion:"Clase para papás e hijos de 5 años en adelante. Lleva tu tapete."},
+ {id:"ev-navidad",titulo:"Mercadito de Navidad",tipo:"feria",zona:"El Refugio",lugar:"Plaza El Refugio",fecha:"2026-12-06",hora:"11:00 am a 8:00 pm",precio:"Entrada libre",organizador:"Locatarios de la plaza (ejemplo)",whatsapp:"4420000402",descripcion:"Regalos, adornos, repostería y comida de negocios y emprendedores de la zona."}
+];
+
+/* ===== Almacenamiento seguro (solo para la demo) ===== */
+function leer(k, def){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
+function guardar(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+const estado = {
+  solicitudes: leer("zq_solicitudes", []),
+  evSolicitudes: leer("zq_ev_solicitudes", []),
+  evAprobados: leer("zq_ev_aprobados", []),
+  aprobados: leer("zq_aprobados", []),
+  clics: leer("zq_clics", {}),
+  vistasCupon: leer("zq_vistas", {}),
+  f: {q:"", zona:"", cat:"", tipo:""}
+};
+
+/* ===== Utilidades ===== */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const app = document.getElementById("app");
+const catNombre = id => (CATEGORIAS.find(c => c.id === id) || {}).nombre || id;
+const PALETA = ["#2C674B","#6A4DB6","#B5651D","#1F6F8B","#9B3D5A","#4F6B1F","#7A4E2D","#3D5A99"];
+function color(id){ let h = 0; for(const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PALETA[h % PALETA.length]; }
+function iniciales(n){ return n.split(/\s+/).filter(w => w.length > 2).slice(0,2).map(w => w[0]).join("").toUpperCase() || n[0]; }
+function negocios(){ return EJEMPLOS.concat(estado.aprobados); }
+function totalClics(b){ return (b.clics || 0) + (estado.clics[b.id] || 0); }
+function esNuevo(b){ const d = (Date.now() - Date.parse(b.alta)) / 864e5; return d >= 0 && d <= DIAS_NUEVO; }
+function favoritos(){
+  const top = {};
+  for(const b of negocios()){ const c = totalClics(b); if(c >= MIN_CLICS_FAVORITO && (!top[b.categoria] || c > totalClics(top[b.categoria]))) top[b.categoria] = b; }
+  return new Set(Object.values(top).map(b => b.id));
+}
+function badgesDe(b, fav){
+  let h = "";
+  if(b.promocionado) h += '<span class="badge b-promo">Promocionado</span>';
+  if(fav.has(b.id)) h += '<span class="badge b-fav"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4.5 6.6 4.5c2 0 3.7 1.1 5.4 3.1 1.7-2 3.4-3.1 5.4-3.1 3.6 0 5.7 3.7 4.2 7.2C19.5 16.4 12 21 12 21z"/></svg>Favorito de los vecinos</span>';
+  if(esNuevo(b)) h += '<span class="badge b-new">Nuevo en la zona</span>';
+  return h;
+}
+function porZona(z){ return negocios().filter(b => b.zonas.includes(z)).length; }
+function cuponesZona(z){ return negocios().filter(b => b.zonas.includes(z)).reduce((s,b) => s + (b.cupones || []).length, 0); }
+function zonasVisibles(){ return ZONAS.filter(z => porZona(z) >= MIN_FICHAS_ZONA); }
+function ordenar(lista, fav){
+  return lista.slice().sort((a,b) => (b.promocionado?1:0) - (a.promocionado?1:0) || (fav.has(b.id)?1:0) - (fav.has(a.id)?1:0) || totalClics(b) - totalClics(a));
+}
+function toast(msg){ const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2400); }
+function waLink(b, texto){ return "https://wa.me/52" + b.whatsapp + "?text=" + encodeURIComponent(texto || ("Hola, vi " + b.nombre + " en ZonaQro.")); }
+function telFmt(n){ return n.replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3"); }
+
+function envioCorto(b){
+  if(b.tipo !== "emprendimiento") return "";
+  const t = b.envio || (b.entrega || "").split(/[;.]/)[0].trim();
+  return t.length > 44 ? t.slice(0,43) + "…" : t;
+}
+function tarjeta(b, fav){
+  const cup = (b.cupones || []).length;
+  const envio = envioCorto(b);
+  return `<article class="card${b.promocionado ? " promo" : ""}">
+    <div class="card-top"><div class="avatar" style="background:${color(b.id)}">${esc(iniciales(b.nombre))}</div>
+      <div><h3><a class="stretch" href="#n-${b.id}">${esc(b.nombre)}</a></h3><div class="meta">${esc(catNombre(b.categoria))} · ${TIPOS[b.tipo].corto}</div></div></div>
+    ${badgesDe(b, fav) ? `<div class="badges">${badgesDe(b, fav)}</div>` : ""}
+    <p class="desc">${esc(b.descripcion)}</p>
+    ${envio ? `<div class="badges"><span class="badge b-tipo">${esc(envio)}</span></div>` : ""}
+    <div class="card-foot"><span class="meta">${esc(b.zonas.join(", "))}</span>
+      <span class="acts">
+        ${cup ? `<button type="button" class="badge b-cupon act" data-cupon="${esc(b.id)}" aria-label="Ver ${cup === 1 ? "el cupón" : "los " + cup + " cupones"} de ${esc(b.nombre)}">${cup} ${cup === 1 ? "cupón" : "cupones"}</button>` : ""}
+        <a class="btn sm wa act" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${esc(b.id)}" aria-label="Escribir por WhatsApp a ${esc(b.nombre)}">WhatsApp</a>
+      </span></div>
+  </article>`;
+}
+
+/* ===== Vistas ===== */
+function vInicio(){
+  const fav = favoritos();
+  const destacados = ordenar(negocios().filter(b => b.promocionado || fav.has(b.id)), fav).slice(0,6);
+  const vecinos = negocios().filter(b => b.tipo === "emprendimiento").slice(0,3);
+  const cupones = negocios().flatMap(b => (b.cupones || []).map(c => ({b, c}))).slice(0,4);
+  return `
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Norte de Querétaro</p>
+      <h1>Lo que necesitas, con tus vecinos de al lado.</h1>
+      <p class="lead">Negocios, servicios a domicilio y emprendedores de Zibatá, Zakia, Juriquilla y El Refugio. Les escribes directo por WhatsApp y aprovechas sus cupones.</p>
+      <form class="search" id="fBuscar" role="search">
+        <input id="q" type="search" placeholder="Plomero, tacos, veterinaria en tu zona…" aria-label="Buscar negocios">
+        <button class="btn" type="submit">Buscar</button>
+      </form>
+    </div>
+    <div class="zones-board" aria-label="Zonas">
+      <p class="eyebrow">Explora por zona</p>
+      ${zonasVisibles().map(z => `<a class="zone-row" href="#directorio" data-zona="${z}"><strong>${z}</strong><span class="zinfo"><span>${porZona(z)} negocios</span>${cuponesZona(z) ? `<span class="badge b-cupon">${cuponesZona(z)} ${cuponesZona(z) === 1 ? "cupón" : "cupones"}</span>` : ""}</span></a>`).join("")}
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Categorías</h2></div>
+    <div class="cats">${CATEGORIAS.map(c => `<a class="cat" href="#directorio" data-cat="${c.id}"><strong>${c.nombre}</strong><span>${c.sub}</span></a>`).join("")}</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Recomendados en la zona</h2><a href="#directorio">Ver todo el directorio</a></div>
+    <div class="grid">${destacados.map(b => tarjeta(b, fav)).join("")}</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Próximos eventos</h2><a href="#eventos">Ver la agenda</a></div>
+    <div class="ev-mini">${eventos().slice(0,3).map(eventoCard).join("")}</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Cupones activos</h2><a href="#cupones">Ver todos</a></div>
+    <div class="tickets">${cupones.map(({b,c}) => boleto(b, c)).join("")}</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><div><h2>Hecho por vecinos</h2><p class="muted">Emprendedores sin local que venden desde casa o en línea.</p></div><a href="#vecinos">Ver todos</a></div>
+    <div class="grid">${vecinos.map(b => tarjeta(b, fav)).join("")}</div>
+  </section>
+
+  <section class="mimx">
+    <div><h2>¿Tienes un negocio en la zona?</h2><p class="muted">Aparece gratis en ZonaQro, con o sin local.</p></div>
+    <a class="btn" href="#registrar">Registra tu negocio</a>
+  </section>`;
+}
+
+function vDirectorio(soloVecinos){
+  const fav = favoritos();
+  const f = estado.f;
+  const q = f.q.trim().toLowerCase();
+  let lista = negocios().filter(b =>
+    (!soloVecinos || b.tipo === "emprendimiento") &&
+    (!f.zona || b.zonas.includes(f.zona)) &&
+    (!f.cat || b.categoria === f.cat) &&
+    (soloVecinos || !f.tipo || b.tipo === f.tipo) &&
+    (!q || (b.nombre + " " + b.descripcion + " " + catNombre(b.categoria)).toLowerCase().includes(q)));
+  lista = ordenar(lista, fav);
+  return `
+  <section>
+    <div><p class="eyebrow">${soloVecinos ? "Emprendedores" : "Directorio"}</p>
+    <h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">${soloVecinos ? "Hecho por vecinos" : "Encuentra negocios y servicios"}</h1>
+    ${soloVecinos ? '<p class="muted" style="margin-top:8px;max-width:60ch">Playeras, repostería, accesorios y más, hechos por gente de la zona. Pide directo por WhatsApp.</p>' : ""}</div>
+    <div class="filters">
+      <div class="chips" role="group" aria-label="Zona">
+        <button class="chip" data-fz="" aria-pressed="${!f.zona}">Todas las zonas</button>
+        ${zonasVisibles().map(z => `<button class="chip" data-fz="${z}" aria-pressed="${f.zona === z}">${z} <small>${porZona(z)}</small></button>`).join("")}
+      </div>
+      <div class="frow">
+        <label class="fld" for="fq">Buscar<input id="fq" type="search" value="${esc(f.q)}" placeholder="Nombre o servicio"></label>
+        <label class="fld" for="fcat">Categoría<select id="fcat"><option value="">Todas</option>${CATEGORIAS.map(c => `<option value="${c.id}"${f.cat === c.id ? " selected" : ""}>${c.nombre}</option>`).join("")}</select></label>
+        ${soloVecinos ? "<span></span>" : `<label class="fld" for="ftipo">Tipo de negocio<select id="ftipo"><option value="">Todos</option>${Object.entries(TIPOS).map(([k,t]) => `<option value="${k}"${f.tipo === k ? " selected" : ""}>${t.nombre}</option>`).join("")}</select></label>`}
+      </div>
+    </div>
+    <p class="count">${lista.length} ${lista.length === 1 ? "resultado" : "resultados"}</p>
+    ${lista.length ? `<div class="grid">${lista.map(b => tarjeta(b, fav)).join("")}</div>` : `<div class="empty">No encontramos negocios con esos filtros. Prueba con otra zona o categoría.</div>`}
+    ${soloVecinos ? `<div class="banner"><p><strong>¿Vendes desde casa?</strong> Convierte tu menú de WhatsApp en una tienda en línea profesional en 48 horas con nuestro aliado mimx.</p><a class="btn" href="https://mimx.store" target="_blank" rel="noopener">Conocer mimx</a></div>` : ""}
+  </section>`;
+}
+
+function boleto(b, c, conLink = true){
+  const key = b.id + ":" + c.codigo;
+  return `<div class="ticket">
+    <div class="t-main">
+      ${conLink ? `<a class="t-biz" href="#n-${b.id}">${esc(b.nombre)} · ${esc(b.zonas[0])}</a>` : ""}
+      <h3>${esc(c.titulo)}</h3>
+      <p class="small">${esc(c.detalle)}</p>
+      <p class="small">Vigente hasta el ${esc(c.vigencia)}</p>
+    </div>
+    <div class="t-side">
+      <span class="code">${esc(c.codigo)}</span>
+      <div class="qr" data-qr="${esc(key)}" hidden></div>
+      <button class="btn sm ghost" data-verqr="${esc(key)}" data-biz="${esc(b.nombre)}" data-code="${esc(c.codigo)}">Mostrar QR</button>
+    </div>
+  </div>`;
+}
+
+function vCupones(){
+  const f = estado.f;
+  const items = negocios().filter(b => !f.zona || b.zonas.includes(f.zona)).flatMap(b => (b.cupones || []).map(c => ({b,c})));
+  return `<section>
+    <div><p class="eyebrow">Cupones</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Descuentos de la zona</h1>
+    <p class="muted" style="margin-top:8px">Muestra el código o el QR al pagar en el negocio.</p></div>
+    <div class="chips" role="group" aria-label="Zona">
+      <button class="chip" data-fz="" aria-pressed="${!f.zona}">Todas las zonas</button>
+      ${zonasVisibles().map(z => `<button class="chip" data-fz="${z}" aria-pressed="${f.zona === z}">${z}</button>`).join("")}
+    </div>
+    ${items.length ? `<div class="tickets">${items.map(({b,c}) => boleto(b,c)).join("")}</div>` : '<div class="empty">No hay cupones activos en esta zona por ahora.</div>'}
+  </section>`;
+}
+
+function vNegocio(id){
+  const b = negocios().find(x => x.id === id);
+  if(!b) return `<div class="empty">No encontramos este negocio. <a href="#directorio">Volver al directorio</a></div>`;
+  const fav = favoritos();
+  let info = "";
+  if(b.tipo === "local") info = `<dt>Dirección</dt><dd>${esc(b.direccion)}</dd><dt>Horario</dt><dd>${esc(b.horario)}</dd><dt>Zona</dt><dd>${esc(b.zonas.join(", "))}</dd>`;
+  if(b.tipo === "domicilio") info = `<dt>Atiende en</dt><dd>${esc(b.zonas.join(", "))}</dd><dt>Horario</dt><dd>${esc(b.horario || "Consultar por WhatsApp")}</dd><dt>Modalidad</dt><dd>Va a tu casa</dd>`;
+  if(b.tipo === "emprendimiento") info = `<dt>Entrega</dt><dd>${esc(b.entrega)}</dd><dt>Zonas</dt><dd>${esc(b.zonas.join(", "))}</dd>${b.redes ? `<dt>Redes</dt><dd>${esc(b.redes)}</dd>` : ""}`;
+  const catalogo = (b.catalogo || []).length ? `<div class="panel"><h2>Catálogo</h2><div class="catalog">${b.catalogo.map((p,i) => `
+      <div class="prod"><div class="swatch" style="background:${PALETA[(i + 2) % PALETA.length]}">${esc(iniciales(p.nombre))}</div>
+      <strong>${esc(p.nombre)}</strong><span class="price">$${p.precio.toLocaleString("es-MX")}</span>
+      <a class="btn sm wa" href="${waLink(b, "Hola, vi " + p.nombre + " en ZonaQro, ¿está disponible?")}" target="_blank" rel="noopener" data-wa="${b.id}">Lo quiero</a></div>`).join("")}</div></div>` : "";
+  const cupones = (b.cupones || []).length ? `<div class="panel"><h2>Cupones</h2><div class="tickets" style="grid-template-columns:1fr">${b.cupones.map(c => boleto(b,c,false)).join("")}</div></div>` : "";
+  return `<section>
+    <a class="back" href="#directorio">← Volver al directorio</a>
+    <div class="biz-head">
+      <div class="avatar" style="background:${color(b.id)}">${esc(iniciales(b.nombre))}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+        <h1 style="font-size:clamp(1.7rem,5vw,2.5rem)">${esc(b.nombre)}</h1>
+        <div class="meta">${esc(catNombre(b.categoria))} · ${TIPOS[b.tipo].nombre}</div>
+        <div class="badges">${badgesDe(b, fav)}</div>
+      </div>
+    </div>
+    <div class="biz-grid">
+      <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+        <div class="panel"><p>${esc(b.descripcion)}</p><dl class="info">${info}</dl></div>
+        ${catalogo}${cupones}
+      </div>
+      <aside class="panel">
+        <h3>Contacto directo</h3>
+        <a class="btn wa" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${b.id}">Escribir por WhatsApp</a>
+        <p class="muted" style="font-size:.85rem">Si no se abre WhatsApp, guarda el número:</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="phone">${telFmt(b.whatsapp)}</span><button class="btn sm ghost" data-copy="${b.whatsapp}">Copiar</button></div>
+        ${b.tipo !== "local" ? '<p class="muted" style="font-size:.82rem">Por seguridad, ZonaQro no publica la dirección de negocios sin local.</p>' : ""}
+      </aside>
+    </div>
+    <div class="mimx">
+      <div><h3>¿Eres el dueño de ${esc(b.nombre)}?</h3><p class="muted">Lleva tu ficha a una página propia con tu dominio, hecha por mimx.</p></div>
+      <a class="btn ghost" href="https://mimx.store" target="_blank" rel="noopener">Conocer mimx</a>
+    </div>
+  </section>`;
+}
+
+function vRegistrar(enviado){
+  if(enviado) return `<section style="max-width:680px"><div class="notice">Recibimos tu solicitud. La revisamos y te avisamos por WhatsApp cuando tu ficha esté publicada.</div><a class="btn ghost" href="#inicio">Volver al inicio</a></section>`;
+  return `<section>
+    <div><p class="eyebrow">Gratis para negocios de la zona</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Registra tu negocio</h1>
+    <p class="muted" style="margin-top:8px;max-width:60ch">Con local, a domicilio o si vendes desde casa. Revisamos cada solicitud antes de publicarla.</p></div>
+    <form class="reg" id="fReg" novalidate>
+      <fieldset><legend>¿Cómo atiendes a tus clientes?</legend>
+        ${Object.entries(TIPOS).map(([k,t],i) => `<label class="opt"><input type="radio" name="tipo" id="tipo-${k}" value="${k}"${i===0?" checked":""}><span>${t.nombre}<small>${k==="local"?"Tienes un local donde te visitan.":k==="domicilio"?"Vas a casa del cliente (plomería, clases, belleza).":"Vendes desde casa o en línea, sin local."}</small></span></label>`).join("")}
+      </fieldset>
+      <label class="fld" for="r-nombre">Nombre del negocio<input id="r-nombre" type="text" required></label>
+      <div class="two">
+        <label class="fld" for="r-cat">Categoría<select id="r-cat">${CATEGORIAS.map(c => `<option value="${c.id}">${c.nombre}</option>`).join("")}</select></label>
+        <label class="fld" for="r-wa">WhatsApp (10 dígitos)<input id="r-wa" type="tel" inputmode="numeric" maxlength="10" placeholder="4421234567" required></label>
+      </div>
+      <fieldset><legend id="lg-zonas">Zona</legend><div class="inline-opts">
+        ${ZONAS.map(z => `<label class="opt"><input type="checkbox" name="zonas" id="z-${z.replace(/\s/g,"")}" value="${z}"><span>${z}</span></label>`).join("")}
+      </div></fieldset>
+      <label class="fld" for="r-desc">Describe tu negocio<textarea id="r-desc" maxlength="240" placeholder="Qué vendes o qué servicio das, en una o dos frases."></textarea></label>
+      <div id="campos-local" class="two">
+        <label class="fld" for="r-dir">Dirección del local<input id="r-dir" type="text" placeholder="Plaza, calle y número"></label>
+        <label class="fld" for="r-hor">Horario<input id="r-hor" type="text" placeholder="Lun a sáb, 9:00 am a 7:00 pm"></label>
+      </div>
+      <div id="campos-dom" hidden><label class="fld" for="r-hor2">Horario de servicio<input id="r-hor2" type="text" placeholder="Lun a sáb, 8:00 am a 6:00 pm"></label></div>
+      <div id="campos-emp" class="two" hidden>
+        <label class="fld" for="r-ent">¿Cómo entregas?<input id="r-ent" type="text" placeholder="Envío, entrega en la zona o punto de encuentro"></label>
+        <label class="fld" for="r-redes">Instagram o Facebook<input id="r-redes" type="text" placeholder="@tunegocio"></label>
+      </div>
+      <label class="opt"><input type="checkbox" id="r-ok"><span>Acepto el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>
+      <div id="r-err" class="notice err" hidden></div>
+      <div><button class="btn" type="submit">Enviar solicitud</button></div>
+    </form>
+  </section>`;
+}
+
+function vAdmin(tab){
+  tab = tab || "solicitudes";
+  const pend = estado.solicitudes;
+  const todos = negocios();
+  const totalWa = todos.reduce((s,b) => s + totalClics(b), 0);
+  const totalCup = Object.values(estado.vistasCupon).reduce((s,n) => s + n, 0);
+  let cuerpo = "";
+  if(tab === "solicitudes"){
+    cuerpo = pend.length ? pend.map((s,i) => `<div class="req">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(s.nombre)}</h3><span class="meta">${TIPOS[s.tipo].nombre} · ${esc(catNombre(s.categoria))}</span></div>
+      <p class="muted">${esc(s.descripcion) || "Sin descripción"}</p>
+      <p class="meta">Zonas: ${esc(s.zonas.join(", "))} · WhatsApp: ${telFmt(esc(s.whatsapp))}</p>
+      <div class="req-actions"><button class="btn sm" data-aprobar="${i}">Aprobar y publicar</button><button class="btn sm danger" data-rechazar="${i}">Rechazar</button></div>
+    </div>`).join("") : '<div class="empty">No hay solicitudes pendientes. Registra un negocio de prueba desde "Registra tu negocio" para ver cómo llega aquí.</div>';
+  }
+  if(tab === "eventos"){
+    cuerpo = estado.evSolicitudes.length ? estado.evSolicitudes.map((s,i) => `<div class="req">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(s.titulo)}</h3><span class="meta">${TIPOS_EV[s.tipo]} · ${esc(s.zona)}</span></div>
+      ${s.mimx ? '<div class="badges"><span class="badge b-promo">Interesado en página mimx</span></div>' : ""}
+      <p class="muted">${esc(s.descripcion) || "Sin descripción"}</p>
+      <p class="meta">${esc(s.fecha)} · ${esc(s.hora)} · ${esc(s.lugar)} · ${esc(s.precio)} · WhatsApp ${telFmt(esc(s.whatsapp))}</p>
+      <div class="req-actions"><button class="btn sm" data-evap="${i}">Aprobar y publicar</button><button class="btn sm danger" data-evrech="${i}">Rechazar</button></div>
+    </div>`).join("") : '<div class="empty">No hay eventos pendientes. Publica uno de prueba desde "Publica tu evento" para ver cómo llega aquí.</div>';
+  }
+  if(tab === "metricas"){
+    const filas = todos.slice().sort((a,b) => totalClics(b) - totalClics(a));
+    cuerpo = `<div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zona</th><th>Tipo</th><th class="num">Clics a WhatsApp</th><th class="num">QR mostrados</th></tr></thead><tbody>
+      ${filas.map(b => `<tr><td><a href="#n-${b.id}">${esc(b.nombre)}</a></td><td>${esc(b.zonas[0])}${b.zonas.length > 1 ? " +" + (b.zonas.length - 1) : ""}</td><td>${TIPOS[b.tipo].corto}</td><td class="num">${totalClics(b)}</td><td class="num">${(b.cupones||[]).reduce((s,c) => s + (estado.vistasCupon[b.id + ":" + c.codigo] || 0), 0)}</td></tr>`).join("")}
+    </tbody></table></div>`;
+  }
+  if(tab === "zonas"){
+    cuerpo = `<div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Negocios</th><th class="num">Meta</th><th>En el filtro</th></tr></thead><tbody>
+      ${ZONAS.map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= MIN_FICHAS_ZONA ? "Visible" : "Oculta (menos de " + MIN_FICHAS_ZONA + ")"}</td></tr>`).join("")}
+    </tbody></table></div><p class="muted" style="font-size:.85rem">En la demo una zona se muestra con ${MIN_FICHAS_ZONA} fichas; en producción, con 15.</p>`;
+  }
+  return `<section>
+    <div><p class="eyebrow">Solo para ti</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Panel de administración</h1>
+    <p class="muted" style="margin-top:8px">En la versión final este panel pide inicio de sesión. Aquí los datos viven solo en este navegador.</p></div>
+    <div class="stats">
+      <div class="stat"><b>${todos.length}</b><span>Negocios publicados</span></div>
+      <div class="stat"><b>${pend.length + estado.evSolicitudes.length}</b><span>Solicitudes pendientes</span></div>
+      <div class="stat"><b>${totalWa.toLocaleString("es-MX")}</b><span>Clics a WhatsApp</span></div>
+      <div class="stat"><b>${totalCup}</b><span>QR de cupón mostrados</span></div>
+    </div>
+    <div class="tabs" role="group" aria-label="Secciones del panel">
+      <button class="chip" data-atab="solicitudes" aria-pressed="${tab==="solicitudes"}">Negocios <small>${pend.length}</small></button>
+      <button class="chip" data-atab="eventos" aria-pressed="${tab==="eventos"}">Eventos <small>${estado.evSolicitudes.length}</small></button>
+      <button class="chip" data-atab="metricas" aria-pressed="${tab==="metricas"}">Métricas por negocio</button>
+      <button class="chip" data-atab="zonas" aria-pressed="${tab==="zonas"}">Zonas</button>
+    </div>
+    ${cuerpo}
+  </section>`;
+}
+
+function vPrivacidad(){
+  return `<section style="max-width:68ch"><p class="eyebrow">Borrador</p><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Aviso de privacidad</h1>
+  <p>ZonaQro recaba el nombre del negocio, su WhatsApp, zona, descripción y, en su caso, dirección del local, con el único fin de publicarlos en el directorio y contactar al negocio sobre su ficha.</p>
+  <p>Los negocios sin local no tienen dirección publicada. Cualquier negocio puede pedir que se corrija o elimine su ficha escribiendo a ZonaQro.</p>
+  <p class="muted">Este texto es un borrador; antes de lanzar hay que completarlo conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares.</p></section>`;
+}
+
+/* ===== Eventos ===== */
+function hoyISO(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+function eventos(){ return EVENTOS.concat(estado.evAprobados).filter(e => e.fecha >= hoyISO()).sort((a,b) => a.fecha.localeCompare(b.fecha)); }
+function eventoCard(e){
+  const dia = +e.fecha.slice(8), mes = MESES.at(+e.fecha.slice(5,7) - 1);
+  const sem = new Date(e.fecha + "T12:00:00").toLocaleDateString("es-MX", {weekday:"long"});
+  const txt = "Hola, vi el evento " + e.titulo + " en ZonaQro y quiero más información.";
+  return `<article class="evento${e.destacado ? " dest" : ""}">
+    <div class="fecha" aria-label="${dia} de ${mes}"><b>${dia}</b><span>${mes}</span></div>
+    <div class="ev-body">
+      <div class="badges"><span class="badge b-tipo">${TIPOS_EV[e.tipo]}</span>${e.destacado ? '<span class="badge b-promo">Evento destacado</span>' : ""}</div>
+      <h3>${esc(e.titulo)}</h3>
+      <div class="ev-meta"><span>${esc(sem)}, ${esc(e.hora)}</span><span>${esc(e.lugar)} · ${esc(e.zona)}</span></div>
+      <p style="font-size:.93rem;color:var(--ink-soft)">${esc(e.descripcion)}</p>
+      <div class="ev-foot"><span class="precio">${esc(e.precio)}</span><span class="meta">Organiza: ${esc(e.organizador)}</span>
+        <a class="btn sm wa" href="https://wa.me/52${esc(e.whatsapp)}?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">${e.tipo === "concierto" && /\$/.test(e.precio) ? "Reservar o pedir boletos" : "Preguntar por WhatsApp"}</a></div>
+    </div>
+  </article>`;
+}
+function vEventos(){
+  const f = estado.f;
+  const lista = eventos().filter(e => (!f.zona || e.zona === f.zona) && (!f.ev || e.tipo === f.ev))
+    .sort((a,b) => (b.destacado?1:0) - (a.destacado?1:0) || a.fecha.localeCompare(b.fecha));
+  return `<section>
+    <div><p class="eyebrow">Agenda</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Eventos y conciertos</h1>
+    <p class="muted" style="margin-top:8px;max-width:60ch">Bazares, conciertos, ferias y actividades de las cuatro zonas. ¿Organizas algo? Publícalo gratis.</p></div>
+    <div class="filters">
+      <div class="chips" role="group" aria-label="Zona">
+        <button class="chip" data-fz="" aria-pressed="${!f.zona}">Todas las zonas</button>
+        ${ZONAS.map(z => `<button class="chip" data-fz="${z}" aria-pressed="${f.zona === z}">${z}</button>`).join("")}
+      </div>
+      <div class="chips" role="group" aria-label="Tipo de evento">
+        <button class="chip" data-fev="" aria-pressed="${!f.ev}">Todos</button>
+        ${Object.entries(TIPOS_EV).map(([k,n]) => `<button class="chip" data-fev="${k}" aria-pressed="${f.ev === k}">${n}</button>`).join("")}
+      </div>
+    </div>
+    <div class="sec-head"><p class="count">${lista.length} ${lista.length === 1 ? "evento próximo" : "eventos próximos"}</p><a class="btn sm" href="#publicar-evento">Publica tu evento</a></div>
+    ${lista.length ? `<div class="evlist">${lista.map(eventoCard).join("")}</div>` : '<div class="empty">No hay eventos con esos filtros. Prueba otra zona o publica el tuyo.</div>'}
+  </section>`;
+}
+function vRegEvento(enviado){
+  if(enviado) return `<section style="max-width:680px"><div class="notice">Recibimos tu evento. Lo revisamos y te avisamos por WhatsApp cuando esté publicado.</div><a class="btn ghost" href="#eventos">Ver la agenda</a></section>`;
+  return `<section>
+    <div><p class="eyebrow">Gratis</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Publica tu evento</h1>
+    <p class="muted" style="margin-top:8px;max-width:60ch">Conciertos, bazares, ferias, clases abiertas o actividades de comunidad en Zibatá, Zakia, Juriquilla o El Refugio.</p></div>
+    <form class="reg" id="fEv" novalidate>
+      <label class="fld" for="e-titulo">Nombre del evento<input id="e-titulo" type="text" required></label>
+      <div class="two">
+        <label class="fld" for="e-tipo">Tipo<select id="e-tipo">${Object.entries(TIPOS_EV).map(([k,n]) => `<option value="${k}">${n}</option>`).join("")}</select></label>
+        <label class="fld" for="e-zona">Zona<select id="e-zona">${ZONAS.map(z => `<option>${z}</option>`).join("")}</select></label>
+      </div>
+      <label class="fld" for="e-lugar">Lugar y referencia<input id="e-lugar" type="text" placeholder="Plaza o parque, y una referencia para llegar"></label>
+      <div class="two">
+        <label class="fld" for="e-fecha">Fecha<input id="e-fecha" type="date" min="${hoyISO()}"></label>
+        <label class="fld" for="e-hora">Horario<input id="e-hora" type="text" placeholder="7:00 pm"></label>
+      </div>
+      <div class="two">
+        <label class="fld" for="e-precio">Precio<input id="e-precio" type="text" placeholder="Entrada libre, $150, etc."></label>
+        <label class="fld" for="e-org">Quién lo organiza<input id="e-org" type="text"></label>
+      </div>
+      <label class="fld" for="e-wa">WhatsApp de contacto (10 dígitos)<input id="e-wa" type="tel" inputmode="numeric" maxlength="10" placeholder="4421234567"></label>
+      <label class="fld" for="e-desc">Descripción<textarea id="e-desc" maxlength="280" placeholder="Qué habrá, para quién es y qué hay que llevar."></textarea></label>
+      <label class="opt"><input type="checkbox" id="e-mimx"><span>Quiero tener mi propia página para vender boletos o promocionar mis eventos. <small>Opcional: mimx te contacta por WhatsApp.</small></span></label>
+      <label class="opt"><input type="checkbox" id="e-ok"><span>Acepto el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>
+      <div id="e-err" class="notice err" hidden></div>
+      <div><button class="btn" type="submit">Enviar evento</button></div>
+    </form>
+  </section>`;
+}
+function enviarEvento(){
+  const v = id => document.getElementById(id).value.trim();
+  const err = [];
+  if(!v("e-titulo")) err.push("escribe el nombre del evento");
+  if(!v("e-lugar")) err.push("indica el lugar");
+  if(!v("e-fecha")) err.push("elige la fecha");
+  else if(v("e-fecha") < hoyISO()) err.push("la fecha ya pasó");
+  if(!v("e-hora")) err.push("indica el horario");
+  if(!/^\d{10}$/.test(v("e-wa"))) err.push("el WhatsApp debe tener 10 dígitos");
+  if(!document.getElementById("e-ok").checked) err.push("acepta el aviso de privacidad");
+  const box = document.getElementById("e-err");
+  if(err.length){ box.hidden = false; box.textContent = "Para enviar: " + err.join(", ") + "."; return; }
+  estado.evSolicitudes.push({id:"ev-" + Date.now().toString(36), titulo:v("e-titulo"), tipo:v("e-tipo"), zona:v("e-zona"), lugar:v("e-lugar"), fecha:v("e-fecha"), hora:v("e-hora"), precio:v("e-precio") || "Por confirmar", organizador:v("e-org") || "Vecinos de la zona", whatsapp:v("e-wa"), descripcion:v("e-desc"), mimx:document.getElementById("e-mimx").checked});
+  guardar("zq_ev_solicitudes", estado.evSolicitudes);
+  app.innerHTML = vRegEvento(true); window.scrollTo(0,0);
+}
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-fev],[data-evap],[data-evrech]");
+  if(!t) return;
+  if(t.dataset.fev !== undefined){ estado.f.ev = t.dataset.fev; render(); }
+  else if(t.dataset.evap !== undefined){
+    const s = estado.evSolicitudes.splice(+t.dataset.evap, 1)[0];
+    estado.evAprobados.push(s); guardar("zq_ev_aprobados", estado.evAprobados); guardar("zq_ev_solicitudes", estado.evSolicitudes);
+    toast("Evento publicado: " + s.titulo); render();
+  }
+  else if(t.dataset.evrech !== undefined){
+    const s = estado.evSolicitudes.splice(+t.dataset.evrech, 1)[0];
+    guardar("zq_ev_solicitudes", estado.evSolicitudes); toast("Evento rechazado: " + s.titulo); render();
+  }
+});
+document.addEventListener("click", e => {
+  const dlg = document.getElementById("dlg");
+  const c = e.target.closest("[data-cupon]");
+  if(c){
+    const b = negocios().find(x => x.id === c.dataset.cupon); if(!b) return;
+    document.getElementById("dlg-body").innerHTML = `<div class="dlg-head"><h2 id="dlg-title" style="font-size:1.25rem">${esc(b.nombre)}</h2><button type="button" class="btn sm ghost" data-cerrar>Cerrar</button></div>
+      <div class="tickets" style="grid-template-columns:1fr">${(b.cupones || []).map(x => boleto(b, x, false)).join("")}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn sm wa" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${esc(b.id)}">Escribir por WhatsApp</a><a class="btn sm ghost" href="#n-${esc(b.id)}" data-cerrar>Ver ficha completa</a></div>`;
+    try{ dlg.showModal(); }catch(err){ dlg.setAttribute("open",""); }
+    return;
+  }
+  if(e.target.closest("[data-cerrar]")){ try{ dlg.close(); }catch(err){ dlg.removeAttribute("open"); } }
+  else if(e.target === dlg){ try{ dlg.close(); }catch(err){ dlg.removeAttribute("open"); } }
+});
+document.addEventListener("submit", e => { if(e.target.id === "fEv"){ e.preventDefault(); enviarEvento(); } });
+
+/* ===== Enrutador ===== */
+let adminTab = "solicitudes";
+function render(){
+  const h = (location.hash || "#inicio").slice(1);
+  let html, nav = h;
+  if(h.startsWith("n-")){ html = vNegocio(h.slice(2)); nav = "directorio"; }
+  else if(h === "directorio") html = vDirectorio(false);
+  else if(h === "vecinos") html = vDirectorio(true);
+  else if(h === "cupones") html = vCupones();
+  else if(h === "eventos") html = vEventos();
+  else if(h === "publicar-evento") html = vRegEvento(false);
+  else if(h === "registrar") html = vRegistrar(false);
+  else if(h === "admin") html = vAdmin(adminTab);
+  else if(h === "privacidad") html = vPrivacidad();
+  else { html = vInicio(); nav = "inicio"; }
+  app.innerHTML = html;
+  document.querySelectorAll("nav.main a").forEach(a => a.toggleAttribute("aria-current", a.dataset.nav === nav) || a.dataset.nav === nav && a.setAttribute("aria-current","page"));
+  if(h === "registrar") prepararRegistro();
+}
+function irA(hash){ if(location.hash === hash) render(); else location.hash = hash; window.scrollTo(0,0); }
+window.addEventListener("hashchange", () => { render(); window.scrollTo(0,0); });
+
+/* ===== Eventos ===== */
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-verqr],[data-wa],[data-copy],[data-aprobar],[data-rechazar],[data-atab]");
+  if(!t) return;
+  if(t.dataset.zona !== undefined && t.matches("a")){ e.preventDefault(); estado.f = {q:"", zona:t.dataset.zona, cat:"", tipo:""}; irA("#directorio"); }
+  else if(t.dataset.cat !== undefined && t.matches("a")){ e.preventDefault(); estado.f = {q:"", zona:"", cat:t.dataset.cat, tipo:""}; irA("#directorio"); }
+  else if(t.dataset.fz !== undefined){ estado.f.zona = t.dataset.fz; render(); }
+  else if(t.dataset.verqr){
+    const box = t.parentElement.querySelector(".qr");
+    if(box.hidden){
+      if(!box.innerHTML){
+        try{ const qr = qrcode(0, "M"); qr.addData("ZONAQRO|" + t.dataset.biz + "|" + t.dataset.code); qr.make(); box.innerHTML = qr.createSvgTag({cellSize:4, margin:2}); }
+        catch(err){ box.innerHTML = '<span style="color:#333;font-size:.8rem;line-height:1.3">Muestra el código</span>'; }
+      }
+      box.hidden = false; t.textContent = "Ocultar QR";
+      estado.vistasCupon[t.dataset.verqr] = (estado.vistasCupon[t.dataset.verqr] || 0) + 1; guardar("zq_vistas", estado.vistasCupon);
+    } else { box.hidden = true; t.textContent = "Mostrar QR"; }
+  }
+  else if(t.dataset.wa){ estado.clics[t.dataset.wa] = (estado.clics[t.dataset.wa] || 0) + 1; guardar("zq_clics", estado.clics); }
+  else if(t.dataset.copy){
+    const n = t.dataset.copy;
+    try{ navigator.clipboard.writeText(n).then(() => toast("Número copiado"), () => toast("Selecciona el número para copiarlo")); }
+    catch(err){ toast("Selecciona el número para copiarlo"); }
+  }
+  else if(t.dataset.aprobar !== undefined){
+    const s = estado.solicitudes.splice(+t.dataset.aprobar, 1)[0];
+    s.alta = new Date().toISOString().slice(0,10); s.clics = 0; s.cupones = [];
+    estado.aprobados.push(s); guardar("zq_aprobados", estado.aprobados); guardar("zq_solicitudes", estado.solicitudes);
+    toast("Publicado: " + s.nombre); render();
+  }
+  else if(t.dataset.rechazar !== undefined){
+    const s = estado.solicitudes.splice(+t.dataset.rechazar, 1)[0];
+    guardar("zq_solicitudes", estado.solicitudes); toast("Solicitud rechazada: " + s.nombre); render();
+  }
+  else if(t.dataset.atab){ adminTab = t.dataset.atab; render(); }
+});
+
+document.addEventListener("submit", e => {
+  if(e.target.id === "fBuscar"){ e.preventDefault(); estado.f = {q:document.getElementById("q").value, zona:"", cat:"", tipo:""}; irA("#directorio"); }
+  if(e.target.id === "fReg"){ e.preventDefault(); enviarRegistro(); }
+});
+
+document.addEventListener("input", e => {
+  if(e.target.id === "fq"){ estado.f.q = e.target.value; const pos = e.target.selectionStart; render(); const el = document.getElementById("fq"); el.focus(); el.setSelectionRange(pos,pos); }
+});
+document.addEventListener("change", e => {
+  if(e.target.id === "fcat"){ estado.f.cat = e.target.value; render(); }
+  if(e.target.id === "ftipo"){ estado.f.tipo = e.target.value; render(); }
+  if(e.target.name === "tipo") mostrarCamposTipo();
+});
+
+function tipoSel(){ const r = document.querySelector('input[name="tipo"]:checked'); return r ? r.value : "local"; }
+function mostrarCamposTipo(){
+  const t = tipoSel();
+  document.getElementById("campos-local").hidden = t !== "local";
+  document.getElementById("campos-dom").hidden = t !== "domicilio";
+  document.getElementById("campos-emp").hidden = t !== "emprendimiento";
+  document.getElementById("lg-zonas").textContent = t === "local" ? "Zona donde está tu local" : "Zonas que atiendes";
+}
+function prepararRegistro(){ mostrarCamposTipo(); }
+function enviarRegistro(){
+  const v = id => document.getElementById(id).value.trim();
+  const tipo = tipoSel();
+  const zonas = [...document.querySelectorAll('input[name="zonas"]:checked')].map(i => i.value);
+  const errores = [];
+  if(!v("r-nombre")) errores.push("escribe el nombre del negocio");
+  if(!/^\d{10}$/.test(v("r-wa"))) errores.push("el WhatsApp debe tener 10 dígitos");
+  if(!zonas.length) errores.push("elige al menos una zona");
+  if(tipo === "local" && zonas.length > 1) errores.push("un local físico va en una sola zona");
+  if(tipo === "local" && !v("r-dir")) errores.push("escribe la dirección del local");
+  if(tipo === "emprendimiento" && !v("r-ent")) errores.push("cuéntanos cómo entregas");
+  if(!document.getElementById("r-ok").checked) errores.push("acepta el aviso de privacidad");
+  const box = document.getElementById("r-err");
+  if(errores.length){ box.hidden = false; box.textContent = "Para enviar: " + errores.join(", ") + "."; box.scrollIntoView({block:"nearest"}); return; }
+  const nombre = v("r-nombre");
+  const id = nombre.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") + "-" + Date.now().toString(36);
+  estado.solicitudes.push({id, nombre, categoria:v("r-cat"), tipo, zonas, whatsapp:v("r-wa"), descripcion:v("r-desc"),
+    direccion:v("r-dir"), horario: tipo === "local" ? v("r-hor") : v("r-hor2"), entrega:v("r-ent"), redes:v("r-redes")});
+  guardar("zq_solicitudes", estado.solicitudes);
+  app.innerHTML = vRegistrar(true); window.scrollTo(0,0);
+}
+
+render();
+</script>
