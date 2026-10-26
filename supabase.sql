@@ -211,3 +211,12 @@ do $$ declare r record; begin
 end $$;
 alter table public.eventos add constraint eventos_zona_check
   check (zona in ('Zibatá','Zakia','Juriquilla','El Refugio','Ciudad de Querétaro','Tequisquiapan'));
+
+-- 13) Nueva categoría: Fiestas y eventos (mesas de dulces, mobiliario, DJ, fotografía)
+do $$ declare r record; begin
+  for r in select conname from pg_constraint
+           where conrelid = 'public.negocios'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%gastronomia%'
+  loop execute format('alter table public.negocios drop constraint %I', r.conname); end loop;
+end $$;
+alter table public.negocios add constraint negocios_categoria_check
+  check (categoria in ('gastronomia','hogar','salud','belleza','mascotas','educacion','autos','tienda','fiestas'));
