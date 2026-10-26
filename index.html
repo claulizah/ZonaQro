@@ -319,7 +319,7 @@ footer a{color:var(--muted)}
 
 <footer><div class="wrap">
   <span>ZonaQro · Zibatá, Zakia, Juriquilla y El Refugio, Querétaro</span>
-  <span><a href="#privacidad">Aviso de privacidad</a> · <a href="#admin">Panel de administración</a></span>
+  <span><a href="#negocios">Para negocios</a> · <a href="#privacidad">Aviso de privacidad</a> · <a href="#admin">Panel de administración</a></span>
 </div></footer>
 <div class="toast" id="toast" role="status" hidden></div>
 <nav class="tabbar" aria-label="Navegación principal"><a href="#inicio" data-nav="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Inicio</span></a><a href="#directorio" data-nav="directorio"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg><span>Directorio</span></a><a href="#eventos" data-nav="eventos"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Eventos</span></a><a href="#cupones" data-nav="cupones"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/></svg><span>Promos</span></a><a href="#vecinos" data-nav="vecinos"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6M17 5a3.5 3.5 0 0 1 0 7M21.5 20c0-2.5-1.5-4.5-3.5-5.5"/></svg><span>Vecinos</span></a></nav>
@@ -1019,7 +1019,7 @@ function vAdminLive(tab){
       const sum = (tipo, ref) => M.filter(m => m.tipo === tipo && (ref === undefined || m.ref === ref)).reduce((a, m) => a + m.n, 0);
       const top = tipo => { const o = {}; M.filter(m => m.tipo === tipo).forEach(m => { o[m.ref] = (o[m.ref] || 0) + m.n; }); return Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `${esc(tipo === "cat" ? catNombre(k) : k)} (${v})`).join(", ") || "—"; };
       const filas = A.neg.filter(x => x.estado === "aprobado").map(b => ({b, v:sum("vista", b.id), w:sum("wa", b.id), web:sum("web", b.id), c:sum("cupon", b.id), sh:M.filter(m => m.tipo === "compartir" && m.ref.split(":")[1] === b.id).reduce((a, m) => a + m.n, 0)})).sort((a, b) => b.v - a.v);
-      const rep = x => "Hola 👋 Te cuento cómo te fue este último mes en ZonaQro: tu ficha tuvo " + x.v + " " + (x.v === 1 ? "vista" : "vistas") + " y " + x.w + " " + (x.w === 1 ? "persona te escribió" : "personas te escribieron") + " por WhatsApp" + (x.c ? ", y vieron tus promos " + x.c + " " + (x.c === 1 ? "vez" : "veces") : "") + " ✨ Si quieres que te ayude a publicar una promo o a salir más arriba, dime 😊";
+      const rep = x => "Hola 👋 Te cuento cómo te fue este último mes en ZonaQro: tu ficha tuvo " + x.v + " " + (x.v === 1 ? "vista" : "vistas") + " y " + x.w + " " + (x.w === 1 ? "persona te escribió" : "personas te escribieron") + " por WhatsApp" + (x.web ? ", " + x.web + " " + (x.web === 1 ? "entró" : "entraron") + " a tu página o redes" : "") + (x.c ? ", y vieron tus promos " + x.c + " " + (x.c === 1 ? "vez" : "veces") : "") + " ✨ Si quieres que te ayude a publicar una promo o a salir más arriba, dime 😊";
       cuerpo = `<p class="muted">Últimos 30 días. Conteos anónimos: no guardamos IP ni datos de las personas.</p>
         <div class="stats"><div class="stat"><b>${sum("visita").toLocaleString("es-MX")}</b><span>Visitas al sitio</span></div><div class="stat"><b>${sum("vista").toLocaleString("es-MX")}</b><span>Fichas vistas</span></div><div class="stat"><b>${sum("wa").toLocaleString("es-MX")}</b><span>Clics a WhatsApp</span></div><div class="stat"><b>${(sum("evento_wa") + sum("evento_link")).toLocaleString("es-MX")}</b><span>Clics en eventos</span></div></div>
         <p class="meta">Zonas más consultadas: ${top("zona")}</p><p class="meta">Categorías más consultadas: ${top("cat")}</p><p class="meta">Veces compartido: ${sum("compartir")}</p>
@@ -1105,6 +1105,39 @@ function vAdmin(tab){
       <button class="chip" data-atab="zonas" aria-pressed="${tab==="zonas"}">Zonas</button>
     </div>
     ${cuerpo}
+  </section>`;
+}
+
+function vParaNegocios(){
+  const hola = contactoHref("Hola 👋 Tengo un negocio en mi zona y quiero saber cómo aparecer en ZonaQro.");
+  const paso = (n, t, d) => `<div class="panel"><p class="eyebrow">Paso ${n}</p><h3>${t}</h3><p class="muted">${d}</p></div>`;
+  const ben = (t, d) => `<div class="panel"><h3>${t}</h3><p class="muted">${d}</p></div>`;
+  return `<section style="max-width:900px">
+    <p class="eyebrow">Para negocios de tu zona</p>
+    <h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Que tus vecinos te encuentren y te escriban directo</h1>
+    <p class="muted" style="font-size:1.05rem">ZonaQro es el directorio de Zibatá, Zakia, Juriquilla y El Refugio. Tu ficha es gratis y en un par de minutos ya apareces.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 22px"><a class="btn" href="#registrar">Registra tu negocio gratis</a>${hola ? `<a class="btn ghost" href="${esc(hola)}" target="_blank" rel="noopener">Tengo una duda</a>` : ""}</div>
+    <h2>Qué te llevas</h2>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+      ${ben("Clientes que te escriben directo", "Tu ficha tiene botón de WhatsApp. Sin intermediarios ni comisiones: la gente te escribe a ti.")}
+      ${ben("Cupones y promociones", "Publica una promo con vigencia y que tus vecinos la vean en el apartado de cupones.")}
+      ${ben("Resumen de cómo te fue", "Te mandamos cuántas personas vieron tu ficha y cuántas te escribieron, para que sepas si te funciona.")}
+      ${ben("Para negocios con o sin local", "Locales, servicios a domicilio y emprendimientos. Si no tienes local, no publicamos tu dirección.")}
+    </div>
+    <h2 style="margin-top:26px">Cómo funciona</h2>
+    <div class="grid">
+      ${paso(1, "Te registras", "Llenas un formulario corto con tu nombre, giro, zona, WhatsApp y horario.")}
+      ${paso(2, "Revisamos tu ficha", "La revisamos para que todo se vea bien y la publicamos.")}
+      ${paso(3, "Te encuentran", "Apareces en el directorio de tu zona y puedes sumar cupones cuando quieras.")}
+    </div>
+    <h2 style="margin-top:26px">Preguntas frecuentes</h2>
+    <div class="panel"><h3>¿Cuesta algo?</h3><p class="muted">Aparecer en ZonaQro es gratis.</p></div>
+    <div class="panel" style="margin-top:12px"><h3>¿Qué datos publican?</h3><p class="muted">Solo lo que tú pones en el formulario. Puedes pedir un cambio o la baja de tu ficha cuando quieras por WhatsApp.</p></div>
+    <div class="panel" style="margin-top:12px"><h3>¿Y si ya aparezco como "lugar de referencia"?</h3><p class="muted">Algunos lugares conocidos se muestran temporalmente solo como referencia, sin WhatsApp. Si es tu negocio, regístrate o escríbenos y activamos tu ficha completa.</p></div>
+    <div class="mimx" style="margin-top:22px">
+      <div><h3>¿Quieres también tu propia página web?</h3><p class="muted">Con mimx te hacemos una página con tu dominio, sin compromiso.</p></div>
+      <a class="btn ghost" href="https://mimx.store" target="_blank" rel="noopener">Conocer mimx</a>
+    </div>
   </section>`;
 }
 
@@ -1352,6 +1385,7 @@ function render(){
   else if(h === "registrar") html = vRegistrar(false);
   else if(h === "admin") html = vAdmin(adminTab);
   else if(h === "privacidad") html = vPrivacidad();
+  else if(h === "negocios") html = vParaNegocios();
   else { html = vInicio(); nav = "inicio"; }
   app.innerHTML = html;
   if(h !== "admin" && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", "sitio"); if(h.startsWith("n-") && unaVez("v" + h)) metrica("vista", h.slice(2)); }
