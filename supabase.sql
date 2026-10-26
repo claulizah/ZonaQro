@@ -165,3 +165,24 @@ create policy "admin gestiona fotos" on storage.objects
 -- 9) Eventos: enlace a la fuente (para eventos sugeridos y aprobados desde el admin)
 alter table public.eventos add column if not exists fuente text not null default ''
   check (char_length(fuente) <= 200 and fuente ~* '^(https?://[^[:space:]]+)?$');
+
+-- 10) Métricas propias: conteos anónimos por día (sin IP ni datos personales)
+create table if not exists public.metricas (
+  dia  date not null default current_date,
+  tipo text not null check (tipo in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir')),
+  ref  text not null default '' check (char_length(ref) <= 60),
+  n    integer not null default 0,
+  primary key (dia, tipo, ref)
+);
+alter table public.metricas enable row level security;
+drop policy if exists "admin lee metricas" on public.metricas;
+create policy "admin lee metricas" on public.metricas for select to authenticated using (public.es_admin());
+create or replace function public.registrar_evento(p_tipo text, p_ref text default '')
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if p_tipo not in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir') then return; end if;
+  insert into public.metricas (dia, tipo, ref, n) values (current_date, p_tipo, left(coalesce(p_ref, ''), 60), 1)
+  on conflict (dia, tipo, ref) do update set n = public.metricas.n + 1;
+end $$;
+revoke all on function public.registrar_evento(text, text) from public;
+grant execute on function public.registrar_evento(text, text) to anon, authenticated;
