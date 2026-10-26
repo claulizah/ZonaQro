@@ -161,3 +161,7 @@ create policy "publico sube fotos" on storage.objects
 drop policy if exists "admin gestiona fotos" on storage.objects;
 create policy "admin gestiona fotos" on storage.objects
   for all to authenticated using (bucket_id = 'fotos' and public.es_admin()) with check (bucket_id = 'fotos' and public.es_admin());
+
+-- 9) Eventos: enlace a la fuente (para eventos sugeridos y aprobados desde el admin)
+alter table public.eventos add column if not exists fuente text not null default ''
+  check (char_length(fuente) <= 200 and fuente ~* '^(https?://[^[:space:]]+)?$');
