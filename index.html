@@ -498,8 +498,40 @@ function enviar(tabla, fila, local, vista, box){
   const post = f => sb("/rest/v1/" + tabla, {method:"POST", body:Object.assign({}, f, {estado:"pendiente"}), prefer:"return=minimal", auth:false});
   post(fila)
     .catch(err => { if(fila.fuente && /fuente/i.test(err.message)){ const f = Object.assign({}, fila); delete f.fuente; return post(f); } throw err; })
-    .then(() => { app.innerHTML = vista(true); window.scrollTo(0,0); })
+    .then(() => { metrica(tabla === "negocios" ? "registro_envio" : tabla === "eventos" ? "evento_envio" : "otro_envio", ""); app.innerHTML = vista(true); window.scrollTo(0,0); })
     .catch(() => { box.hidden = false; box.textContent = "No pudimos enviar tu solicitud. Revisa tu conexión e intenta de nuevo."; if(btn) btn.disabled = false; });
+}
+/* ===== Métricas: gráfica por día y embudo de registro ===== */
+const SERIES_MET = [["visita","Visitas"],["vista","Fichas vistas"],["wa","Clics a WhatsApp"],["registro_envio","Registros enviados"]];
+function graficaDias(M){
+  const ser = SERIES_MET.find(x => x[0] === adminMet) || SERIES_MET[0];
+  const dias = [], hoy = new Date();
+  for(let i = 29; i >= 0; i--){ const d = new Date(hoy.getTime() - i * 864e5); dias.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); }
+  const vals = dias.map(d => M.filter(m => m.tipo === ser[0] && String(m.dia).slice(0, 10) === d).reduce((a, m) => a + m.n, 0));
+  const total = vals.reduce((a, v) => a + v, 0), max = Math.max(...vals, 1);
+  const top = max <= 4 ? 4 : max <= 10 ? 10 : Math.ceil(max / 10) * 10;
+  const W = 640, H = 230, L = 36, B = 28, T = 10, R = 8, cw = (W - L - R) / 30, ch = H - B - T;
+  const fmt = d => d.slice(8) + "/" + d.slice(5, 7);
+  const barras = vals.map((v, i) => { const h = v / top * ch; return `<rect x="${(L + i * cw + 2).toFixed(1)}" y="${(T + ch - h).toFixed(1)}" width="${(cw - 4).toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="var(--agave)"><title>${fmt(dias[i])}: ${v}</title></rect>`; }).join("");
+  const guias = [0, .5, 1].map(f => { const y = T + ch - f * ch; return `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${L - 6}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${Math.round(top * f)}</text>`; }).join("");
+  const etiq = dias.map((d, i) => i % 5 === 0 || i === 29 ? `<text x="${(L + i * cw + cw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${fmt(d)}</text>` : "").join("");
+  const mx = vals.indexOf(Math.max(...vals));
+  const resumen = ser[1] + " por día en los últimos 30 días: " + total + " en total" + (total ? ", con un máximo de " + vals[mx] + " el " + fmt(dias[mx]) : "") + ".";
+  return `<div class="panel" style="margin:14px 0"><h3 style="margin-bottom:8px">Por día</h3>
+    <div class="chips scrollrow" role="group" aria-label="Qué medir">${SERIES_MET.map(([k, n]) => `<button class="chip" data-amet="${k}" aria-pressed="${adminMet === k}">${n}</button>`).join("")}</div>
+    <p class="meta" style="margin:10px 0 4px">${total.toLocaleString("es-MX")} en 30 días${total ? " · promedio " + (total / 30).toFixed(1).replace(/\.0$/, "") + " por día" : ""}</p>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(resumen)}" style="max-width:${W}px;height:auto;display:block">${guias}${barras}${etiq}</svg>
+    <details style="margin-top:8px"><summary class="meta" style="cursor:pointer">Ver los datos en tabla</summary><div class="tbl-wrap"><table><thead><tr><th>Día</th><th class="num">${esc(ser[1])}</th></tr></thead><tbody>${dias.map((d, i) => vals[i] ? `<tr><td>${fmt(d)}</td><td class="num">${vals[i]}</td></tr>` : "").join("") || '<tr><td colspan="2">Todavía no hay datos.</td></tr>'}</tbody></table></div></details></div>`;
+}
+function embudo(M){
+  const s = t => M.filter(m => m.tipo === t).reduce((a, m) => a + m.n, 0);
+  const pct = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
+  const fila = (n, v, i, e) => `<tr><td>${n}</td><td class="num">${v}</td><td class="num">${i}</td><td class="num">${e}</td><td class="num">${pct(i, v)}</td><td class="num">${pct(e, i)}</td></tr>`;
+  return `<div class="panel" style="margin:14px 0"><h3 style="margin-bottom:6px">Formularios: ¿cuánta gente los termina?</h3>
+    <p class="muted" style="font-size:.85rem;margin-bottom:8px">Cuenta personas que abrieron el formulario, empezaron a llenarlo y lo enviaron (en los últimos 30 días). Tus propias pruebas desde el admin no se cuentan.</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Formulario</th><th class="num">Abrieron</th><th class="num">Empezaron</th><th class="num">Enviaron</th><th class="num">% empezó</th><th class="num">% envió</th></tr></thead><tbody>
+    ${fila("Registro de negocio", s("registro_vista"), s("registro_inicio"), s("registro_envio"))}
+    ${fila("Publicar evento", s("evento_vista"), s("evento_inicio"), s("evento_envio"))}</tbody></table></div></div>`;
 }
 async function cargarAdmin(){
   const A = estado.admin;
@@ -1061,6 +1093,7 @@ function vAdminLive(tab){
       const rep = x => "Hola 👋 Te cuento cómo te fue este último mes en ZonaQro: tu ficha tuvo " + x.v + " " + (x.v === 1 ? "vista" : "vistas") + " y " + x.w + " " + (x.w === 1 ? "persona te escribió" : "personas te escribieron") + " por WhatsApp" + (x.web ? ", " + x.web + " " + (x.web === 1 ? "entró" : "entraron") + " a tu página o redes" : "") + (x.c ? ", y vieron tus promos " + x.c + " " + (x.c === 1 ? "vez" : "veces") : "") + " ✨ Si quieres que te ayude a publicar una promo o a salir más arriba, dime 😊";
       cuerpo = `<p class="muted">Últimos 30 días. Conteos anónimos: no guardamos IP ni datos de las personas.</p>
         <div class="stats"><div class="stat"><b>${sum("visita").toLocaleString("es-MX")}</b><span>Visitas al sitio</span></div><div class="stat"><b>${sum("vista").toLocaleString("es-MX")}</b><span>Fichas vistas</span></div><div class="stat"><b>${sum("wa").toLocaleString("es-MX")}</b><span>Clics a WhatsApp</span></div><div class="stat"><b>${(sum("evento_wa") + sum("evento_link")).toLocaleString("es-MX")}</b><span>Clics en eventos</span></div></div>
+        ${graficaDias(M)}${embudo(M)}
         <p class="meta">Zonas más consultadas: ${top("zona")}</p><p class="meta">Categorías más consultadas: ${top("cat")}</p><p class="meta">Veces compartido: ${sum("compartir")}</p>
         <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th class="num">Vistas</th><th class="num">WhatsApp</th><th class="num">Web</th><th class="num">Promos</th><th></th></tr></thead><tbody>${filas.length ? filas.map(x => `<tr><td>${esc(x.b.nombre)}</td><td class="num">${x.v}</td><td class="num">${x.w}</td><td class="num">${x.web}</td><td class="num">${x.c}</td><td>${(x.v || x.w) && !x.b.referencia && x.b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(x.b.whatsapp), rep(x))}">Enviar reporte</a>` : ""}</td></tr>`).join("") : '<tr><td colspan="6">Todavía no hay negocios publicados.</td></tr>'}</tbody></table></div>`;
     }
@@ -1445,6 +1478,7 @@ document.addEventListener("click", async e => {
 
 /* ===== Enrutador ===== */
 let adminTab = "solicitudes";
+let adminMet = "visita";
 function render(){
   const h = (location.hash || "#inicio").slice(1);
   let html, nav = h;
@@ -1461,7 +1495,7 @@ function render(){
   else if(h === "negocios") html = vParaNegocios();
   else { html = vInicio(); nav = "inicio"; }
   app.innerHTML = html;
-  if(h !== "admin" && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", "sitio"); if(h.startsWith("n-") && unaVez("v" + h)) metrica("vista", h.slice(2)); }
+  if(h !== "admin" && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", "sitio"); if(h.startsWith("n-") && unaVez("v" + h)) metrica("vista", h.slice(2)); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
   if(h === "admin" && SB.ok && SB.token && !estado.admin.cargado && !estado.admin.cargando){ estado.admin.cargando = true; cargarAdmin().finally(() => { estado.admin.cargando = false; }); }
   document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   pintarZona();
@@ -1474,7 +1508,7 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0,0); })
 
 /* ===== Eventos ===== */
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-fzev],[data-verqr],[data-wa],[data-web],[data-evwa],[data-evlink],[data-compartir],[data-copy],[data-aprobar],[data-rechazar],[data-atab]");
+  const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-fzev],[data-verqr],[data-wa],[data-web],[data-evwa],[data-evlink],[data-compartir],[data-copy],[data-aprobar],[data-rechazar],[data-atab],[data-amet]");
   if(!t) return;
   if(t.dataset.compartir){
     const [k, id, cod] = t.dataset.compartir.split(":");
@@ -1521,6 +1555,7 @@ document.addEventListener("click", e => {
     guardar("zq_solicitudes", estado.solicitudes); toast("Solicitud rechazada: " + s.nombre); render();
   }
   else if(t.dataset.atab){ adminTab = t.dataset.atab; render(); }
+  else if(t.dataset.amet){ adminMet = t.dataset.amet; render(); }
 });
 
 document.addEventListener("submit", e => {
@@ -1528,10 +1563,17 @@ document.addEventListener("submit", e => {
   if(e.target.id === "fReg"){ e.preventDefault(); enviarRegistro(); }
 });
 
+function formIniciado(e){
+  const f = e.target.closest && e.target.closest("#fReg,#fEv"); if(!f || f.dataset.admin) return;
+  if(f.id === "fReg" && unaVez("ri")) metrica("registro_inicio", "negocio");
+  if(f.id === "fEv" && unaVez("ei")) metrica("evento_inicio", "evento");
+}
 document.addEventListener("input", e => {
+  formIniciado(e);
   if(e.target.id === "fq"){ estado.f.q = e.target.value; const pos = e.target.selectionStart; render(); const el = document.getElementById("fq"); el.focus(); el.setSelectionRange(pos,pos); }
 });
 document.addEventListener("change", e => {
+  formIniciado(e);
   if(e.target.id === "miZona"){ estado.f.zona = e.target.value; guardar("zq_zona", estado.f.zona); render(); }
   if(e.target.id === "fcat"){ estado.f.cat = e.target.value; render(); }
   if(e.target.id === "ftipo"){ estado.f.tipo = e.target.value; render(); }

@@ -220,3 +220,21 @@ do $$ declare r record; begin
 end $$;
 alter table public.negocios add constraint negocios_categoria_check
   check (categoria in ('gastronomia','hogar','salud','belleza','mascotas','educacion','autos','tienda','fiestas'));
+
+-- 14) Métricas de formularios: cuántos abren, empiezan y envían el registro de negocio y de evento
+do $$ declare r record; begin
+  for r in select conname from pg_constraint
+           where conrelid = 'public.metricas'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%compartir%'
+  loop execute format('alter table public.metricas drop constraint %I', r.conname); end loop;
+end $$;
+alter table public.metricas add constraint metricas_tipo_check
+  check (tipo in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir','registro_vista','registro_inicio','registro_envio','evento_vista','evento_inicio','evento_envio','otro_envio'));
+create or replace function public.registrar_evento(p_tipo text, p_ref text default '')
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if p_tipo not in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir','registro_vista','registro_inicio','registro_envio','evento_vista','evento_inicio','evento_envio','otro_envio') then return; end if;
+  insert into public.metricas (dia, tipo, ref, n) values (current_date, p_tipo, left(coalesce(p_ref, ''), 60), 1)
+  on conflict (dia, tipo, ref) do update set n = public.metricas.n + 1;
+end $$;
+revoke all on function public.registrar_evento(text, text) from public;
+grant execute on function public.registrar_evento(text, text) to anon, authenticated;
