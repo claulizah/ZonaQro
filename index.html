@@ -778,7 +778,6 @@ function vNegocio(id){
   if(b.tipo === "local") info = `${b.direccion ? `<dt>Dirección</dt><dd>${esc(b.direccion)}</dd>` : ""}${horarioDe(b) ? `<dt>Horario</dt><dd>${esc(horarioDe(b))}</dd>` : ""}<dt>Zona</dt><dd>${esc(b.zonas.join(", "))}</dd>`;
   if(b.tipo === "domicilio") info = `<dt>Atiende en</dt><dd>${esc(b.zonas.join(", "))}</dd><dt>Horario</dt><dd>${esc(horarioDe(b) || "Consultar por WhatsApp")}</dd><dt>Modalidad</dt><dd>Va a tu casa</dd>`;
   if(b.tipo === "emprendimiento") info = `<dt>Entrega</dt><dd>${esc(b.entrega)}</dd><dt>Zonas</dt><dd>${esc(b.zonas.join(", "))}</dd>${b.redes ? `<dt>Redes</dt><dd>${esc(b.redes)}</dd>` : ""}`;
-  if(/^https?:\/\//i.test(b.sitio_web || "")){ let host = b.sitio_web; try{ host = new URL(b.sitio_web).hostname.replace(/^www\./, ""); }catch(e){} info += `<dt>Sitio web</dt><dd><a href="${esc(b.sitio_web)}" target="_blank" rel="noopener nofollow" data-web="${esc(b.id)}">${esc(host)}</a></dd>`; }
   const fo = fotosDe(b);
   const galeria = fo.length ? `<div class="gal${fo.length === 1 ? " uno" : ""}">${fo.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="Foto ${i + 1} de ${esc(b.nombre)}" loading="lazy"></a>`).join("")}</div>` : "";
   const catalogo = (b.catalogo || []).length ? `<div class="panel"><h2>Catálogo</h2><div class="catalog">${b.catalogo.map((p,i) => `
@@ -804,6 +803,7 @@ function vNegocio(id){
       <aside class="panel">
         <h3>${b.referencia ? "Sobre este lugar" : "Contacto directo"}</h3>
         ${b.referencia ? "" : `<a class="btn wa" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${b.id}">Escribir por WhatsApp</a>`}
+        ${botonSitio(b)}
         <button type="button" class="btn ghost" data-compartir="n:${esc(b.id)}">Compartir este negocio</button>
         ${b.referencia ? "" : `<p class="muted" style="font-size:.85rem">Si no se abre WhatsApp, guarda el número:</p>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="phone">${telFmt(b.whatsapp)}</span><button class="btn sm ghost" data-copy="${b.whatsapp}">Copiar</button></div>`}
@@ -816,6 +816,13 @@ function vNegocio(id){
       <a class="btn ghost" href="https://mimx.store" target="_blank" rel="noopener">Conocer mimx</a>
     </div>
   </section>`;
+}
+
+function botonSitio(b){
+  if(!/^https?:\/\//i.test(b.sitio_web || "")) return "";
+  let h = ""; try{ h = new URL(b.sitio_web).hostname.replace(/^www\./, "").toLowerCase(); }catch(e){ return ""; }
+  const t = /(^|\.)(facebook\.com|fb\.com|fb\.me)$/.test(h) ? "Ver su Facebook" : /(^|\.)instagram\.com$/.test(h) ? "Ver su Instagram" : "Ver su página web";
+  return `<a class="btn ghost" href="${esc(b.sitio_web)}" target="_blank" rel="noopener nofollow" data-web="${esc(b.id)}">${t}</a>`;
 }
 
 function estadoFicha(b){
@@ -895,7 +902,7 @@ function vRegistrar(enviado, adm){
           <label class="opt"><input type="radio" name="web" value="redes"><span>Solo redes o WhatsApp</span></label>
           <label class="opt"><input type="radio" name="web" value="si"><span>Sí tengo</span></label>
         </div>
-        <div id="w-sitio" hidden><label class="fld" for="r-sitio">Dirección de tu página<input id="r-sitio" type="text" inputmode="url" placeholder="www.minegocio.com"></label></div>
+        <div id="w-sitio" hidden><label class="fld" for="r-sitio"><span id="r-sitio-t">Dirección de tu página</span><input id="r-sitio" type="text" inputmode="url" placeholder="www.minegocio.com"></label></div>
         <div id="w-mimx" hidden><label class="opt"><input type="checkbox" id="r-mimx"><span>Me interesa que me contacten de mimx para hacerme una página en 48 horas, sin compromiso.</span></label></div>
       </fieldset>
       <label class="fld" for="r-mail">Correo (opcional, no se publica)<input id="r-mail" type="email" inputmode="email" autocomplete="email" placeholder="tunegocio@correo.com"></label>`}
@@ -1493,7 +1500,9 @@ function sincHorarios(){ for(const d of DK){ const on = document.getElementById(
 function mostrarWeb(){
   if(!document.getElementById("w-sitio")) return;
   const w = (document.querySelector('input[name="web"]:checked') || {}).value || "";
-  document.getElementById("w-sitio").hidden = w !== "si";
+  document.getElementById("w-sitio").hidden = !(w === "si" || w === "redes");
+  document.getElementById("r-sitio-t").textContent = w === "redes" ? "Tu Facebook o Instagram (opcional)" : "Dirección de tu página";
+  document.getElementById("r-sitio").placeholder = w === "redes" ? "facebook.com/tunegocio" : "www.minegocio.com";
   document.getElementById("w-mimx").hidden = !(w === "no" || w === "redes");
 }
 function leerHorarios(){
@@ -1561,9 +1570,9 @@ async function enviarRegistro(){
   const adm = !!document.getElementById("fReg").dataset.admin;
   const web = (document.querySelector('input[name="web"]:checked') || {}).value || "";
   let sitio = "";
-  if(web === "si" && v("r-sitio")){
+  if((web === "si" || web === "redes") && v("r-sitio")){
     sitio = v("r-sitio"); if(!/^https?:\/\//i.test(sitio)) sitio = "https://" + sitio;
-    try{ const u = new URL(sitio); if(!u.hostname.includes(".")) throw 0; sitio = u.href; if(sitio.length > 160) throw 0; }catch(e){ errores.push("revisa la dirección de tu página web"); }
+    try{ const u = new URL(sitio); if(!u.hostname.includes(".")) throw 0; sitio = u.href; if(sitio.length > 160) throw 0; }catch(e){ errores.push("revisa el enlace de tu página o red social"); }
   }
   const mail = adm ? "" : v("r-mail");
   if(mail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)) errores.push("revisa el correo");
