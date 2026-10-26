@@ -164,7 +164,7 @@ dialog::backdrop{background:rgba(10,18,13,.55)}
 .frow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 
 label.fld{display:flex;flex-direction:column;gap:4px;font-size:.84rem;font-weight:600;color:var(--muted)}
-input[type=text],input[type=tel],input[type=search],input[type=date],select,textarea{background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:9px 11px;font-size:.95rem;color:var(--ink);width:100%}
+input[type=text],input[type=tel],input[type=search],input[type=date],input[type=password],input[type=email],select,textarea{background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:9px 11px;font-size:.95rem;color:var(--ink);width:100%}
 textarea{min-height:90px;resize:vertical}
 .count{font-size:.9rem;color:var(--muted)}
 .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:28px;text-align:center;color:var(--muted)}
@@ -255,7 +255,7 @@ footer a{color:var(--muted)}
 @media (prefers-reduced-motion:no-preference){.card,.cat,.btn{transition:border-color .15s, filter .15s}}
 </style>
 
-<div class="demo"><div class="wrap">Versión de prueba: todos los negocios, teléfonos y cupones son ejemplos.</div></div>
+<div class="demo" id="demoBar"><div class="wrap">Versión de prueba: todos los negocios, teléfonos y cupones son ejemplos.</div></div>
 <header class="top"><div class="wrap">
   <a class="logo" href="#inicio" aria-label="ZonaQro, inicio">Zona<b>Qro</b><span class="pin" aria-hidden="true"></span></a>
   <label class="zsel"><span class="sr">Mi zona</span><select id="miZona" aria-label="Mi zona"></select></label>
@@ -281,8 +281,6 @@ footer a{color:var(--muted)}
 <script>
 /* ===== Configuración ===== */
 const ZONAS = ["Zibatá","Zakia","Juriquilla","El Refugio"];
-// En producción: 15. En la demo se baja para que se vean las cuatro zonas con pocos ejemplos.
-const MIN_FICHAS_ZONA = 3;
 const DIAS_NUEVO = 28;
 const MIN_CLICS_FAVORITO = 20;
 const CATEGORIAS = [
@@ -349,11 +347,63 @@ const estado = {
   solicitudes: leer("zq_solicitudes", []),
   evSolicitudes: leer("zq_ev_solicitudes", []),
   evAprobados: leer("zq_ev_aprobados", []),
+  admin: {neg:[], ev:[], cargado:false, error:""},
   aprobados: leer("zq_aprobados", []),
   clics: leer("zq_clics", {}),
   vistasCupon: leer("zq_vistas", {}),
   f: {q:"", zona:leer("zq_zona",""), cat:"", tipo:""}
 };
+
+/* ===== Supabase (base de datos real) ===== */
+const SB_URL = "https://ymywxdwqiuisbqvtcxht.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlteXd4ZHdxaXVpc2JxdnRjeGh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwMTQ4NTIsImV4cCI6MjEwODU5MDg1Mn0.TNpoNIHOY3rkYZeDtIMZJn5JkP3jGR0LbXZ98xH_CmQ"; // llave pública (anon): es segura en el navegador; la seguridad está en las políticas RLS
+const SB = {ok:false, token:null};
+const DATA = {live:false, negocios:[], eventos:[]};
+const minFichas = () => DATA.live ? 15 : 3; // en la demo se baja para ver las cuatro zonas
+try{ SB.token = sessionStorage.getItem("zq_tok"); }catch(e){}
+async function sb(path, o = {}){
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), o.timeout || 8000);
+  try{
+    const h = {apikey:SB_KEY, Authorization:"Bearer " + ((o.auth !== false && SB.token) || SB_KEY)};
+    if(o.body !== undefined) h["Content-Type"] = "application/json";
+    if(o.prefer) h.Prefer = o.prefer;
+    const r = await fetch(SB_URL + path, {method:o.method || "GET", headers:h, body:o.body !== undefined ? JSON.stringify(o.body) : undefined, signal:ctl.signal, keepalive:!!o.keepalive});
+    const txt = await r.text(); let d = null; try{ d = txt ? JSON.parse(txt) : null; }catch(e){}
+    if(r.status === 401 && SB.token && o.auth !== false){ SB.token = null; try{ sessionStorage.removeItem("zq_tok"); }catch(e){} throw new Error("La sesión caducó, inicia sesión otra vez"); }
+    if(!r.ok) throw new Error((d && (d.message || d.error_description || d.msg)) || ("Error " + r.status));
+    return d;
+  } finally { clearTimeout(to); }
+}
+async function cargarPublico(){
+  try{
+    const [n, ev] = await Promise.all([
+      sb("/rest/v1/negocios?estado=eq.aprobado&select=id,nombre,categoria,tipo,zonas,descripcion,whatsapp,direccion,horario,entrega,redes,envio,promocionado,alta,clics,cupones,catalogo&order=nombre", {auth:false}),
+      sb("/rest/v1/eventos?estado=eq.aprobado&select=id,titulo,tipo,zona,lugar,fecha,hora,precio,organizador,whatsapp,destacado,descripcion&order=fecha", {auth:false})
+    ]);
+    SB.ok = true;
+    DATA.live = n.length > 0; // sin negocios reales publicados se muestra la demo
+    DATA.negocios = n; DATA.eventos = ev;
+  }catch(err){ SB.ok = false; DATA.live = false; }
+  const bar = document.getElementById("demoBar"); if(bar) bar.hidden = DATA.live;
+  render();
+}
+function enviar(tabla, fila, local, vista, box){
+  const btn = document.querySelector("form.reg button[type=submit]");
+  if(!SB.ok){ local(); app.innerHTML = vista(true); window.scrollTo(0,0); return; }
+  if(btn) btn.disabled = true;
+  sb("/rest/v1/" + tabla, {method:"POST", body:Object.assign({}, fila, {estado:"pendiente"}), prefer:"return=minimal", auth:false})
+    .then(() => { app.innerHTML = vista(true); window.scrollTo(0,0); })
+    .catch(() => { box.hidden = false; box.textContent = "No pudimos enviar tu solicitud. Revisa tu conexión e intenta de nuevo."; if(btn) btn.disabled = false; });
+}
+async function cargarAdmin(){
+  const A = estado.admin;
+  try{
+    const [n, ev] = await Promise.all([sb("/rest/v1/negocios?select=*&order=created_at.desc"), sb("/rest/v1/eventos?select=*&order=created_at.desc")]);
+    A.neg = n; A.ev = ev; A.error = "";
+  }catch(err){ A.error = err.message; }
+  A.cargado = true;
+  if(location.hash === "#admin") render();
+}
 
 /* ===== Utilidades ===== */
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -362,13 +412,13 @@ const catNombre = id => (CATEGORIAS.find(c => c.id === id) || {}).nombre || id;
 const PALETA = ["#2C674B","#6A4DB6","#B5651D","#1F6F8B","#9B3D5A","#4F6B1F","#7A4E2D","#3D5A99"];
 function color(id){ let h = 0; for(const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PALETA[h % PALETA.length]; }
 function iniciales(n){ return n.split(/\s+/).filter(w => w.length > 2).slice(0,2).map(w => w[0]).join("").toUpperCase() || n[0]; }
-function negocios(){ return EJEMPLOS.concat(estado.aprobados); }
+function negocios(){ return DATA.live ? DATA.negocios : EJEMPLOS.concat(estado.aprobados); }
 const enZona = b => !estado.f.zona || b.zonas.includes(estado.f.zona);
 function pintarZona(){
   const sel = document.getElementById("miZona"); if(!sel) return;
   sel.innerHTML = '<option value="">Todas</option>' + zonasVisibles().map(z => `<option value="${z}"${estado.f.zona === z ? " selected" : ""}>${z}</option>`).join("");
 }
-function totalClics(b){ return (b.clics || 0) + (estado.clics[b.id] || 0); }
+function totalClics(b){ return (b.clics || 0) + (DATA.live ? 0 : (estado.clics[b.id] || 0)); }
 function esNuevo(b){ const d = (Date.now() - Date.parse(b.alta)) / 864e5; return d >= 0 && d <= DIAS_NUEVO; }
 function favoritos(){
   const top = {};
@@ -384,7 +434,7 @@ function badgesDe(b, fav){
 }
 function porZona(z){ return negocios().filter(b => b.zonas.includes(z)).length; }
 function cuponesZona(z){ return negocios().filter(b => b.zonas.includes(z)).reduce((s,b) => s + (b.cupones || []).length, 0); }
-function zonasVisibles(){ return ZONAS.filter(z => porZona(z) >= MIN_FICHAS_ZONA); }
+function zonasVisibles(){ return ZONAS.filter(z => porZona(z) >= minFichas()); }
 function ordenar(lista, fav){
   return lista.slice().sort((a,b) => (b.promocionado?1:0) - (a.promocionado?1:0) || (fav.has(b.id)?1:0) - (fav.has(a.id)?1:0) || totalClics(b) - totalClics(a));
 }
@@ -611,7 +661,65 @@ function vRegistrar(enviado){
   </section>`;
 }
 
+function vAdminLive(tab){
+  if(!SB.token) return `<section style="max-width:420px">
+    <div><p class="eyebrow">Solo para ti</p><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1></div>
+    <form class="reg" id="fLogin" novalidate>
+      <label class="fld" for="l-mail">Correo<input id="l-mail" type="email" autocomplete="username" inputmode="email"></label>
+      <label class="fld" for="l-pass">Contraseña<input id="l-pass" type="password" autocomplete="current-password"></label>
+      <div id="l-err" class="notice err" hidden></div>
+      <div><button class="btn" type="submit">Entrar</button></div>
+    </form></section>`;
+  const A = estado.admin;
+  if(!A.cargado) return `<section><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1><p class="muted">Cargando…</p></section>`;
+  tab = ["solicitudes","eventos","publicados","metricas","zonas"].includes(tab) ? tab : "solicitudes";
+  const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente");
+  const todos = negocios();
+  const btn = (acc, tabla, id, val, txt, cls) => `<button class="btn sm ${cls || ""}" data-sb="${acc}:${tabla}:${esc(id)}:${val === undefined ? "" : val}">${txt}</button>`;
+  let cuerpo = "";
+  if(tab === "solicitudes") cuerpo = pn.length ? pn.map(s => `<div class="req">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(s.nombre)}</h3><span class="meta">${TIPOS[s.tipo].nombre} · ${esc(catNombre(s.categoria))}</span></div>
+      <p class="muted">${esc(s.descripcion) || "Sin descripción"}</p>
+      <p class="meta">Zonas: ${esc((s.zonas || []).join(", "))} · WhatsApp: ${telFmt(esc(s.whatsapp))}</p>
+      <div class="req-actions">${btn("aprobar","negocios",s.id,"","Aprobar y publicar")}${btn("rechazar","negocios",s.id,"","Rechazar","danger")}</div></div>`).join("") : '<div class="empty">No hay solicitudes de negocios pendientes.</div>';
+  if(tab === "eventos") cuerpo = pe.length ? pe.map(s => `<div class="req">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(s.titulo)}</h3><span class="meta">${TIPOS_EV[s.tipo]} · ${esc(s.zona)}</span></div>
+      ${s.mimx ? '<div class="badges"><span class="badge b-promo">Interesado en página mimx</span></div>' : ""}
+      <p class="muted">${esc(s.descripcion) || "Sin descripción"}</p>
+      <p class="meta">${esc(s.fecha)} · ${esc(s.hora)} · ${esc(s.lugar)} · ${esc(s.precio)} · WhatsApp ${telFmt(esc(s.whatsapp))}</p>
+      <div class="req-actions">${btn("aprobar","eventos",s.id,"","Aprobar y publicar")}${btn("rechazar","eventos",s.id,"","Rechazar","danger")}</div></div>`).join("") : '<div class="empty">No hay eventos pendientes.</div>';
+  if(tab === "publicados"){
+    const nb = A.neg.filter(x => x.estado === "aprobado"), eb = A.ev.filter(x => x.estado === "aprobado");
+    cuerpo = `<h2 style="font-size:1.2rem">Negocios publicados (${nb.length})</h2>` + (nb.length ? `<div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zona</th><th>Promocionado</th><th></th></tr></thead><tbody>${nb.map(b => `<tr><td><a href="#n-${esc(b.id)}">${esc(b.nombre)}</a></td><td>${esc((b.zonas || []).join(", "))}</td><td>${b.promocionado ? "Sí" : "No"}</td><td style="display:flex;gap:6px">${btn("promo","negocios",b.id,!b.promocionado,b.promocionado ? "Quitar promoción" : "Promocionar","ghost")}${btn("ocultar","negocios",b.id,"","Ocultar","danger")}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">Aún no hay negocios publicados.</div>')
+      + `<h2 style="font-size:1.2rem">Eventos publicados (${eb.length})</h2>` + (eb.length ? `<div class="tbl-wrap"><table><thead><tr><th>Evento</th><th>Fecha</th><th>Destacado</th><th></th></tr></thead><tbody>${eb.map(b => `<tr><td>${esc(b.titulo)}</td><td>${esc(b.fecha)}</td><td>${b.destacado ? "Sí" : "No"}</td><td style="display:flex;gap:6px">${btn("destacar","eventos",b.id,!b.destacado,b.destacado ? "Quitar destacado" : "Destacar","ghost")}${btn("ocultar","eventos",b.id,"","Ocultar","danger")}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">Aún no hay eventos publicados.</div>');
+  }
+  if(tab === "metricas"){
+    const filas = A.neg.filter(x => x.estado === "aprobado").sort((a,b) => (b.clics||0) - (a.clics||0));
+    cuerpo = filas.length ? `<div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zona</th><th>Tipo</th><th class="num">Clics a WhatsApp</th></tr></thead><tbody>${filas.map(b => `<tr><td>${esc(b.nombre)}</td><td>${esc((b.zonas||[])[0])}${(b.zonas||[]).length > 1 ? " +" + (b.zonas.length - 1) : ""}</td><td>${TIPOS[b.tipo].corto}</td><td class="num">${b.clics || 0}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">Todavía no hay métricas.</div>';
+  }
+  if(tab === "zonas") cuerpo = `<div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Negocios</th><th class="num">Meta</th><th>En el filtro</th></tr></thead><tbody>${ZONAS.map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= minFichas() ? "Visible" : "Oculta (menos de " + minFichas() + ")"}</td></tr>`).join("")}</tbody></table></div>`;
+  const totalWa = A.neg.filter(x => x.estado === "aprobado").reduce((n,b) => n + (b.clics || 0), 0);
+  return `<section>
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:end"><div><p class="eyebrow">Solo para ti</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Panel de administración</h1></div><button class="btn sm ghost" data-salir>Cerrar sesión</button></div>
+    ${A.error ? `<div class="notice err">${esc(A.error)}</div>` : ""}
+    <div class="stats">
+      <div class="stat"><b>${A.neg.filter(x => x.estado === "aprobado").length}</b><span>Negocios publicados</span></div>
+      <div class="stat"><b>${pn.length + pe.length}</b><span>Solicitudes pendientes</span></div>
+      <div class="stat"><b>${totalWa.toLocaleString("es-MX")}</b><span>Clics a WhatsApp</span></div>
+      <div class="stat"><b>${A.ev.filter(x => x.estado === "aprobado").length}</b><span>Eventos publicados</span></div>
+    </div>
+    <div class="tabs" role="group" aria-label="Secciones del panel">
+      <button class="chip" data-atab="solicitudes" aria-pressed="${tab==="solicitudes"}">Negocios <small>${pn.length}</small></button>
+      <button class="chip" data-atab="eventos" aria-pressed="${tab==="eventos"}">Eventos <small>${pe.length}</small></button>
+      <button class="chip" data-atab="publicados" aria-pressed="${tab==="publicados"}">Publicados</button>
+      <button class="chip" data-atab="metricas" aria-pressed="${tab==="metricas"}">Métricas</button>
+      <button class="chip" data-atab="zonas" aria-pressed="${tab==="zonas"}">Zonas</button>
+    </div>
+    ${cuerpo}
+  </section>`;
+}
 function vAdmin(tab){
+  if(SB.ok) return vAdminLive(tab);
   tab = tab || "solicitudes";
   const pend = estado.solicitudes;
   const todos = negocios();
@@ -643,8 +751,8 @@ function vAdmin(tab){
   }
   if(tab === "zonas"){
     cuerpo = `<div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Negocios</th><th class="num">Meta</th><th>En el filtro</th></tr></thead><tbody>
-      ${ZONAS.map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= MIN_FICHAS_ZONA ? "Visible" : "Oculta (menos de " + MIN_FICHAS_ZONA + ")"}</td></tr>`).join("")}
-    </tbody></table></div><p class="muted" style="font-size:.85rem">En la demo una zona se muestra con ${MIN_FICHAS_ZONA} fichas; en producción, con 15.</p>`;
+      ${ZONAS.map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= minFichas() ? "Visible" : "Oculta (menos de " + minFichas() + ")"}</td></tr>`).join("")}
+    </tbody></table></div><p class="muted" style="font-size:.85rem">Una zona aparece en el filtro con ${minFichas()} fichas o más.</p>`;
   }
   return `<section>
     <div><p class="eyebrow">Solo para ti</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Panel de administración</h1>
@@ -674,7 +782,7 @@ function vPrivacidad(){
 
 /* ===== Eventos ===== */
 function hoyISO(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
-function eventos(){ return EVENTOS.concat(estado.evAprobados).filter(e => e.fecha >= hoyISO()).sort((a,b) => a.fecha.localeCompare(b.fecha)); }
+function eventos(){ return (DATA.live ? DATA.eventos : EVENTOS.concat(estado.evAprobados)).filter(e => e.fecha >= hoyISO()).sort((a,b) => a.fecha.localeCompare(b.fecha)); }
 function eventoCard(e){
   const dia = +e.fecha.slice(8), mes = MESES.at(+e.fecha.slice(5,7) - 1);
   const sem = new Date(e.fecha + "T12:00:00").toLocaleDateString("es-MX", {weekday:"long"});
@@ -753,9 +861,8 @@ function enviarEvento(){
   if(!document.getElementById("e-ok").checked) err.push("acepta el aviso de privacidad");
   const box = document.getElementById("e-err");
   if(err.length){ box.hidden = false; box.textContent = "Para enviar: " + err.join(", ") + "."; return; }
-  estado.evSolicitudes.push({id:"ev-" + Date.now().toString(36), titulo:v("e-titulo"), tipo:v("e-tipo"), zona:v("e-zona"), lugar:v("e-lugar"), fecha:v("e-fecha"), hora:v("e-hora"), precio:v("e-precio") || "Por confirmar", organizador:v("e-org") || "Vecinos de la zona", whatsapp:v("e-wa"), descripcion:v("e-desc"), mimx:document.getElementById("e-mimx").checked});
-  guardar("zq_ev_solicitudes", estado.evSolicitudes);
-  app.innerHTML = vRegEvento(true); window.scrollTo(0,0);
+  const filaEv = ({id:"ev-" + Date.now().toString(36), titulo:v("e-titulo"), tipo:v("e-tipo"), zona:v("e-zona"), lugar:v("e-lugar"), fecha:v("e-fecha"), hora:v("e-hora"), precio:v("e-precio") || "Por confirmar", organizador:v("e-org") || "Vecinos de la zona", whatsapp:v("e-wa"), descripcion:v("e-desc"), mimx:document.getElementById("e-mimx").checked});
+  enviar("eventos", filaEv, () => { estado.evSolicitudes.push(filaEv); guardar("zq_ev_solicitudes", estado.evSolicitudes); }, vRegEvento, box);
 }
 document.addEventListener("click", e => {
   const t = e.target.closest("[data-fev],[data-evap],[data-evrech]");
@@ -787,6 +894,33 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("submit", e => { if(e.target.id === "fEv"){ e.preventDefault(); enviarEvento(); } });
 
+document.addEventListener("submit", async e => {
+  if(e.target.id !== "fLogin") return;
+  e.preventDefault();
+  const box = document.getElementById("l-err"), btn = e.target.querySelector("button[type=submit]");
+  btn.disabled = true; box.hidden = true;
+  try{
+    const d = await sb("/auth/v1/token?grant_type=password", {method:"POST", auth:false, body:{email:document.getElementById("l-mail").value.trim(), password:document.getElementById("l-pass").value}});
+    SB.token = d.access_token; try{ sessionStorage.setItem("zq_tok", SB.token); }catch(err){}
+    estado.admin.cargado = false; render();
+  }catch(err){ box.hidden = false; box.textContent = "No pudimos iniciar sesión. Revisa tu correo y contraseña."; btn.disabled = false; }
+});
+document.addEventListener("click", async e => {
+  if(e.target.closest("[data-salir]")){ SB.token = null; try{ sessionStorage.removeItem("zq_tok"); }catch(err){} estado.admin = {neg:[], ev:[], cargado:false, error:""}; render(); return; }
+  const t = e.target.closest("[data-sb]"); if(!t) return;
+  const [acc, tabla, id, val] = t.dataset.sb.split(":");
+  const cambios = acc === "aprobar" ? (tabla === "negocios" ? {estado:"aprobado", alta:hoyISO()} : {estado:"aprobado"})
+    : acc === "rechazar" ? {estado:"rechazado"} : acc === "ocultar" ? {estado:"oculto"}
+    : acc === "promo" ? {promocionado: val === "true"} : acc === "destacar" ? {destacado: val === "true"} : null;
+  if(!cambios) return;
+  t.disabled = true;
+  try{
+    const r = await sb("/rest/v1/" + tabla + "?id=eq." + encodeURIComponent(id), {method:"PATCH", body:cambios, prefer:"return=representation"});
+    if(!r || !r.length) throw new Error("el cambio no se aplicó (revisa que entraste como administradora)");
+    toast("Listo"); await cargarAdmin(); cargarPublico();
+  }catch(err){ toast("No se pudo: " + err.message); t.disabled = false; }
+});
+
 /* ===== Enrutador ===== */
 let adminTab = "solicitudes";
 function render(){
@@ -803,6 +937,7 @@ function render(){
   else if(h === "privacidad") html = vPrivacidad();
   else { html = vInicio(); nav = "inicio"; }
   app.innerHTML = html;
+  if(h === "admin" && SB.ok && SB.token && !estado.admin.cargado && !estado.admin.cargando){ estado.admin.cargando = true; cargarAdmin().finally(() => { estado.admin.cargando = false; }); }
   document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   pintarZona();
   try{ document.querySelectorAll('.chips.scrollrow .chip[aria-pressed="true"]').forEach(c => c.scrollIntoView({block:"nearest", inline:"center"})); }catch(err){}
@@ -829,7 +964,10 @@ document.addEventListener("click", e => {
       estado.vistasCupon[t.dataset.verqr] = (estado.vistasCupon[t.dataset.verqr] || 0) + 1; guardar("zq_vistas", estado.vistasCupon);
     } else { box.hidden = true; t.textContent = "Mostrar QR"; }
   }
-  else if(t.dataset.wa){ estado.clics[t.dataset.wa] = (estado.clics[t.dataset.wa] || 0) + 1; guardar("zq_clics", estado.clics); }
+  else if(t.dataset.wa){
+    if(DATA.live) sb("/rest/v1/rpc/registrar_clic", {method:"POST", body:{nid:t.dataset.wa}, auth:false, keepalive:true}).catch(() => {});
+    else { estado.clics[t.dataset.wa] = (estado.clics[t.dataset.wa] || 0) + 1; guardar("zq_clics", estado.clics); }
+  }
   else if(t.dataset.copy){
     const n = t.dataset.copy;
     try{ navigator.clipboard.writeText(n).then(() => toast("Número copiado"), () => toast("Selecciona el número para copiarlo")); }
@@ -888,12 +1026,12 @@ function enviarRegistro(){
   if(errores.length){ box.hidden = false; box.textContent = "Para enviar: " + errores.join(", ") + "."; box.scrollIntoView({block:"nearest"}); return; }
   const nombre = v("r-nombre");
   const id = nombre.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") + "-" + Date.now().toString(36);
-  estado.solicitudes.push({id, nombre, categoria:v("r-cat"), tipo, zonas, whatsapp:v("r-wa"), descripcion:v("r-desc"),
-    direccion:v("r-dir"), horario: tipo === "local" ? v("r-hor") : v("r-hor2"), entrega:v("r-ent"), redes:v("r-redes")});
-  guardar("zq_solicitudes", estado.solicitudes);
-  app.innerHTML = vRegistrar(true); window.scrollTo(0,0);
+  const fila = {id, nombre, categoria:v("r-cat"), tipo, zonas, whatsapp:v("r-wa"), descripcion:v("r-desc"),
+    direccion:v("r-dir"), horario: tipo === "local" ? v("r-hor") : v("r-hor2"), entrega:v("r-ent"), redes:v("r-redes")};
+  enviar("negocios", fila, () => { estado.solicitudes.push(fila); guardar("zq_solicitudes", estado.solicitudes); }, vRegistrar, box);
 }
 
 if(!ZONAS.includes(estado.f.zona)) estado.f.zona = "";
 render();
+cargarPublico();
 </script>
