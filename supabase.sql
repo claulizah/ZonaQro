@@ -38,6 +38,8 @@ alter table public.negocios add column if not exists sitio_web text not null def
 alter table public.negocios add column if not exists interes_mimx boolean not null default false;
 alter table public.negocios add column if not exists email text not null default '' check (char_length(email) <= 120);
 alter table public.negocios add column if not exists motivo_rechazo text not null default '' check (char_length(motivo_rechazo) <= 200);
+alter table public.negocios add column if not exists origen text not null default 'registro' check (origen in ('registro', 'zonaqro'));
+alter table public.negocios add column if not exists verificado boolean not null default false;
 
 -- 3) Eventos
 create table if not exists public.eventos (
@@ -69,7 +71,8 @@ create policy "publico lee negocios aprobados" on public.negocios
 drop policy if exists "publico envia negocio" on public.negocios;
 create policy "publico envia negocio" on public.negocios
   for insert with check (estado = 'pendiente' and promocionado = false and clics = 0
-                         and cupones = '[]'::jsonb and catalogo = '[]'::jsonb and motivo_rechazo = '');
+                         and cupones = '[]'::jsonb and catalogo = '[]'::jsonb and motivo_rechazo = ''
+                         and origen = 'registro' and verificado = false);
 
 drop policy if exists "admin negocios" on public.negocios;
 create policy "admin negocios" on public.negocios
@@ -140,7 +143,7 @@ grant execute on function public.reportar_resena(uuid) to anon, authenticated;
 --    Solo estas columnas son públicas. Si agregas una columna pública nueva, agrégala aquí.
 revoke select on public.negocios from anon;
 grant select (id, nombre, categoria, tipo, zonas, descripcion, whatsapp, direccion, horario, horarios,
-              entrega, redes, envio, promocionado, alta, clics, cupones, catalogo, fotos, sitio_web, estado)
+              entrega, redes, envio, promocionado, alta, clics, cupones, catalogo, fotos, sitio_web, origen, verificado, estado)
   on public.negocios to anon;
 revoke select on public.resenas from anon;
 grant select (id, negocio_id, nombre, estrellas, texto, respuesta, estado, created_at)

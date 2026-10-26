@@ -143,6 +143,8 @@ dialog::backdrop{background:rgba(10,18,13,.55)}
 .card-top{display:flex;gap:12px;align-items:center;min-width:0}
 [hidden]{display:none!important}
 img.avatar{display:block;object-fit:cover;background:var(--chip)}
+.b-ver{background:var(--soft-agave);color:var(--agave);display:inline-flex;align-items:center;gap:4px}
+.b-ver svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
 .b-open{background:var(--soft-mint);color:var(--mint)}
 .rate{font-size:.82rem;font-weight:700;color:var(--sun)}
 .rate small{color:var(--muted);font-weight:600}
@@ -333,15 +335,15 @@ const TIPOS = {
 
 /* ===== Datos de ejemplo ===== */
 const EJEMPLOS = [
- {id:"tacos-la-cantera",nombre:"Tacos La Cantera",categoria:"gastronomia",tipo:"local",zonas:["Zibatá"],descripcion:"Taquería de trompo y suadero con salsas de la casa. Pedidos para llevar por WhatsApp.",whatsapp:"4420000101",direccion:"Plaza Zibatá, local 12",horario:"Mar a dom, 6:00 pm a 12:00 am",promocionado:true,alta:"2026-06-10",clics:64,cupones:[{codigo:"ZIBATA10",titulo:"10% en tu orden",detalle:"En consumo en el local, de martes a jueves.",vigencia:"30 nov 2026"}]},
- {id:"plomeria-don-chuy",nombre:"Plomería Don Chuy",categoria:"hogar",tipo:"domicilio",zonas:["Zibatá","Zakia"],descripcion:"Fugas, calentadores, tinacos y destapes. Atención el mismo día.",whatsapp:"4420000102",horario:"Lun a sáb, 8:00 am a 7:00 pm",alta:"2026-05-02",clics:41,cupones:[]},
+ {id:"tacos-la-cantera",verificado:true,origen:"registro",nombre:"Tacos La Cantera",categoria:"gastronomia",tipo:"local",zonas:["Zibatá"],descripcion:"Taquería de trompo y suadero con salsas de la casa. Pedidos para llevar por WhatsApp.",whatsapp:"4420000101",direccion:"Plaza Zibatá, local 12",horario:"Mar a dom, 6:00 pm a 12:00 am",promocionado:true,alta:"2026-06-10",clics:64,cupones:[{codigo:"ZIBATA10",titulo:"10% en tu orden",detalle:"En consumo en el local, de martes a jueves.",vigencia:"30 nov 2026"}]},
+ {id:"plomeria-don-chuy",origen:"zonaqro",nombre:"Plomería Don Chuy",categoria:"hogar",tipo:"domicilio",zonas:["Zibatá","Zakia"],descripcion:"Fugas, calentadores, tinacos y destapes. Atención el mismo día.",whatsapp:"4420000102",horario:"Lun a sáb, 8:00 am a 7:00 pm",alta:"2026-05-02",clics:41,cupones:[]},
  {id:"vet-huellitas",nombre:"Veterinaria Huellitas",categoria:"mascotas",tipo:"local",zonas:["Zibatá"],descripcion:"Consulta, vacunas y estética canina. Urgencias con cita.",whatsapp:"4420000103",direccion:"Paseo Zibatá 210",horario:"Lun a sáb, 9:00 am a 8:00 pm",alta:"2026-10-12",clics:18,cupones:[{codigo:"VACUNA50",titulo:"$50 de descuento en vacuna",detalle:"Presenta el código en recepción.",vigencia:"15 dic 2026"}]},
  {id:"agua-pura-zibata",nombre:"Agua Pura Express",categoria:"hogar",tipo:"domicilio",zonas:["Zibatá","Zakia","Juriquilla"],descripcion:"Garrafones de 20 L a domicilio en menos de 2 horas.",whatsapp:"4420000104",horario:"Todos los días, 8:00 am a 6:00 pm",alta:"2026-03-15",clics:37,cupones:[]},
  {id:"pan-de-la-abuela",envio:"Entrega a domicilio en Zibatá",nombre:"Pan de la Abuela",categoria:"tienda",tipo:"emprendimiento",zonas:["Zibatá"],descripcion:"Pan de muerto, conchas y roles de canela hechos en casa. Pedidos con un día de anticipación.",whatsapp:"4420000105",entrega:"Entrega en Zibatá sin costo; envío a Zakia +$30",redes:"@pandelaabuela.qro",alta:"2026-10-05",clics:29,catalogo:[{nombre:"Pan de muerto chico",precio:45},{nombre:"Caja de 6 conchas",precio:120},{nombre:"Roles de canela (4)",precio:110}],cupones:[{codigo:"ZONA2X1",titulo:"2x1 en conchas",detalle:"En pedidos de lunes a miércoles.",vigencia:"30 nov 2026"}]},
  {id:"yoga-jardin",nombre:"Yoga en el Jardín",categoria:"belleza",tipo:"domicilio",zonas:["Zibatá"],descripcion:"Clases grupales en áreas verdes del fraccionamiento y clases privadas en casa.",whatsapp:"4420000106",horario:"Lun, mié y vie, 7:00 am",alta:"2026-08-20",clics:12,cupones:[]},
 
- {id:"electricista-zakia",nombre:"Electro Servicios Ramírez",categoria:"hogar",tipo:"domicilio",zonas:["Zakia","Zibatá"],descripcion:"Instalaciones, contactos, cortos y revisión de recibos de luz altos.",whatsapp:"4420000201",horario:"Lun a sáb, 8:00 am a 6:00 pm",alta:"2026-04-11",clics:33,cupones:[]},
- {id:"cafe-mirador",nombre:"Café Mirador",categoria:"gastronomia",tipo:"local",zonas:["Zakia"],descripcion:"Café de especialidad, desayunos y pan dulce frente al parque.",whatsapp:"4420000202",direccion:"Plaza Zakia, local 4",horario:"Todos los días, 7:30 am a 9:00 pm",promocionado:true,alta:"2026-02-01",clics:52,cupones:[{codigo:"CAFEZAKIA",titulo:"Café americano gratis",detalle:"En la compra de cualquier desayuno.",vigencia:"31 dic 2026"}]},
+ {id:"electricista-zakia",origen:"zonaqro",nombre:"Electro Servicios Ramírez",categoria:"hogar",tipo:"domicilio",zonas:["Zakia","Zibatá"],descripcion:"Instalaciones, contactos, cortos y revisión de recibos de luz altos.",whatsapp:"4420000201",horario:"Lun a sáb, 8:00 am a 6:00 pm",alta:"2026-04-11",clics:33,cupones:[]},
+ {id:"cafe-mirador",verificado:true,origen:"registro",nombre:"Café Mirador",categoria:"gastronomia",tipo:"local",zonas:["Zakia"],descripcion:"Café de especialidad, desayunos y pan dulce frente al parque.",whatsapp:"4420000202",direccion:"Plaza Zakia, local 4",horario:"Todos los días, 7:30 am a 9:00 pm",promocionado:true,alta:"2026-02-01",clics:52,cupones:[{codigo:"CAFEZAKIA",titulo:"Café americano gratis",detalle:"En la compra de cualquier desayuno.",vigencia:"31 dic 2026"}]},
  {id:"playeras-tlaco",envio:"Entrega en punto de encuentro o envío",nombre:"Playeras Tlaco",categoria:"tienda",tipo:"emprendimiento",zonas:["Zakia","Zibatá","Juriquilla"],descripcion:"Playeras estampadas con diseños de Querétaro. Tallas de niño a adulto.",whatsapp:"4420000203",entrega:"Entrega en punto de encuentro en Zakia o envío a todo Querétaro",redes:"@playerastlaco",alta:"2026-10-18",clics:15,catalogo:[{nombre:"Playera Acueducto",precio:280},{nombre:"Playera Peña de Bernal",precio:280},{nombre:"Playera infantil",precio:220},{nombre:"Sudadera Querétaro",precio:520}],cupones:[]},
  {id:"tutorias-mate",nombre:"Tutorías Mate Fácil",categoria:"educacion",tipo:"domicilio",zonas:["Zakia","Zibatá"],descripcion:"Regularización de matemáticas para primaria y secundaria, en casa o en línea.",whatsapp:"4420000204",horario:"Lun a vie, 4:00 pm a 8:00 pm",alta:"2026-09-01",clics:9,cupones:[{codigo:"PRIMERACLASE",titulo:"Primera clase gratis",detalle:"Para alumnos nuevos.",vigencia:"30 nov 2026"}]},
  {id:"unas-studio-z",nombre:"Studio Z Uñas",categoria:"belleza",tipo:"local",zonas:["Zakia"],descripcion:"Uñas acrílicas, gelish y pedicure. Con cita.",whatsapp:"4420000205",direccion:"Av. Zakia 88, local 2",horario:"Mar a sáb, 10:00 am a 7:00 pm",alta:"2026-07-07",clics:22,cupones:[]},
@@ -409,7 +411,7 @@ async function sb(path, o = {}){
 async function cargarPublico(){
   try{
     const [n, ev, rs] = await Promise.all([
-      sb("/rest/v1/negocios?estado=eq.aprobado&select=id,nombre,categoria,tipo,zonas,descripcion,whatsapp,direccion,horario,horarios,entrega,redes,envio,promocionado,alta,clics,cupones,catalogo,fotos,sitio_web&order=nombre", {auth:false}),
+      sb("/rest/v1/negocios?estado=eq.aprobado&select=id,nombre,categoria,tipo,zonas,descripcion,whatsapp,direccion,horario,horarios,entrega,redes,envio,promocionado,alta,clics,cupones,catalogo,fotos,sitio_web,origen,verificado&order=nombre", {auth:false}),
       sb("/rest/v1/eventos?estado=eq.aprobado&select=id,titulo,tipo,zona,lugar,fecha,hora,precio,organizador,whatsapp,destacado,descripcion&order=fecha", {auth:false}),
       sb("/rest/v1/resenas?estado=eq.aprobado&select=id,negocio_id,nombre,estrellas,texto,respuesta,created_at&order=created_at.desc", {auth:false}).catch(() => [])
     ]);
@@ -436,6 +438,19 @@ async function cargarAdmin(){
   }catch(err){ A.error = err.message; }
   A.cargado = true;
   if(location.hash === "#admin") render();
+}
+
+/* ===== Datos del responsable (aviso de privacidad y contacto público) ===== */
+const RESP = {
+  nombre: "Claudia Acosta",
+  domicilio: "Querétaro, Querétaro, México",
+  wa: "",      // WhatsApp público de ZonaQro, 10 dígitos (para verificar, corregir o dar de baja)
+  correo: ""   // correo público de ZonaQro
+};
+function contactoHref(texto){
+  if(RESP.wa) return "https://wa.me/52" + RESP.wa + "?text=" + encodeURIComponent(texto);
+  if(RESP.correo) return "mailto:" + RESP.correo + "?subject=" + encodeURIComponent("ZonaQro") + "&body=" + encodeURIComponent(texto);
+  return "";
 }
 
 /* ===== Horarios, fotos y opiniones ===== */
@@ -548,6 +563,8 @@ function favoritos(){
 function badgesDe(b, fav){
   let h = "";
   if(b.promocionado) h += '<span class="badge b-promo">Promocionado</span>';
+  if(b.verificado) h += '<span class="badge b-ver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Verificado</span>';
+  else if(b.origen === "zonaqro") h += '<span class="badge b-tipo">Agregado por ZonaQro</span>';
   if(fav.has(b.id)) h += '<span class="badge b-fav"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4.5 6.6 4.5c2 0 3.7 1.1 5.4 3.1 1.7-2 3.4-3.1 5.4-3.1 3.6 0 5.7 3.7 4.2 7.2C19.5 16.4 12 21 12 21z"/></svg>Favorito de los vecinos</span>';
   if(esNuevo(b)) h += '<span class="badge b-new">Nuevo en la zona</span>';
   if(abiertoAhora(b)) h += '<span class="badge b-open">Abierto ahora</span>';
@@ -748,6 +765,7 @@ function vNegocio(id){
         <a class="btn wa" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${b.id}">Escribir por WhatsApp</a>
         <p class="muted" style="font-size:.85rem">Si no se abre WhatsApp, guarda el número:</p>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="phone">${telFmt(b.whatsapp)}</span><button class="btn sm ghost" data-copy="${b.whatsapp}">Copiar</button></div>
+        ${estadoFicha(b)}
         ${b.tipo !== "local" ? '<p class="muted" style="font-size:.82rem">Por seguridad, ZonaQro no publica la dirección de negocios sin local.</p>' : ""}
       </aside>
     </div>
@@ -756,6 +774,16 @@ function vNegocio(id){
       <a class="btn ghost" href="https://mimx.store" target="_blank" rel="noopener">Conocer mimx</a>
     </div>
   </section>`;
+}
+
+function estadoFicha(b){
+  const baja = contactoHref("Hola 👋 Quiero pedir un cambio o la baja de la ficha de " + b.nombre + " en ZonaQro.");
+  if(b.verificado) return '<p class="muted" style="font-size:.82rem"><strong>Verificado:</strong> ZonaQro confirmó esta ficha con el dueño.</p>' + (baja ? `<p style="font-size:.82rem"><a href="${esc(baja)}" target="_blank" rel="noopener">Pedir un cambio</a></p>` : "");
+  if(b.origen === "zonaqro"){
+    const reclamar = contactoHref("Hola 👋 Soy el dueño de " + b.nombre + " y quiero verificar mi ficha en ZonaQro.");
+    return `<div class="notice" style="font-size:.85rem;font-weight:500">Esta ficha la agregó ZonaQro con información pública del negocio y todavía no la confirma el dueño.${reclamar ? ` <a href="${esc(reclamar)}" target="_blank" rel="noopener">¿Es tu negocio? Verifícalo aquí</a> o <a href="${esc(baja)}" target="_blank" rel="noopener">pide un cambio o la baja</a>.` : ""}</div>`;
+  }
+  return baja ? `<p style="font-size:.82rem"><a href="${esc(baja)}" target="_blank" rel="noopener">Pedir un cambio</a></p>` : "";
 }
 
 function panelOpiniones(b){
@@ -779,12 +807,13 @@ function panelOpiniones(b){
       </form></details></div>`;
 }
 
-function vRegistrar(enviado){
+function vRegistrar(enviado, adm){
+  if(enviado && adm) return `<div class="notice">Listo, el negocio quedó publicado como "Agregado por ZonaQro".</div>`;
   if(enviado) return `<section style="max-width:680px"><div class="notice">Recibimos tu solicitud. La revisamos y te avisamos por WhatsApp cuando tu ficha esté publicada.</div><a class="btn ghost" href="#inicio">Volver al inicio</a></section>`;
   return `<section>
-    <div><p class="eyebrow">Gratis para negocios de la zona</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Registra tu negocio</h1>
-    <p class="muted" style="margin-top:8px;max-width:60ch">Con local, a domicilio o si vendes desde casa. Revisamos cada solicitud antes de publicarla.</p></div>
-    <form class="reg" id="fReg" novalidate>
+    ${adm ? `<div><h2 style="font-size:1.3rem">Agregar un negocio</h2><p class="muted" style="margin-top:6px;max-width:62ch">Usa solo información pública que el propio negocio ya difunde (su nombre, giro, zona, teléfono y dirección del local si es público). No copies fotos, logos, descripciones ni reseñas de otros sitios. Se publica como "Agregado por ZonaQro" hasta que el dueño lo confirme.</p></div>` : `<div><p class="eyebrow">Gratis para negocios de la zona</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Registra tu negocio</h1>
+    <p class="muted" style="margin-top:8px;max-width:60ch">Con local, a domicilio o si vendes desde casa. Revisamos cada solicitud antes de publicarla.</p></div>`}
+    <form class="reg" id="fReg" ${adm ? 'data-admin="1" ' : ""}novalidate>
       <fieldset><legend>¿Cómo atiendes a tus clientes?</legend>
         ${Object.entries(TIPOS).map(([k,t],i) => `<label class="opt"><input type="radio" name="tipo" id="tipo-${k}" value="${k}"${i===0?" checked":""}><span>${t.nombre}<small>${k==="local"?"Tienes un local donde te visitan.":k==="domicilio"?"Vas a casa del cliente (plomería, clases, belleza).":"Vendes desde casa o en línea, sin local."}</small></span></label>`).join("")}
       </fieldset>
@@ -808,7 +837,7 @@ function vRegistrar(enviado){
         <label class="fld" for="r-ent">¿Cómo entregas?<input id="r-ent" type="text" placeholder="Envío, entrega en la zona o punto de encuentro"></label>
         <label class="fld" for="r-redes">Instagram o Facebook<input id="r-redes" type="text" placeholder="@tunegocio"></label>
       </div>
-      <fieldset id="campos-fotos" hidden><legend>Fotos (hasta 3)</legend>
+      ${adm ? "" : `<fieldset id="campos-fotos" hidden><legend>Fotos (hasta 3)</legend>
         <p class="muted" style="font-size:.85rem">De tu local, tu producto o tu trabajo. Las reducimos solas para que carguen rápido.</p>
         <div class="thumbs" id="fotos-prev"></div>
         <input type="file" id="r-fotos" accept="image/*" multiple aria-label="Agregar fotos">
@@ -823,10 +852,10 @@ function vRegistrar(enviado){
         <div id="w-sitio" hidden><label class="fld" for="r-sitio">Dirección de tu página<input id="r-sitio" type="text" inputmode="url" placeholder="www.minegocio.com"></label></div>
         <div id="w-mimx" hidden><label class="opt"><input type="checkbox" id="r-mimx"><span>Me interesa que me contacten de mimx para hacerme una página en 48 horas, sin compromiso.</span></label></div>
       </fieldset>
-      <label class="fld" for="r-mail">Correo (opcional, no se publica)<input id="r-mail" type="email" inputmode="email" autocomplete="email" placeholder="tunegocio@correo.com"></label>
-      <label class="opt"><input type="checkbox" id="r-ok"><span>Acepto el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>
+      <label class="fld" for="r-mail">Correo (opcional, no se publica)<input id="r-mail" type="email" inputmode="email" autocomplete="email" placeholder="tunegocio@correo.com"></label>`}
+      ${adm ? "" : `<label class="opt"><input type="checkbox" id="r-ok"><span>Acepto el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>`}
       <div id="r-err" class="notice err" hidden></div>
-      <div><button class="btn" type="submit">Enviar solicitud</button></div>
+      <div><button class="btn" type="submit">${adm ? "Publicar negocio" : "Enviar solicitud"}</button></div>
     </form>
   </section>`;
 }
@@ -842,7 +871,7 @@ function vAdminLive(tab){
     </form></section>`;
   const A = estado.admin;
   if(!A.cargado) return `<section><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1><p class="muted">Cargando…</p></section>`;
-  tab = ["solicitudes","eventos","opiniones","publicados","rechazados","prospectos","metricas","zonas"].includes(tab) ? tab : "solicitudes";
+  tab = ["solicitudes","eventos","opiniones","publicados","rechazados","prospectos","agregar","metricas","zonas"].includes(tab) ? tab : "solicitudes";
   const RS = A.res || [];
   const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente"), pr = RS.filter(x => x.estado === "pendiente");
   const prosp = A.neg.filter(x => (x.tiene_web === "no" || x.tiene_web === "redes") && x.estado !== "rechazado");
@@ -869,6 +898,7 @@ function vAdminLive(tab){
         <select id="mot-${esc(s.id)}" aria-label="Motivo del rechazo" style="max-width:210px"><option value="">Motivo, si rechazas…</option>${Object.entries(MOTIVOS).map(([k, m]) => `<option value="${k}">${m[0]}</option>`).join("")}</select>
         <input id="mnota-${esc(s.id)}" type="text" maxlength="80" placeholder="Nota (opcional)" aria-label="Nota del rechazo" style="max-width:200px">
         ${btn("rechazar","negocios",s.id,"","Rechazar","danger")}</div></div>`).join("") : '<div class="empty">No hay solicitudes de negocios pendientes.</div>';
+  if(tab === "agregar") cuerpo = vRegistrar(false, true);
   if(tab === "rechazados"){
     const rj = A.neg.filter(x => x.estado === "rechazado");
     cuerpo = rj.length ? rj.map(s => `<div class="req"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(s.nombre)}</h3><span class="meta">WhatsApp ${telFmt(esc(s.whatsapp))}</span></div>
@@ -903,7 +933,7 @@ function vAdminLive(tab){
       <div class="req-actions">${btn("aprobar","eventos",s.id,"","Aprobar y publicar")}${btn("rechazar","eventos",s.id,"","Rechazar","danger")}</div></div>`).join("") : '<div class="empty">No hay eventos pendientes.</div>';
   if(tab === "publicados"){
     const nb = A.neg.filter(x => x.estado === "aprobado"), eb = A.ev.filter(x => x.estado === "aprobado");
-    cuerpo = `<h2 style="font-size:1.2rem">Negocios publicados (${nb.length})</h2>` + (nb.length ? `<div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zona</th><th>Promocionado</th><th></th></tr></thead><tbody>${nb.map(b => `<tr><td><a href="#n-${esc(b.id)}">${esc(b.nombre)}</a></td><td>${esc((b.zonas || []).join(", "))}</td><td>${b.promocionado ? "Sí" : "No"}</td><td style="display:flex;gap:6px">${btn("promo","negocios",b.id,!b.promocionado,b.promocionado ? "Quitar promoción" : "Promocionar","ghost")}<a class="btn sm ghost" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), "Hola 👋 Ya quedó publicado " + b.nombre + " en ZonaQro ✨ Aquí lo puedes ver: " + location.origin + location.pathname + "#n-" + b.id)}">Avisar</a>${btn("ocultar","negocios",b.id,"","Ocultar","danger")}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">Aún no hay negocios publicados.</div>')
+    cuerpo = `<h2 style="font-size:1.2rem">Negocios publicados (${nb.length})</h2>` + (nb.length ? `<div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zona</th><th>Origen</th><th>Promocionado</th><th></th></tr></thead><tbody>${nb.map(b => `<tr><td><a href="#n-${esc(b.id)}">${esc(b.nombre)}</a></td><td>${esc((b.zonas || []).join(", "))}</td><td>${b.verificado ? "Verificado" : b.origen === "zonaqro" ? "Agregado por ZonaQro" : "Registro del negocio"}</td><td>${b.promocionado ? "Sí" : "No"}</td><td style="display:flex;gap:6px;flex-wrap:wrap">${btn("verificar","negocios",b.id,!b.verificado,b.verificado ? "Quitar verificado" : "Marcar verificado","ghost")}${btn("promo","negocios",b.id,!b.promocionado,b.promocionado ? "Quitar promoción" : "Promocionar","ghost")}<a class="btn sm ghost" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), (b.origen === "zonaqro" ? "Ando armando ZonaQro, un directorio de los negocios de la zona 👋 Agregué " + b.nombre + " con datos que ya son públicos. Aquí lo puedes ver: " + location.origin + location.pathname + "#n-" + b.id + " Si quieres corregir algo o prefieres que lo quite, nada más dime. Y si me confirmas que es tuyo le pongo la palomita de verificado ✨" : "Hola 👋 Ya quedó publicado " + b.nombre + " en ZonaQro ✨ Aquí lo puedes ver: " + location.origin + location.pathname + "#n-" + b.id))}">Avisar</a>${btn("ocultar","negocios",b.id,"","Ocultar","danger")}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">Aún no hay negocios publicados.</div>')
       + `<h2 style="font-size:1.2rem">Eventos publicados (${eb.length})</h2>` + (eb.length ? `<div class="tbl-wrap"><table><thead><tr><th>Evento</th><th>Fecha</th><th>Destacado</th><th></th></tr></thead><tbody>${eb.map(b => `<tr><td>${esc(b.titulo)}</td><td>${esc(b.fecha)}</td><td>${b.destacado ? "Sí" : "No"}</td><td style="display:flex;gap:6px">${btn("destacar","eventos",b.id,!b.destacado,b.destacado ? "Quitar destacado" : "Destacar","ghost")}${btn("ocultar","eventos",b.id,"","Ocultar","danger")}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">Aún no hay eventos publicados.</div>');
   }
   if(tab === "metricas"){
@@ -928,6 +958,7 @@ function vAdminLive(tab){
       <button class="chip" data-atab="publicados" aria-pressed="${tab==="publicados"}">Publicados</button>
       <button class="chip" data-atab="rechazados" aria-pressed="${tab==="rechazados"}">Rechazados</button>
       <button class="chip" data-atab="prospectos" aria-pressed="${tab==="prospectos"}">Prospectos mimx <small>${prospSi.length}</small></button>
+      <button class="chip" data-atab="agregar" aria-pressed="${tab==="agregar"}">Agregar negocio</button>
       <button class="chip" data-atab="metricas" aria-pressed="${tab==="metricas"}">Métricas</button>
       <button class="chip" data-atab="zonas" aria-pressed="${tab==="zonas"}">Zonas</button>
     </div>
@@ -990,11 +1021,31 @@ function vAdmin(tab){
 }
 
 function vPrivacidad(){
-  return `<section style="max-width:68ch"><p class="eyebrow">Borrador</p><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Aviso de privacidad</h1>
-  <p>ZonaQro recaba el nombre del negocio, su WhatsApp, zona, descripción y, en su caso, dirección del local, con el único fin de publicarlos en el directorio y contactar al negocio sobre su ficha.</p>
-  <p>Los negocios sin local no tienen dirección publicada. Si compartes fotos, se publican en tu ficha. El correo, si lo das, no se publica y se usa solo para contactarte sobre tu registro. Si indicas que te interesa una página web, podremos contactarte por WhatsApp para platicarte de mimx.</p>
-  <p>Quien deja una opinión da su nombre (se publica solo el primero) y un WhatsApp que no se publica y sirve únicamente para confirmar que fue cliente. Cualquier negocio o persona puede pedir que se corrija o elimine su ficha u opinión escribiendo a ZonaQro.</p>
-  <p class="muted">Este texto es un borrador; antes de lanzar hay que completarlo conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares.</p></section>`;
+  const cont = RESP.wa ? "por WhatsApp al " + telFmt(RESP.wa) : "", mail = RESP.correo ? "por correo a " + esc(RESP.correo) : "";
+  const via = [cont, mail].filter(Boolean).join(" o ") || "por los medios de contacto publicados en este sitio";
+  return `<section style="max-width:70ch"><p class="eyebrow">Última actualización: 26 de octubre de 2026</p><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Aviso de privacidad</h1>
+  <h2 style="font-size:1.15rem;margin-top:14px">Quién es responsable de tus datos</h2>
+  <p>${esc(RESP.nombre)}, con domicilio en ${esc(RESP.domicilio)}, responsable de ZonaQro, es quien trata tus datos personales conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares.</p>
+  <h2 style="font-size:1.15rem;margin-top:14px">Qué datos recabamos</h2>
+  <ul><li><strong>Negocios que se registran:</strong> nombre del negocio, categoría, zona, WhatsApp, descripción, dirección del local (solo si tiene local), horario, fotos, redes sociales, página web y, si lo das, correo.</li>
+  <li><strong>Quien deja una opinión:</strong> su nombre, la calificación, el texto de su opinión y un número de WhatsApp.</li>
+  <li><strong>Quien publica un evento:</strong> los datos del evento y el WhatsApp del organizador.</li>
+  <li><strong>Quien visita el sitio:</strong> guardamos en tu navegador tu zona preferida; no usamos cookies de publicidad ni de rastreo.</li></ul>
+  <p>No pedimos datos personales sensibles.</p>
+  <h2 style="font-size:1.15rem;margin-top:14px">Para qué los usamos</h2>
+  <p><strong>Finalidades necesarias:</strong> publicar la ficha, el evento o la opinión en el directorio; revisarla antes de publicarla; contactarte por WhatsApp o correo sobre tu registro (aprobación, rechazo, correcciones); verificar que una opinión viene de un cliente; y llevar un conteo de visitas y clics a WhatsApp por negocio.</p>
+  <p><strong>Finalidad adicional (opcional):</strong> si marcas que te interesa una página web, podemos contactarte por WhatsApp para platicarte del servicio de mimx. Puedes negarte desde el registro, y aun si lo marcas puedes pedir que no te contactemos.</p>
+  <h2 style="font-size:1.15rem;margin-top:14px">Qué se publica y qué no</h2>
+  <p>Se publica el nombre del negocio, categoría, zona, descripción, horario, fotos, página web y el número de WhatsApp del negocio. La dirección solo se publica si el negocio tiene local. <strong>No se publican</strong> el correo, el interés en mimx ni el WhatsApp de quien deja una opinión. De quien opina solo se muestra su primer nombre.</p>
+  <h2 style="font-size:1.15rem;margin-top:14px">Negocios agregados por ZonaQro</h2>
+  <p>Para que el directorio sea útil desde el inicio, ZonaQro puede agregar negocios usando información que el propio negocio ya difunde públicamente (nombre, giro, zona, teléfono y dirección del local). Estas fichas se identifican como “Agregado por ZonaQro” hasta que el dueño las confirma, y el dueño puede pedir en cualquier momento que se corrijan o se eliminen ${via}.</p>
+  <h2 style="font-size:1.15rem;margin-top:14px">Con quién compartimos los datos</h2>
+  <p>No vendemos ni cedemos tus datos. Para operar el sitio usamos proveedores de infraestructura (alojamiento y base de datos) que guardan la información por nuestra cuenta y que pueden estar fuera de México. Lo que se publica en el directorio es visible para cualquier visitante.</p>
+  <h2 style="font-size:1.15rem;margin-top:14px">Tus derechos</h2>
+  <p>Puedes acceder a tus datos, rectificarlos, cancelarlos u oponerte a su uso (derechos ARCO), así como revocar tu consentimiento o limitar el uso de tus datos, escribiendo ${via}. Indica tu nombre, el negocio u opinión de que se trata y qué quieres hacer; te respondemos en un máximo de 20 días hábiles.</p>
+  <p>Si consideras que tus derechos no fueron atendidos, puedes acudir a la Secretaría Anticorrupción y Buen Gobierno, autoridad en materia de protección de datos personales.</p>
+  <h2 style="font-size:1.15rem;margin-top:14px">Cambios a este aviso</h2>
+  <p>Si cambiamos este aviso, publicaremos la nueva versión en esta misma página con su fecha.</p></section>`;
 }
 
 /* ===== Eventos ===== */
@@ -1129,7 +1180,7 @@ document.addEventListener("click", async e => {
   let cambios = acc === "aprobar" ? (tabla === "negocios" ? {estado:"aprobado", alta:hoyISO()} : {estado:"aprobado"})
     : acc === "rechazar" ? {estado:"rechazado"} : acc === "ocultar" ? {estado:"oculto"}
     : acc === "promo" ? {promocionado: val === "true"} : acc === "destacar" ? {destacado: val === "true"}
-    : acc === "mantener" ? {reportada:false} : acc === "reabrir" ? {estado:"pendiente"}
+    : acc === "verificar" ? {verificado: val === "true"} : acc === "mantener" ? {reportada:false} : acc === "reabrir" ? {estado:"pendiente"}
     : acc === "respuesta" ? {respuesta:((document.getElementById("resp-" + id) || {value:""}).value || "").trim().slice(0, 300)} : null;
   if(!cambios) return;
   if(acc === "rechazar" && tabla === "negocios"){
@@ -1166,7 +1217,7 @@ function render(){
   document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   pintarZona();
   try{ document.querySelectorAll('.chips.scrollrow .chip[aria-pressed="true"]').forEach(c => c.scrollIntoView({block:"nearest", inline:"center"})); }catch(err){}
-  if(h === "registrar") prepararRegistro();
+  if(h === "registrar" || (h === "admin" && document.getElementById("fReg"))) prepararRegistro();
   else if(FOTOS.length){ FOTOS.forEach(f => URL.revokeObjectURL(f.url)); FOTOS = []; }
 }
 function irA(hash){ if(location.hash === hash) render(); else location.hash = hash; window.scrollTo(0,0); }
@@ -1293,6 +1344,7 @@ function mostrarCamposTipo(){
 }
 function sincHorarios(){ for(const d of DK){ const on = document.getElementById("h-" + d + "-on").checked; document.getElementById("h-" + d + "-a").disabled = !on; document.getElementById("h-" + d + "-c").disabled = !on; } }
 function mostrarWeb(){
+  if(!document.getElementById("w-sitio")) return;
   const w = (document.querySelector('input[name="web"]:checked') || {}).value || "";
   document.getElementById("w-sitio").hidden = w !== "si";
   document.getElementById("w-mimx").hidden = !(w === "no" || w === "redes");
@@ -1339,7 +1391,7 @@ async function subirFotos(id){
 }
 function prepararRegistro(){
   mostrarCamposTipo(); sincHorarios(); mostrarWeb();
-  document.getElementById("campos-fotos").hidden = !SB.ok;
+  const cf = document.getElementById("campos-fotos"); if(cf) cf.hidden = !SB.ok;
   pintarFotos();
 }
 async function enviarRegistro(){
@@ -1359,15 +1411,16 @@ async function enviarRegistro(){
     if(r.err) errores.push(r.err);
     else if(tipo === "local" && !Object.keys(horarios).length) errores.push("marca los días que abres");
   }
+  const adm = !!document.getElementById("fReg").dataset.admin;
   const web = (document.querySelector('input[name="web"]:checked') || {}).value || "";
   let sitio = "";
   if(web === "si" && v("r-sitio")){
     sitio = v("r-sitio"); if(!/^https?:\/\//i.test(sitio)) sitio = "https://" + sitio;
     try{ const u = new URL(sitio); if(!u.hostname.includes(".")) throw 0; sitio = u.href; if(sitio.length > 160) throw 0; }catch(e){ errores.push("revisa la dirección de tu página web"); }
   }
-  const mail = v("r-mail");
+  const mail = adm ? "" : v("r-mail");
   if(mail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)) errores.push("revisa el correo");
-  if(!document.getElementById("r-ok").checked) errores.push("acepta el aviso de privacidad");
+  if(!adm && !document.getElementById("r-ok").checked) errores.push("acepta el aviso de privacidad");
   const box = document.getElementById("r-err");
   if(errores.length){ box.hidden = false; box.textContent = "Para enviar: " + errores.join(", ") + "."; box.scrollIntoView({block:"nearest"}); return; }
   box.hidden = true;
@@ -1382,7 +1435,14 @@ async function enviarRegistro(){
   const fila = {id, nombre, categoria:v("r-cat"), tipo, zonas, whatsapp:v("r-wa"), descripcion:v("r-desc"),
     direccion: tipo === "local" ? v("r-dir") : "", horario: Object.keys(horarios).length ? horarioTexto(horarios) : "", horarios,
     entrega: tipo === "emprendimiento" ? v("r-ent") : "", redes: tipo === "emprendimiento" ? v("r-redes") : "",
-    fotos, tiene_web:web, sitio_web:sitio, interes_mimx:(web === "no" || web === "redes") && document.getElementById("r-mimx").checked, email:mail};
+    fotos, tiene_web:web, sitio_web:sitio, interes_mimx:!adm && (web === "no" || web === "redes") && document.getElementById("r-mimx").checked, email:mail};
+  if(adm){
+    const btn = document.querySelector("form.reg button[type=submit]"); btn.disabled = true;
+    sb("/rest/v1/negocios", {method:"POST", body:Object.assign({}, fila, {estado:"aprobado", origen:"zonaqro", verificado:false, alta:hoyISO()}), prefer:"return=minimal"})
+      .then(() => { toast("Publicado: " + nombre); estado.admin.cargado = false; adminTab = "publicados"; render(); cargarPublico(); })
+      .catch(err => { btn.disabled = false; box.hidden = false; box.textContent = "No se pudo publicar: " + err.message; });
+    return;
+  }
   enviar("negocios", fila, () => { estado.solicitudes.push(fila); guardar("zq_solicitudes", estado.solicitudes); }, ok => { if(ok) FOTOS = []; return vRegistrar(ok); }, box);
 }
 
