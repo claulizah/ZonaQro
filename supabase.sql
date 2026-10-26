@@ -30,6 +30,15 @@ create table if not exists public.negocios (
   created_at    timestamptz not null default now()
 );
 
+-- 2b) Columnas nuevas de negocios: horarios, fotos, página web, correo y motivo de rechazo
+alter table public.negocios add column if not exists horarios jsonb not null default '{}'::jsonb check (jsonb_typeof(horarios) = 'object');
+alter table public.negocios add column if not exists fotos jsonb not null default '[]'::jsonb check (jsonb_typeof(fotos) = 'array' and jsonb_array_length(fotos) <= 3);
+alter table public.negocios add column if not exists tiene_web text not null default '' check (tiene_web in ('', 'no', 'redes', 'si'));
+alter table public.negocios add column if not exists sitio_web text not null default '' check (char_length(sitio_web) <= 160 and sitio_web ~* '^(https?://[^[:space:]]+)?$');
+alter table public.negocios add column if not exists interes_mimx boolean not null default false;
+alter table public.negocios add column if not exists email text not null default '' check (char_length(email) <= 120);
+alter table public.negocios add column if not exists motivo_rechazo text not null default '' check (char_length(motivo_rechazo) <= 200);
+
 -- 3) Eventos
 create table if not exists public.eventos (
   id            text primary key,
@@ -60,7 +69,7 @@ create policy "publico lee negocios aprobados" on public.negocios
 drop policy if exists "publico envia negocio" on public.negocios;
 create policy "publico envia negocio" on public.negocios
   for insert with check (estado = 'pendiente' and promocionado = false and clics = 0
-                         and cupones = '[]'::jsonb and catalogo = '[]'::jsonb);
+                         and cupones = '[]'::jsonb and catalogo = '[]'::jsonb and motivo_rechazo = '');
 
 drop policy if exists "admin negocios" on public.negocios;
 create policy "admin negocios" on public.negocios
@@ -87,3 +96,65 @@ set search_path = public
 as $$ update public.negocios set clics = clics + 1 where id = nid and estado = 'aprobado' $$;
 
 grant execute on function public.registrar_clic(text) to anon, authenticated;
+
+-- 6) Opiniones de vecinos (se publican solo después de que las apruebas)
+create table if not exists public.resenas (
+  id          uuid primary key default gen_random_uuid(),
+  negocio_id  text not null references public.negocios(id) on delete cascade,
+  nombre      text not null check (char_length(nombre) between 2 and 40),
+  estrellas   integer not null check (estrellas between 1 and 5),
+  texto       text not null check (char_length(texto) between 10 and 300),
+  contacto    text not null check (contacto ~ '^[0-9]{10}$'),
+  respuesta   text not null default '' check (char_length(respuesta) <= 300),
+  reportada   boolean not null default false,
+  estado      text not null default 'pendiente' check (estado in ('pendiente','aprobado','rechazado','oculto')),
+  created_at  timestamptz not null default now()
+);
+-- una sola opinión por número de WhatsApp y negocio
+create unique index if not exists resenas_uno_por_numero on public.resenas (negocio_id, contacto);
+
+alter table public.resenas enable row level security;
+
+drop policy if exists "publico lee opiniones aprobadas" on public.resenas;
+create policy "publico lee opiniones aprobadas" on public.resenas
+  for select using (estado = 'aprobado');
+
+drop policy if exists "publico envia opinion" on public.resenas;
+create policy "publico envia opinion" on public.resenas
+  for insert with check (estado = 'pendiente' and respuesta = '' and reportada = false
+    and exists (select 1 from public.negocios n where n.id = negocio_id and n.estado = 'aprobado'));
+
+drop policy if exists "admin opiniones" on public.resenas;
+create policy "admin opiniones" on public.resenas
+  for all to authenticated using (public.es_admin()) with check (public.es_admin());
+
+create or replace function public.reportar_resena(rid uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$ update public.resenas set reportada = true where id = rid and estado = 'aprobado' $$;
+grant execute on function public.reportar_resena(uuid) to anon, authenticated;
+
+-- 7) Privacidad: el público NO puede leer correo, WhatsApp de quien opina, interés en mimx, etc.
+--    Solo estas columnas son públicas. Si agregas una columna pública nueva, agrégala aquí.
+revoke select on public.negocios from anon;
+grant select (id, nombre, categoria, tipo, zonas, descripcion, whatsapp, direccion, horario, horarios,
+              entrega, redes, envio, promocionado, alta, clics, cupones, catalogo, fotos, sitio_web, estado)
+  on public.negocios to anon;
+revoke select on public.resenas from anon;
+grant select (id, negocio_id, nombre, estrellas, texto, respuesta, estado, created_at)
+  on public.resenas to anon;
+
+-- 8) Fotos de los negocios (bucket público, solo JPEG de hasta 600 KB)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('fotos', 'fotos', true, 600000, array['image/jpeg'])
+on conflict (id) do update set public = true, file_size_limit = 600000, allowed_mime_types = array['image/jpeg'];
+
+drop policy if exists "publico sube fotos" on storage.objects;
+create policy "publico sube fotos" on storage.objects
+  for insert to anon, authenticated with check (bucket_id = 'fotos');
+
+drop policy if exists "admin gestiona fotos" on storage.objects;
+create policy "admin gestiona fotos" on storage.objects
+  for all to authenticated using (bucket_id = 'fotos' and public.es_admin()) with check (bucket_id = 'fotos' and public.es_admin());
