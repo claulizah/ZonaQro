@@ -476,10 +476,10 @@ function vInicio(){
   <section class="hero">
     <div>
       <p class="eyebrow">Norte de Querétaro</p>
-      <h1>Lo que necesitas, con tus vecinos de al lado.</h1>
-      <p class="lead">Negocios, servicios a domicilio y emprendedores de Zibatá, Zakia, Juriquilla y El Refugio. Les escribes directo por WhatsApp y aprovechas sus cupones.</p>
+      <h1>Encuentra negocios, servicios y promos en tu misma zona.</h1>
+      <p class="lead">Plomeros, comida a domicilio y emprendedores de Zibatá, Zakia, Juriquilla y El Refugio. Escríbeles directo por WhatsApp, sin intermediarios.</p>
       <form class="search" id="fBuscar" role="search">
-        <input id="q" type="search" placeholder="Plomero, tacos, veterinaria en tu zona…" aria-label="Buscar negocios">
+        <input id="q" type="search" placeholder="¿Qué necesitas hoy? Ej. plomero, pasteles, sushi…" aria-label="Buscar negocios">
         <button class="btn" type="submit">Buscar</button>
       </form>
     </div>
@@ -534,8 +534,8 @@ function vDirectorio(soloVecinos){
   return `
   <section>
     <div><p class="eyebrow">${soloVecinos ? "Emprendedores" : "Directorio"}</p>
-    <h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">${soloVecinos ? "Hecho por vecinos" : "Encuentra negocios y servicios"}</h1>
-    ${soloVecinos ? '<p class="muted" style="margin-top:8px;max-width:60ch">Playeras, repostería, accesorios y más, hechos por gente de la zona. Pide directo por WhatsApp.</p>' : ""}</div>
+    <h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">${soloVecinos ? "Apoya el comercio local: hecho por tus vecinos" : "Encuentra negocios y servicios"}</h1>
+    ${soloVecinos ? '<p class="muted" style="margin-top:8px;max-width:60ch">Playeras, repostería, accesorios y más. Pide directo por WhatsApp.</p>' : ""}</div>
     <div class="filters">
       <div class="chips scrollrow" role="group" aria-label="Zona">
         <button class="chip" data-fz="" aria-pressed="${!f.zona}">Todas las zonas</button>
@@ -804,8 +804,8 @@ function vEventos(){
   const lista = eventos().filter(e => (!f.zona || e.zona === f.zona) && (!f.ev || e.tipo === f.ev))
     .sort((a,b) => (b.destacado?1:0) - (a.destacado?1:0) || a.fecha.localeCompare(b.fecha));
   return `<section>
-    <div><p class="eyebrow">Agenda</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Eventos y conciertos</h1>
-    <p class="muted" style="margin-top:8px;max-width:60ch">Bazares, conciertos, ferias y actividades de las cuatro zonas. ¿Organizas algo? Publícalo gratis.</p></div>
+    <div><p class="eyebrow">Agenda</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Qué hacer en tu zona</h1>
+    <p class="muted" style="margin-top:8px;max-width:60ch">Bazares, conciertos, ferias y clases cerca de ti. ¿Organizas uno? Publícalo gratis.</p></div>
     <div class="filters">
       <div class="chips scrollrow" role="group" aria-label="Zona">
         <button class="chip" data-fz="" aria-pressed="${!f.zona}">Todas las zonas</button>
@@ -816,7 +816,7 @@ function vEventos(){
         ${Object.entries(TIPOS_EV).map(([k,n]) => `<button class="chip" data-fev="${k}" aria-pressed="${f.ev === k}">${n}</button>`).join("")}
       </div>
     </div>
-    <div class="sec-head"><p class="count">${lista.length} ${lista.length === 1 ? "evento próximo" : "eventos próximos"}</p><a class="btn sm" href="#publicar-evento">Publica tu evento</a></div>
+    <div class="sec-head"><p class="count">${lista.length} ${lista.length === 1 ? "evento próximo" : "eventos próximos"}</p><a class="btn sm" href="#publicar-evento">Publica tu evento gratis</a></div>
     ${lista.length ? `<div class="evlist">${lista.map(eventoCard).join("")}</div>` : '<div class="empty">No hay eventos con esos filtros. Prueba otra zona o publica el tuyo.</div>'}
   </section>`;
 }
