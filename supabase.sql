@@ -186,3 +186,28 @@ begin
 end $$;
 revoke all on function public.registrar_evento(text, text) from public;
 grant execute on function public.registrar_evento(text, text) to anon, authenticated;
+
+-- 11) Lugares de referencia: fichas sin WhatsApp, solo para que el directorio se vea poblado al inicio
+alter table public.negocios add column if not exists referencia boolean not null default false;
+do $$ declare r record; begin
+  for r in select conname from pg_constraint
+           where conrelid = 'public.negocios'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%whatsapp%~%'
+  loop execute format('alter table public.negocios drop constraint %I', r.conname); end loop;
+end $$;
+alter table public.negocios add constraint negocios_whatsapp_ok
+  check (whatsapp ~ '^[0-9]{10}$' or (referencia and whatsapp = ''));
+grant select (referencia) on public.negocios to anon;
+drop policy if exists "publico envia negocio" on public.negocios;
+create policy "publico envia negocio" on public.negocios
+  for insert with check (estado = 'pendiente' and promocionado = false and clics = 0
+                         and cupones = '[]'::jsonb and catalogo = '[]'::jsonb and motivo_rechazo = ''
+                         and origen = 'registro' and verificado = false and referencia = false);
+
+-- 12) Eventos también en la Ciudad de Querétaro y Tequisquiapan
+do $$ declare r record; begin
+  for r in select conname from pg_constraint
+           where conrelid = 'public.eventos'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%zona%'
+  loop execute format('alter table public.eventos drop constraint %I', r.conname); end loop;
+end $$;
+alter table public.eventos add constraint eventos_zona_check
+  check (zona in ('Zibatá','Zakia','Juriquilla','El Refugio','Ciudad de Querétaro','Tequisquiapan'));

@@ -328,6 +328,7 @@ footer a{color:var(--muted)}
 <script>
 /* ===== Configuración ===== */
 const ZONAS = ["Zibatá","Zakia","Juriquilla","El Refugio"];
+const ZONAS_EV = ZONAS.concat(["Ciudad de Querétaro","Tequisquiapan"]); // los eventos también cubren estas dos
 const DIAS_NUEVO = 28;
 const MIN_CLICS_FAVORITO = 20;
 const CATEGORIAS = [
@@ -439,7 +440,8 @@ async function sb(path, o = {}){
 async function cargarPublico(){
   try{
     const [n, ev, rs] = await Promise.all([
-      sb("/rest/v1/negocios?estado=eq.aprobado&select=id,nombre,categoria,tipo,zonas,descripcion,whatsapp,direccion,horario,horarios,entrega,redes,envio,promocionado,alta,clics,cupones,catalogo,fotos,sitio_web,origen,verificado&order=nombre", {auth:false}),
+      sb("/rest/v1/negocios?estado=eq.aprobado&select=id,nombre,categoria,tipo,zonas,descripcion,whatsapp,direccion,horario,horarios,entrega,redes,envio,promocionado,alta,clics,cupones,catalogo,fotos,sitio_web,origen,verificado,referencia&order=nombre", {auth:false})
+        .catch(() => sb("/rest/v1/negocios?estado=eq.aprobado&select=id,nombre,categoria,tipo,zonas,descripcion,whatsapp,direccion,horario,horarios,entrega,redes,envio,promocionado,alta,clics,cupones,catalogo,fotos,sitio_web,origen,verificado&order=nombre", {auth:false})),
       sb("/rest/v1/eventos?estado=eq.aprobado&select=id,titulo,tipo,zona,lugar,fecha,hora,precio,organizador,whatsapp,destacado,descripcion,fuente&order=fecha", {auth:false}).catch(() => sb("/rest/v1/eventos?estado=eq.aprobado&select=id,titulo,tipo,zona,lugar,fecha,hora,precio,organizador,whatsapp,destacado,descripcion&order=fecha", {auth:false})),
       sb("/rest/v1/resenas?estado=eq.aprobado&select=id,negocio_id,nombre,estrellas,texto,respuesta,created_at&order=created_at.desc", {auth:false}).catch(() => [])
     ]);
@@ -586,7 +588,7 @@ function pintarZona(){
   sel.innerHTML = '<option value="">Todas</option>' + zonasVisibles().map(z => `<option value="${z}"${estado.f.zona === z ? " selected" : ""}>${z}</option>`).join("");
 }
 function totalClics(b){ return (b.clics || 0) + (DATA.live ? 0 : (estado.clics[b.id] || 0)); }
-function esNuevo(b){ const d = (Date.now() - Date.parse(b.alta)) / 864e5; return d >= 0 && d <= DIAS_NUEVO; }
+function esNuevo(b){ if(b.referencia) return false; const d = (Date.now() - Date.parse(b.alta)) / 864e5; return d >= 0 && d <= DIAS_NUEVO; }
 function favoritos(){
   const top = {};
   for(const b of negocios()){ const c = totalClics(b); if(c >= MIN_CLICS_FAVORITO && (!top[b.categoria] || c > totalClics(top[b.categoria]))) top[b.categoria] = b; }
@@ -594,7 +596,8 @@ function favoritos(){
 }
 function badgesDe(b, fav, max){
   const l = [];
-  if(b.verificado) l.push('<span class="badge b-ver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Verificado</span>');
+  if(b.referencia) l.push('<span class="badge b-tipo">Lugar de referencia</span>');
+  else if(b.verificado) l.push('<span class="badge b-ver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Verificado</span>');
   else if(b.origen === "zonaqro") l.push('<span class="badge b-tipo">Agregado por ZonaQro</span>');
   if(b.promocionado) l.push('<span class="badge b-promo">Promocionado</span>');
   if(abiertoAhora(b)) l.push('<span class="badge b-open">Abierto ahora</span>');
@@ -606,7 +609,7 @@ function porZona(z){ return negocios().filter(b => b.zonas.includes(z)).length; 
 function cuponesZona(z){ return negocios().filter(b => b.zonas.includes(z)).reduce((s,b) => s + cupDe(b).length, 0); }
 function zonasVisibles(){ return ZONAS.filter(z => porZona(z) >= minFichas()); }
 function ordenar(lista, fav){
-  return lista.slice().sort((a,b) => (b.promocionado?1:0) - (a.promocionado?1:0) || (fav.has(b.id)?1:0) - (fav.has(a.id)?1:0) || totalClics(b) - totalClics(a));
+  return lista.slice().sort((a,b) => (a.referencia?1:0) - (b.referencia?1:0) || (b.promocionado?1:0) - (a.promocionado?1:0) || (fav.has(b.id)?1:0) - (fav.has(a.id)?1:0) || totalClics(b) - totalClics(a));
 }
 function toast(msg){ const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2400); }
 function waLink(b, texto){ return "https://wa.me/52" + b.whatsapp + "?text=" + encodeURIComponent(texto || ("Hola, vi " + b.nombre + " en ZonaQro.")); }
@@ -629,7 +632,7 @@ function tarjeta(b, fav){
     <div class="card-foot"><span class="meta">${esc(b.zonas.join(", "))}</span>
       <span class="acts">
         ${cup ? `<button type="button" class="badge b-cupon act" data-cupon="${esc(b.id)}" aria-label="Ver ${cup === 1 ? "el cupón" : "los " + cup + " cupones"} de ${esc(b.nombre)}">${cup} ${cup === 1 ? "cupón" : "cupones"}</button>` : ""}
-        <a class="btn sm wa act" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${esc(b.id)}" aria-label="Escribir por WhatsApp a ${esc(b.nombre)}">WhatsApp</a>
+        ${b.referencia ? `<a class="btn sm ghost act" href="#n-${esc(b.id)}">Ver lugar</a>` : `<a class="btn sm wa act" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${esc(b.id)}" aria-label="Escribir por WhatsApp a ${esc(b.nombre)}">WhatsApp</a>`}
       </span></div>
   </article>`;
 }
@@ -683,7 +686,7 @@ function vInicio(){
   </section>
 
   <section>
-    <div class="sec-head"><div><h2>Hecho por vecinos</h2><p class="muted">Emprendedores sin local que venden desde casa o en línea.</p></div><a href="#vecinos">Ver todos</a></div>
+    <div class="sec-head"><div><h2>Apoya el comercio local: hecho por tus vecinos</h2><p class="muted">Emprendedores sin local que venden desde casa o en línea.</p></div><a href="#vecinos">Ver todos</a></div>
     ${vecinos.length ? `<div class="grid">${vecinos.map(b => tarjeta(b, fav)).join("")}</div>` : vacio("Todavía no hay emprendedores en esta zona.")}
   </section>
 
@@ -772,7 +775,7 @@ function vNegocio(id){
   if(!b) return `<div class="empty">No encontramos este negocio. <a href="#directorio">Volver al directorio</a></div>`;
   const fav = favoritos();
   let info = "";
-  if(b.tipo === "local") info = `<dt>Dirección</dt><dd>${esc(b.direccion)}</dd><dt>Horario</dt><dd>${esc(horarioDe(b))}</dd><dt>Zona</dt><dd>${esc(b.zonas.join(", "))}</dd>`;
+  if(b.tipo === "local") info = `${b.direccion ? `<dt>Dirección</dt><dd>${esc(b.direccion)}</dd>` : ""}${horarioDe(b) ? `<dt>Horario</dt><dd>${esc(horarioDe(b))}</dd>` : ""}<dt>Zona</dt><dd>${esc(b.zonas.join(", "))}</dd>`;
   if(b.tipo === "domicilio") info = `<dt>Atiende en</dt><dd>${esc(b.zonas.join(", "))}</dd><dt>Horario</dt><dd>${esc(horarioDe(b) || "Consultar por WhatsApp")}</dd><dt>Modalidad</dt><dd>Va a tu casa</dd>`;
   if(b.tipo === "emprendimiento") info = `<dt>Entrega</dt><dd>${esc(b.entrega)}</dd><dt>Zonas</dt><dd>${esc(b.zonas.join(", "))}</dd>${b.redes ? `<dt>Redes</dt><dd>${esc(b.redes)}</dd>` : ""}`;
   if(/^https?:\/\//i.test(b.sitio_web || "")){ let host = b.sitio_web; try{ host = new URL(b.sitio_web).hostname.replace(/^www\./, ""); }catch(e){} info += `<dt>Sitio web</dt><dd><a href="${esc(b.sitio_web)}" target="_blank" rel="noopener nofollow" data-web="${esc(b.id)}">${esc(host)}</a></dd>`; }
@@ -796,14 +799,14 @@ function vNegocio(id){
     <div class="biz-grid">
       <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
         <div class="panel">${galeria}<p>${esc(b.descripcion)}</p><dl class="info">${info}</dl></div>
-        ${catalogo}${cupones}${panelOpiniones(b)}
+        ${catalogo}${cupones}${b.referencia ? "" : panelOpiniones(b)}
       </div>
       <aside class="panel">
-        <h3>Contacto directo</h3>
-        <a class="btn wa" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${b.id}">Escribir por WhatsApp</a>
+        <h3>${b.referencia ? "Sobre este lugar" : "Contacto directo"}</h3>
+        ${b.referencia ? "" : `<a class="btn wa" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${b.id}">Escribir por WhatsApp</a>`}
         <button type="button" class="btn ghost" data-compartir="n:${esc(b.id)}">Compartir este negocio</button>
-        <p class="muted" style="font-size:.85rem">Si no se abre WhatsApp, guarda el número:</p>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="phone">${telFmt(b.whatsapp)}</span><button class="btn sm ghost" data-copy="${b.whatsapp}">Copiar</button></div>
+        ${b.referencia ? "" : `<p class="muted" style="font-size:.85rem">Si no se abre WhatsApp, guarda el número:</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="phone">${telFmt(b.whatsapp)}</span><button class="btn sm ghost" data-copy="${b.whatsapp}">Copiar</button></div>`}
         ${estadoFicha(b)}
         ${b.tipo !== "local" ? '<p class="muted" style="font-size:.82rem">Por seguridad, ZonaQro no publica la dirección de negocios sin local.</p>' : ""}
       </aside>
@@ -816,6 +819,10 @@ function vNegocio(id){
 }
 
 function estadoFicha(b){
+  if(b.referencia){
+    const act = contactoHref("Hola 👋 Soy el dueño de " + b.nombre + " y quiero activar mi ficha gratis en ZonaQro.");
+    return `<div class="notice" style="font-size:.85rem;font-weight:500">Este lugar aparece como referencia para que conozcas qué hay en tu zona. Todavía no es parte de ZonaQro.${act ? ` <a href="${esc(act)}" target="_blank" rel="noopener">¿Es tu negocio? Activa tu ficha gratis</a>.` : ""}</div>`;
+  }
   const baja = contactoHref("Hola 👋 Quiero pedir un cambio o la baja de la ficha de " + b.nombre + " en ZonaQro.");
   if(b.verificado) return '<p class="muted" style="font-size:.82rem"><strong>Verificado:</strong> ZonaQro confirmó esta ficha con el dueño.</p>' + (baja ? `<p style="font-size:.82rem"><a href="${esc(baja)}" target="_blank" rel="noopener">Pedir un cambio</a></p>` : "");
   if(b.origen === "zonaqro"){
@@ -979,15 +986,16 @@ function vAdminLive(tab){
       <p class="meta">${esc(x.fecha)} · ${esc(x.hora)} · ${esc(x.lugar)} · ${esc(x.precio || "Por confirmar")}${x.organizador ? " · " + esc(x.organizador) : ""}</p>
       ${x.nota ? `<p class="meta">Nota: ${esc(x.nota)}</p>` : ""}
       ${/^https?:\/\//i.test(x.fuente || "") ? `<p class="meta">Fuente: <a href="${esc(x.fuente)}" target="_blank" rel="noopener nofollow">${esc(x.fuente)}</a></p>` : ""}
-      <div class="req-actions"><select id="sz-${esc(x.id)}" aria-label="Zona del evento" style="max-width:170px"><option value="">Zona…</option>${ZONAS.map(z => `<option${x.zona === z ? " selected" : ""}>${z}</option>`).join("")}</select>
+      <div class="req-actions"><select id="sz-${esc(x.id)}" aria-label="Zona del evento" style="max-width:170px"><option value="">Zona…</option>${ZONAS_EV.map(z => `<option${x.zona === z ? " selected" : ""}>${z}</option>`).join("")}</select>
         <button class="btn sm" data-sug="ap:${esc(x.id)}">Aprobar y publicar</button><button class="btn sm danger" data-sug="de:${esc(x.id)}">Descartar</button></div></div>`).join("") : '<div class="empty">No hay sugerencias nuevas por ahora. Cada semana se revisan fuentes públicas y aquí caen las que encuentre.</div>');
   if(tab === "publicados"){
     const nb = A.neg.filter(x => x.estado === "aprobado"), eb = A.ev.filter(x => x.estado === "aprobado");
-    cuerpo = `<h2 style="font-size:1.2rem">Negocios publicados (${nb.length})</h2>` + (nb.length ? `<div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zona</th><th>Origen</th><th>Promocionado</th><th></th></tr></thead><tbody>${nb.map(b => `<tr><td><a href="#n-${esc(b.id)}">${esc(b.nombre)}</a></td><td>${esc((b.zonas || []).join(", "))}</td><td>${b.verificado ? "Verificado" : b.origen === "zonaqro" ? "Agregado por ZonaQro" : "Registro del negocio"}</td><td>${b.promocionado ? "Sí" : "No"}</td><td style="display:flex;gap:6px;flex-wrap:wrap">${btn("verificar","negocios",b.id,!b.verificado,b.verificado ? "Quitar verificado" : "Marcar verificado","ghost")}${btn("promo","negocios",b.id,!b.promocionado,b.promocionado ? "Quitar promoción" : "Promocionar","ghost")}<a class="btn sm ghost" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), (b.origen === "zonaqro" ? "Ando armando ZonaQro, un directorio de los negocios de la zona 👋 Agregué " + b.nombre + " con datos que ya son públicos. Aquí lo puedes ver: " + location.origin + location.pathname + "#n-" + b.id + " Si quieres corregir algo o prefieres que lo quite, nada más dime. Y si me confirmas que es tuyo le pongo la palomita de verificado ✨ También puedo publicar una promo tuya: dime qué ofreces y hasta cuándo 😊" : "Hola 👋 Ya quedó publicado " + b.nombre + " en ZonaQro ✨ Aquí lo puedes ver: " + location.origin + location.pathname + "#n-" + b.id + " ¿Quieres publicar una promo para atraer clientes? Mándame qué ofreces y hasta cuándo 😊"))}">Avisar</a>${btn("ocultar","negocios",b.id,"","Ocultar","danger")}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">Aún no hay negocios publicados.</div>')
+    const nref = nb.filter(x => x.referencia).length;
+    cuerpo = (nref ? `<div class="notice" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between"><span>Hay <b>${nref}</b> lugares de referencia publicados. Cuando ya tengas negocios reales, quítalos todos de una vez.</span><button class="btn sm danger" data-ocultarref>Ocultar los ${nref} lugares de referencia</button></div>` : "") + `<h2 style="font-size:1.2rem">Negocios publicados (${nb.length})</h2>` + (nb.length ? `<div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zona</th><th>Origen</th><th>Promocionado</th><th></th></tr></thead><tbody>${nb.map(b => `<tr><td><a href="#n-${esc(b.id)}">${esc(b.nombre)}</a></td><td>${esc((b.zonas || []).join(", "))}</td><td>${b.referencia ? "Lugar de referencia" : b.verificado ? "Verificado" : b.origen === "zonaqro" ? "Agregado por ZonaQro" : "Registro del negocio"}</td><td>${b.promocionado ? "Sí" : "No"}</td><td style="display:flex;gap:6px;flex-wrap:wrap">${b.referencia ? "" : btn("verificar","negocios",b.id,!b.verificado,b.verificado ? "Quitar verificado" : "Marcar verificado","ghost")}${btn("promo","negocios",b.id,!b.promocionado,b.promocionado ? "Quitar promoción" : "Promocionar","ghost")}${b.referencia ? "" : `<a class="btn sm ghost" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), (b.origen === "zonaqro" ? "Ando armando ZonaQro, un directorio de los negocios de la zona 👋 Agregué " + b.nombre + " con datos que ya son públicos. Aquí lo puedes ver: " + location.origin + location.pathname + "#n-" + b.id + " Si quieres corregir algo o prefieres que lo quite, nada más dime. Y si me confirmas que es tuyo le pongo la palomita de verificado ✨ También puedo publicar una promo tuya: dime qué ofreces y hasta cuándo 😊" : "Hola 👋 Ya quedó publicado " + b.nombre + " en ZonaQro ✨ Aquí lo puedes ver: " + location.origin + location.pathname + "#n-" + b.id + " ¿Quieres publicar una promo para atraer clientes? Mándame qué ofreces y hasta cuándo 😊"))}">Avisar</a>`}${btn("ocultar","negocios",b.id,"","Ocultar","danger")}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">Aún no hay negocios publicados.</div>')
       + `<h2 style="font-size:1.2rem">Eventos publicados (${eb.length})</h2>` + (eb.length ? `<div class="tbl-wrap"><table><thead><tr><th>Evento</th><th>Fecha</th><th>Destacado</th><th></th></tr></thead><tbody>${eb.map(b => `<tr><td>${esc(b.titulo)}</td><td>${esc(b.fecha)}</td><td>${b.destacado ? "Sí" : "No"}</td><td style="display:flex;gap:6px">${btn("destacar","eventos",b.id,!b.destacado,b.destacado ? "Quitar destacado" : "Destacar","ghost")}${btn("ocultar","eventos",b.id,"","Ocultar","danger")}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">Aún no hay eventos publicados.</div>');
   }
   if(tab === "promos"){
-    const nb = A.neg.filter(x => x.estado === "aprobado");
+    const nb = A.neg.filter(x => x.estado === "aprobado" && !x.referencia);
     cuerpo = `<p class="muted" style="max-width:62ch">Agrega cupones y promociones a cada negocio. Si no pones código, se genera uno. Al llegar la fecha de vencimiento, la promo deja de verse sola.</p>` + (nb.length ? nb.map(b => { const cs = b.cupones || []; return `<div class="req"><h3>${esc(b.nombre)}</h3>
       ${cs.length ? cs.map((c, i) => `<p class="meta"><b>${esc(c.codigo)}</b> · ${esc(c.titulo)} · hasta ${esc(c.vigencia)}${c.vence && c.vence < hoyISO() ? " · <b>VENCIDA</b>" : ""} <button class="btn sm danger" data-promo="del:${esc(b.id)}:${i}">Quitar</button></p>`).join("") : '<p class="meta">Sin promociones.</p>'}
       <div style="display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-top:8px">
@@ -1008,7 +1016,7 @@ function vAdminLive(tab){
       cuerpo = `<p class="muted">Últimos 30 días. Conteos anónimos: no guardamos IP ni datos de las personas.</p>
         <div class="stats"><div class="stat"><b>${sum("visita").toLocaleString("es-MX")}</b><span>Visitas al sitio</span></div><div class="stat"><b>${sum("vista").toLocaleString("es-MX")}</b><span>Fichas vistas</span></div><div class="stat"><b>${sum("wa").toLocaleString("es-MX")}</b><span>Clics a WhatsApp</span></div><div class="stat"><b>${(sum("evento_wa") + sum("evento_link")).toLocaleString("es-MX")}</b><span>Clics en eventos</span></div></div>
         <p class="meta">Zonas más consultadas: ${top("zona")}</p><p class="meta">Categorías más consultadas: ${top("cat")}</p><p class="meta">Veces compartido: ${sum("compartir")}</p>
-        <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th class="num">Vistas</th><th class="num">WhatsApp</th><th class="num">Web</th><th class="num">Promos</th><th></th></tr></thead><tbody>${filas.length ? filas.map(x => `<tr><td>${esc(x.b.nombre)}</td><td class="num">${x.v}</td><td class="num">${x.w}</td><td class="num">${x.web}</td><td class="num">${x.c}</td><td>${x.v || x.w ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(x.b.whatsapp), rep(x))}">Enviar reporte</a>` : ""}</td></tr>`).join("") : '<tr><td colspan="6">Todavía no hay negocios publicados.</td></tr>'}</tbody></table></div>`;
+        <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th class="num">Vistas</th><th class="num">WhatsApp</th><th class="num">Web</th><th class="num">Promos</th><th></th></tr></thead><tbody>${filas.length ? filas.map(x => `<tr><td>${esc(x.b.nombre)}</td><td class="num">${x.v}</td><td class="num">${x.w}</td><td class="num">${x.web}</td><td class="num">${x.c}</td><td>${(x.v || x.w) && !x.b.referencia && x.b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(x.b.whatsapp), rep(x))}">Enviar reporte</a>` : ""}</td></tr>`).join("") : '<tr><td colspan="6">Todavía no hay negocios publicados.</td></tr>'}</tbody></table></div>`;
     }
   }
   if(tab === "zonas") cuerpo = `<div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Negocios</th><th class="num">Meta</th><th>En el filtro</th></tr></thead><tbody>${ZONAS.map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= minFichas() ? "Visible" : "Oculta (menos de " + minFichas() + ")"}</td></tr>`).join("")}</tbody></table></div>`;
@@ -1143,22 +1151,23 @@ function eventoCard(e){
 }
 function vEventos(){
   const f = estado.f;
-  const lista = eventos().filter(e => (!f.zona || e.zona === f.zona) && (!f.ev || e.tipo === f.ev))
+  const zev = f.zev !== undefined ? f.zev : f.zona;
+  const lista = eventos().filter(e => (!zev || e.zona === zev) && (!f.ev || e.tipo === f.ev))
     .sort((a,b) => (b.destacado?1:0) - (a.destacado?1:0) || a.fecha.localeCompare(b.fecha));
   return `<section>
     <div><p class="eyebrow">Agenda</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Qué hacer en tu zona</h1>
-    <p class="muted" style="margin-top:8px;max-width:60ch">Bazares, conciertos, ferias y clases cerca de ti. ¿Organizas uno? Publícalo gratis.</p></div>
+    <p class="muted" style="margin-top:8px;max-width:60ch">Bazares, conciertos, ferias y clases en tu zona, en la Ciudad de Querétaro y en Tequisquiapan.</p></div>
     <div class="filters">
       <div class="chips scrollrow" role="group" aria-label="Zona">
-        <button class="chip" data-fz="" aria-pressed="${!f.zona}">Todas las zonas</button>
-        ${ZONAS.map(z => `<button class="chip" data-fz="${z}" aria-pressed="${f.zona === z}">${z}</button>`).join("")}
+        <button class="chip" data-fzev="" aria-pressed="${!zev}">Todas las zonas</button>
+        ${ZONAS_EV.map(z => `<button class="chip" data-fzev="${z}" aria-pressed="${zev === z}">${z}</button>`).join("")}
       </div>
       <div class="chips scrollrow" role="group" aria-label="Tipo de evento">
         <button class="chip" data-fev="" aria-pressed="${!f.ev}">Todos</button>
         ${Object.entries(TIPOS_EV).map(([k,n]) => `<button class="chip" data-fev="${k}" aria-pressed="${f.ev === k}">${n}</button>`).join("")}
       </div>
     </div>
-    <div class="sec-head"><p class="count">${lista.length} ${lista.length === 1 ? "evento próximo" : "eventos próximos"}</p><a class="btn sm" href="#publicar-evento">Publica tu evento gratis</a></div>
+    <div class="sec-head"><p class="count">${lista.length} ${lista.length === 1 ? "evento próximo" : "eventos próximos"}</p><a class="btn sm" href="#publicar-evento">¿Organizas un bazar o clase? Publícalo gratis</a></div>
     ${lista.length ? `<div class="evlist">${lista.map(eventoCard).join("")}</div>` : '<div class="empty">No hay eventos con esos filtros. Prueba otra zona o publica el tuyo.</div>'}
   </section>`;
 }
@@ -1166,12 +1175,12 @@ function vRegEvento(enviado){
   if(enviado) return `<section style="max-width:680px"><div class="notice">Recibimos tu evento. Lo revisamos y te avisamos por WhatsApp cuando esté publicado.</div><a class="btn ghost" href="#eventos">Ver la agenda</a></section>`;
   return `<section>
     <div><p class="eyebrow">Gratis</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Publica tu evento</h1>
-    <p class="muted" style="margin-top:8px;max-width:60ch">Conciertos, bazares, ferias, clases abiertas o actividades de comunidad en Zibatá, Zakia, Juriquilla o El Refugio.</p></div>
+    <p class="muted" style="margin-top:8px;max-width:60ch">Conciertos, bazares, ferias, clases abiertas o actividades de comunidad en Zibatá, Zakia, Juriquilla, El Refugio, la Ciudad de Querétaro o Tequisquiapan.</p></div>
     <form class="reg" id="fEv" novalidate>
       <label class="fld" for="e-titulo">Nombre del evento<input id="e-titulo" type="text" required></label>
       <div class="two">
         <label class="fld" for="e-tipo">Tipo<select id="e-tipo">${Object.entries(TIPOS_EV).map(([k,n]) => `<option value="${k}">${n}</option>`).join("")}</select></label>
-        <label class="fld" for="e-zona">Zona<select id="e-zona">${ZONAS.map(z => `<option>${z}</option>`).join("")}</select></label>
+        <label class="fld" for="e-zona">Zona<select id="e-zona">${ZONAS_EV.map(z => `<option>${z}</option>`).join("")}</select></label>
       </div>
       <label class="fld" for="e-lugar">Lugar y referencia<input id="e-lugar" type="text" placeholder="Plaza o parque, y una referencia para llegar"></label>
       <div class="two">
@@ -1254,6 +1263,14 @@ document.addEventListener("submit", async e => {
 });
 document.addEventListener("click", async e => {
   if(e.target.closest("[data-salir]")){ SB.token = null; try{ sessionStorage.removeItem("zq_tok"); }catch(err){} estado.admin = {neg:[], ev:[], res:[], cargado:false, error:""}; render(); return; }
+  const orf = e.target.closest("[data-ocultarref]");
+  if(orf){
+    if(!orf.dataset.listo){ orf.dataset.listo = "1"; orf.textContent = "Toca otra vez para confirmar"; setTimeout(() => { if(orf.isConnected){ delete orf.dataset.listo; orf.textContent = "Ocultar los lugares de referencia"; } }, 5000); return; }
+    orf.disabled = true;
+    try{ const r = await sb("/rest/v1/negocios?referencia=eq.true&estado=eq.aprobado", {method:"PATCH", body:{estado:"oculto"}, prefer:"return=representation"}); toast((r ? r.length : 0) + " lugares ocultados"); await cargarAdmin(); cargarPublico(); }
+    catch(err){ toast("No se pudo: " + err.message); orf.disabled = false; }
+    return;
+  }
   const pm = e.target.closest("[data-promo]");
   if(pm){
     const [ac, pid, ix] = pm.dataset.promo.split(":"); const n = estado.admin.neg.find(x => x.id === pid); if(!n) return;
@@ -1343,7 +1360,7 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0,0); })
 
 /* ===== Eventos ===== */
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-verqr],[data-wa],[data-web],[data-evwa],[data-evlink],[data-compartir],[data-copy],[data-aprobar],[data-rechazar],[data-atab]");
+  const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-fzev],[data-verqr],[data-wa],[data-web],[data-evwa],[data-evlink],[data-compartir],[data-copy],[data-aprobar],[data-rechazar],[data-atab]");
   if(!t) return;
   if(t.dataset.compartir){
     const [k, id, cod] = t.dataset.compartir.split(":");
@@ -1357,7 +1374,8 @@ document.addEventListener("click", e => {
   if(t.dataset.evlink !== undefined){ metrica("evento_link", t.dataset.evlink); return; }
   if(t.dataset.zona !== undefined && t.matches("a")){ metrica("zona", t.dataset.zona); e.preventDefault(); estado.f = {q:"", zona:t.dataset.zona, cat:"", tipo:""}; guardar("zq_zona", t.dataset.zona); irA("#directorio"); }
   else if(t.dataset.cat !== undefined && t.matches("a")){ metrica("cat", t.dataset.cat); e.preventDefault(); estado.f = {q:"", zona:estado.f.zona, cat:t.dataset.cat, tipo:""}; irA("#directorio"); }
-  else if(t.dataset.fz !== undefined){ if(t.dataset.fz) metrica("zona", t.dataset.fz); estado.f.zona = t.dataset.fz; guardar("zq_zona", estado.f.zona); render(); }
+  else if(t.dataset.fzev !== undefined){ estado.f.zev = t.dataset.fzev; if(t.dataset.fzev) metrica("zona", t.dataset.fzev); render(); }
+  else if(t.dataset.fz !== undefined){ estado.f.zev = undefined; if(t.dataset.fz) metrica("zona", t.dataset.fz); estado.f.zona = t.dataset.fz; guardar("zq_zona", estado.f.zona); render(); }
   else if(t.dataset.verqr){
     const box = t.parentElement.querySelector(".qr");
     if(box.hidden){
