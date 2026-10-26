@@ -661,7 +661,7 @@ function vInicio(){
     </div>
     ${sinNada ? `<div class="zones-board" aria-label="Estamos armando ZonaQro"><p class="eyebrow">Muy pronto</p><p style="margin:6px 0 12px">Estamos sumando los primeros negocios de tu zona. ¿Tienes uno? Sé de los primeros en aparecer, gratis.</p><a class="btn sm" href="#registrar">Registra tu negocio</a> <a class="btn sm ghost" href="#publicar-evento">Publica un evento</a></div>` : `<div class="zones-board" aria-label="Zonas">
       <p class="eyebrow">Explora por zona</p>
-      ${zonasVisibles().map(z => `<a class="zone-row" href="#directorio" data-zona="${z}"><strong>${z}</strong><span class="zinfo"><span>${porZona(z)} negocios</span>${cuponesZona(z) ? `<span class="badge b-cupon">${cuponesZona(z)} ${cuponesZona(z) === 1 ? "cupón" : "cupones"}</span>` : ""}</span></a>`).join("")}
+      ${zonasVisibles().map(z => `<a class="zone-row" href="#directorio" data-zona="${z}"><strong>${z}</strong><span class="zinfo"><span>${porZona(z)} ${porZona(z) === 1 ? "lugar" : "lugares"}</span>${cuponesZona(z) ? `<span class="badge b-cupon">${cuponesZona(z)} ${cuponesZona(z) === 1 ? "cupón" : "cupones"}</span>` : ""}</span></a>`).join("")}
     </div>`}
   </section>
 
