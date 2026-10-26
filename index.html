@@ -1,7 +1,6 @@
 <title>ZonaQro</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Directorio de negocios, servicios y cupones en Zibatá, Zakia, Juriquilla y El Refugio, Querétaro.">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta property="og:type" content="website">
@@ -65,8 +64,9 @@ header.top{position:sticky;top:env(safe-area-inset-top, 0px);z-index:9;backgroun
 header.top .wrap{display:flex;align-items:center;gap:16px;padding-block:12px;flex-wrap:wrap}
 .logo{display:flex;align-items:center;gap:2px;text-decoration:none;font-family:var(--f-display);font-weight:800;font-size:1.45rem;letter-spacing:-.02em}
 .logo b{color:var(--agave)}
-.logo .li{width:1.5em;height:1.5em;margin-right:5px;flex:none}
-.logo .li .a{fill:var(--agave)}.logo .li .b{fill:var(--bg-card,#fff)}
+.logo .li{height:1.7em;width:auto;margin-right:6px;flex:none}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .logo .li{filter:brightness(1.9) saturate(.9)}}
+:root[data-theme="dark"] .logo .li{filter:brightness(1.9) saturate(.9)}
 nav.main{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
 nav.main a{text-decoration:none;padding:7px 12px;border-radius:999px;font-weight:600;font-size:.92rem;color:var(--muted)}
 nav.main a:hover{color:var(--ink);background:var(--soft-agave)}
@@ -304,7 +304,7 @@ footer a{color:var(--muted)}
 
 <div class="demo" id="demoBar"><div class="wrap">Versión de prueba: todos los negocios, teléfonos y cupones son ejemplos.</div></div>
 <header class="top"><div class="wrap">
-  <a class="logo" href="#inicio" aria-label="ZonaQro, inicio"><svg class="li" viewBox="0 0 64 64" aria-hidden="true"><path class="a" d="M32 2C17.6 2 6 13.4 6 27.5 6 40 18 52 32 62 46 52 58 40 58 27.5 58 13.4 46.4 2 32 2Z"/><path fill="#fff" fill-rule="evenodd" d="M15 18h34v24H15Zm4 24V29a4 4 0 0 1 8 0v13Zm9 0V29a4 4 0 0 1 8 0v13Zm9 0V29a4 4 0 0 1 8 0v13Z"/></svg>Zona<b>Qro</b></a>
+  <a class="logo" href="#inicio" aria-label="ZonaQro, inicio"><img class="li" src="icon-128.png" alt="" width="26" height="30">Zona<b>Qro</b></a>
   <label class="zsel"><span class="sr">Mi zona</span><select id="miZona" aria-label="Mi zona"></select></label>
   <nav class="main" aria-label="Principal">
     <a href="#directorio" data-nav="directorio">Directorio</a>
