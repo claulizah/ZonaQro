@@ -406,7 +406,8 @@ const SB_URL = "https://ymywxdwqiuisbqvtcxht.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlteXd4ZHdxaXVpc2JxdnRjeGh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwMTQ4NTIsImV4cCI6MjEwODU5MDg1Mn0.TNpoNIHOY3rkYZeDtIMZJn5JkP3jGR0LbXZ98xH_CmQ"; // llave pública (anon): es segura en el navegador; la seguridad está en las políticas RLS
 const SB = {ok:false, token:null};
 const DATA = {live:false, negocios:[], eventos:[], resenas:[]};
-const minFichas = () => DATA.live ? 15 : 3; // en la demo se baja para ver las cuatro zonas
+const PROD = /(^|\.)zonaqro\.com$|\.github\.io$/.test(location.hostname); // en el sitio real nunca se muestran ejemplos
+const minFichas = () => DATA.live ? 3 : 3; // una zona aparece en el filtro con 3 negocios o más
 try{ SB.token = sessionStorage.getItem("zq_tok"); }catch(e){}
 async function sb(path, o = {}){
   const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), o.timeout || 8000);
@@ -429,9 +430,9 @@ async function cargarPublico(){
       sb("/rest/v1/resenas?estado=eq.aprobado&select=id,negocio_id,nombre,estrellas,texto,respuesta,created_at&order=created_at.desc", {auth:false}).catch(() => [])
     ]);
     SB.ok = true;
-    DATA.live = n.length > 0; // sin negocios reales publicados se muestra la demo
+    DATA.live = PROD || n.length > 0; // en el sitio real solo se muestran datos reales, aunque aún no haya ninguno
     DATA.negocios = n; DATA.eventos = ev; DATA.resenas = rs;
-  }catch(err){ SB.ok = false; DATA.live = false; }
+  }catch(err){ SB.ok = false; DATA.live = PROD; }
   const bar = document.getElementById("demoBar"); if(bar) bar.hidden = DATA.live;
   render();
 }
@@ -621,7 +622,10 @@ function tarjeta(b, fav){
 /* ===== Vistas ===== */
 function vInicio(){
   const fav = favoritos();
-  const destacados = ordenar(negocios().filter(b => (b.promocionado || fav.has(b.id)) && enZona(b)), fav).slice(0,6);
+  const promos = ordenar(negocios().filter(b => (b.promocionado || fav.has(b.id)) && enZona(b)), fav).slice(0,6);
+  const destacados = promos.length ? promos : ordenar(negocios().filter(enZona), fav).slice(0,6);
+  const sinRecom = !promos.length;
+  const sinNada = DATA.live && negocios().length === 0;
   const vecinos = negocios().filter(b => b.tipo === "emprendimiento" && enZona(b)).slice(0,3);
   const cupones = negocios().filter(enZona).flatMap(b => (b.cupones || []).map(c => ({b, c}))).slice(0,4);
   const proxEv = eventos().filter(e => !estado.f.zona || e.zona === estado.f.zona).slice(0,3);
@@ -637,10 +641,10 @@ function vInicio(){
         <button class="btn" type="submit">Buscar</button>
       </form>
     </div>
-    <div class="zones-board" aria-label="Zonas">
+    ${sinNada ? `<div class="zones-board" aria-label="Estamos armando ZonaQro"><p class="eyebrow">Muy pronto</p><p style="margin:6px 0 12px">Estamos sumando los primeros negocios de tu zona. ¿Tienes uno? Sé de los primeros en aparecer, gratis.</p><a class="btn sm" href="#registrar">Registra tu negocio</a> <a class="btn sm ghost" href="#publicar-evento">Publica un evento</a></div>` : `<div class="zones-board" aria-label="Zonas">
       <p class="eyebrow">Explora por zona</p>
       ${zonasVisibles().map(z => `<a class="zone-row" href="#directorio" data-zona="${z}"><strong>${z}</strong><span class="zinfo"><span>${porZona(z)} negocios</span>${cuponesZona(z) ? `<span class="badge b-cupon">${cuponesZona(z)} ${cuponesZona(z) === 1 ? "cupón" : "cupones"}</span>` : ""}</span></a>`).join("")}
-    </div>
+    </div>`}
   </section>
 
   <section>
@@ -649,8 +653,8 @@ function vInicio(){
   </section>
 
   <section>
-    <div class="sec-head"><h2>Recomendados en la zona</h2><a href="#directorio">Ver todo el directorio</a></div>
-    ${destacados.length ? `<div class="grid">${destacados.map(b => tarjeta(b, fav)).join("")}</div>` : vacio("Aún no hay recomendados en esta zona. <a href=\"#registrar\">Registra el primer negocio</a>.")}
+    <div class="sec-head"><h2>${sinRecom ? "Negocios de la zona" : "Recomendados en la zona"}</h2><a href="#directorio">Ver todo el directorio</a></div>
+    ${destacados.length ? `<div class="grid">${destacados.map(b => tarjeta(b, fav)).join("")}</div>` : vacio("Aún no hay negocios en esta zona. <a href=\"#registrar\">Registra el primero</a>.")}
   </section>
 
   <section>
@@ -711,7 +715,7 @@ function vDirectorio(soloVecinos){
       </div>`}
     </div>
     <p class="count">${lista.length} ${lista.length === 1 ? "resultado" : "resultados"}${hf ? " · solo negocios que registraron su horario" : ""}</p>
-    ${lista.length ? `<div class="grid">${lista.map(b => tarjeta(b, fav)).join("")}</div>` : `<div class="empty">No encontramos negocios con esos filtros. Prueba con otra zona o categoría.</div>`}
+    ${lista.length ? `<div class="grid">${lista.map(b => tarjeta(b, fav)).join("")}</div>` : `<div class="empty">${DATA.live && negocios().length === 0 ? "Estamos sumando los primeros negocios de la zona. ¿Tienes uno? <a href=\"#registrar\">Regístralo gratis</a>." : "No encontramos negocios con esos filtros. Prueba con otra zona o categoría."}</div>`}
     ${soloVecinos ? `<div class="banner"><p><strong>¿Vendes desde casa?</strong> Convierte tu menú de WhatsApp en una tienda en línea profesional en 48 horas con nuestro aliado mimx.</p><a class="btn" href="https://mimx.store" target="_blank" rel="noopener">Conocer mimx</a></div>` : ""}
   </section>`;
 }
