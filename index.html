@@ -427,7 +427,9 @@ function enviar(tabla, fila, local, vista, box){
   const btn = document.querySelector("form.reg button[type=submit]");
   if(!SB.ok){ local(); app.innerHTML = vista(true); window.scrollTo(0,0); return; }
   if(btn) btn.disabled = true;
-  sb("/rest/v1/" + tabla, {method:"POST", body:Object.assign({}, fila, {estado:"pendiente"}), prefer:"return=minimal", auth:false})
+  const post = f => sb("/rest/v1/" + tabla, {method:"POST", body:Object.assign({}, f, {estado:"pendiente"}), prefer:"return=minimal", auth:false});
+  post(fila)
+    .catch(err => { if(fila.fuente && /fuente/i.test(err.message)){ const f = Object.assign({}, fila); delete f.fuente; return post(f); } throw err; })
     .then(() => { app.innerHTML = vista(true); window.scrollTo(0,0); })
     .catch(() => { box.hidden = false; box.textContent = "No pudimos enviar tu solicitud. Revisa tu conexión e intenta de nuevo."; if(btn) btn.disabled = false; });
 }
@@ -936,6 +938,7 @@ function vAdminLive(tab){
       ${s.mimx ? '<div class="badges"><span class="badge b-promo">Interesado en página mimx</span></div>' : ""}
       <p class="muted">${esc(s.descripcion) || "Sin descripción"}</p>
       <p class="meta">${esc(s.fecha)} · ${esc(s.hora)} · ${esc(s.lugar)} · ${esc(s.precio)} · WhatsApp ${telFmt(esc(s.whatsapp))}</p>
+      ${/^https?:\/\//i.test(s.fuente || "") ? `<p class="meta">Enlace: <a href="${esc(s.fuente)}" target="_blank" rel="noopener nofollow">${esc(s.fuente)}</a></p>` : ""}
       <div class="req-actions">${btn("aprobar","eventos",s.id,"","Aprobar y publicar")}${btn("rechazar","eventos",s.id,"","Rechazar","danger")}</div></div>`).join("") : '<div class="empty">No hay eventos pendientes.</div>';
   if(tab === "sugeridos") cuerpo = `<p class="muted" style="max-width:62ch">Eventos que se encontraron solos en fuentes públicas. Nada se publica hasta que tú lo apruebes. Si el evento es de fuera de tus 4 zonas, mejor descártalo.</p>` + (sug.length ? sug.map(x => `<div class="req">
       <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(x.titulo)}</h3><span class="meta">${esc(TIPOS_EV[x.tipo] || x.tipo)}</span></div>
@@ -1124,6 +1127,7 @@ function vRegEvento(enviado){
         <label class="fld" for="e-org">Quién lo organiza<input id="e-org" type="text"></label>
       </div>
       <label class="fld" for="e-wa">WhatsApp de contacto (10 dígitos)<input id="e-wa" type="tel" inputmode="numeric" maxlength="10" placeholder="4421234567"></label>
+      <label class="fld" for="e-web">Página o enlace del evento <small>(opcional: boletos, Instagram, Facebook o sitio web)</small><input id="e-web" type="url" inputmode="url" autocomplete="url" maxlength="200" placeholder="https://"></label>
       <label class="fld" for="e-desc">Descripción<textarea id="e-desc" maxlength="280" placeholder="Qué habrá, para quién es y qué hay que llevar."></textarea></label>
       <label class="opt"><input type="checkbox" id="e-mimx"><span>Quiero tener mi propia página para vender boletos o promocionar mis eventos. <small>Opcional: mimx te contacta por WhatsApp.</small></span></label>
       <label class="opt"><input type="checkbox" id="e-ok"><span>Acepto el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>
@@ -1141,10 +1145,14 @@ function enviarEvento(){
   else if(v("e-fecha") < hoyISO()) err.push("la fecha ya pasó");
   if(!v("e-hora")) err.push("indica el horario");
   if(!/^\d{10}$/.test(v("e-wa"))) err.push("el WhatsApp debe tener 10 dígitos");
+  let web = v("e-web");
+  if(web && !/^https?:\/\//i.test(web)) web = "https://" + web;
+  if(web && !/^https?:\/\/[^\s.]+\.[^\s]+$/i.test(web)) err.push("revisa el enlace del evento");
+  if(web.length > 200) err.push("el enlace es muy largo");
   if(!document.getElementById("e-ok").checked) err.push("acepta el aviso de privacidad");
   const box = document.getElementById("e-err");
   if(err.length){ box.hidden = false; box.textContent = "Para enviar: " + err.join(", ") + "."; return; }
-  const filaEv = ({id:"ev-" + Date.now().toString(36), titulo:v("e-titulo"), tipo:v("e-tipo"), zona:v("e-zona"), lugar:v("e-lugar"), fecha:v("e-fecha"), hora:v("e-hora"), precio:v("e-precio") || "Por confirmar", organizador:v("e-org") || "Vecinos de la zona", whatsapp:v("e-wa"), descripcion:v("e-desc"), mimx:document.getElementById("e-mimx").checked});
+  const filaEv = ({id:"ev-" + Date.now().toString(36), titulo:v("e-titulo"), tipo:v("e-tipo"), zona:v("e-zona"), lugar:v("e-lugar"), fecha:v("e-fecha"), hora:v("e-hora"), precio:v("e-precio") || "Por confirmar", organizador:v("e-org") || "Vecinos de la zona", whatsapp:v("e-wa"), descripcion:v("e-desc"), fuente:web, mimx:document.getElementById("e-mimx").checked});
   enviar("eventos", filaEv, () => { estado.evSolicitudes.push(filaEv); guardar("zq_ev_solicitudes", estado.evSolicitudes); }, vRegEvento, box);
 }
 document.addEventListener("click", e => {
