@@ -264,6 +264,9 @@ dl.info dd{margin:0;min-width:0}
 .prod .swatch{aspect-ratio:4/3;max-width:100%;border-radius:8px;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;color:#fff;font-size:1.2rem}
 .prod strong{font-size:.92rem}
 .price{font-variant-numeric:tabular-nums;font-weight:700;color:var(--agave)}
+.reclu{margin:4px 0 14px}
+.reclu .btn.ghost{background:var(--surface)}
+@media (max-width:640px){.reclu>div:last-child{width:100%}.reclu>div:last-child .btn{flex:1}}
 .mimx{background:var(--soft-agave);border-radius:var(--r);padding:18px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
 .back{font-weight:600;color:var(--agave);text-decoration:none;font-size:.92rem}
 
@@ -709,6 +712,13 @@ function tarjeta(b, fav){
 }
 
 /* ===== Vistas ===== */
+function bannerReclutar(){
+  return `<aside class="mimx reclu" aria-label="Registra tu negocio">
+    <div><h2 style="font-size:1.15rem">¿Tienes un negocio, servicio o emprendimiento en la zona?</h2><p class="muted">Regístrate gratis y que tus vecinos te escriban directo por WhatsApp.</p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="#registrar">Regístrate gratis</a><a class="btn ghost" href="#negocios">Más información</a></div>
+  </aside>`;
+}
+
 function vInicio(){
   const fav = favoritos();
   const promos = ordenar(negocios().filter(b => (b.promocionado || fav.has(b.id)) && enZona(b)), fav).slice(0,6);
@@ -735,6 +745,8 @@ function vInicio(){
       ${zonasVisibles().map(z => `<a class="zone-row" href="#directorio" data-zona="${z}"><strong>${z}</strong><span class="zinfo"><span>${porZona(z)} ${porZona(z) === 1 ? "lugar" : "lugares"}</span>${cuponesZona(z) ? `<span class="badge b-cupon">${cuponesZona(z)} ${cuponesZona(z) === 1 ? "cupón" : "cupones"}</span>` : ""}</span></a>`).join("")}
     </div>`}
   </section>
+
+  ${bannerReclutar()}
 
   <section>
     <div class="sec-head"><h2>Categorías</h2></div>
@@ -785,6 +797,7 @@ function vDirectorio(soloVecinos){
   <section>
     <div><p class="eyebrow">${soloVecinos ? "Emprendedores" : "Directorio"}</p>
     <h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">${soloVecinos ? "Apoya el comercio local: hecho por tus vecinos" : "Encuentra negocios y servicios"}</h1>
+    ${bannerReclutar()}
     ${soloVecinos ? '<p class="muted" style="margin-top:8px;max-width:60ch">Playeras, repostería, accesorios, mesas de dulces para fiestas y más. Pide directo por WhatsApp.</p>' : ""}</div>
     <div class="filters">
       <div class="chips scrollrow" role="group" aria-label="Zona">
