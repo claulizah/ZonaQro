@@ -461,6 +461,14 @@ function metrica(tipo, ref){
   try{ sb("/rest/v1/rpc/registrar_evento", {method:"POST", body:{p_tipo:tipo, p_ref:String(ref || "").slice(0, 60)}, auth:false, keepalive:true}).catch(() => {}); }catch(e){}
 }
 function unaVez(k){ try{ if(sessionStorage.getItem("zq_m_" + k)) return false; sessionStorage.setItem("zq_m_" + k, "1"); }catch(e){} return true; }
+/* Origen de la visita: ?o=tarjeta, ?o=halloween, ?o=fb-grupo… Solo una etiqueta corta, sin datos personales. Se queda la primera de la sesión. */
+const ORIGEN = (() => {
+  let o = "";
+  try{ o = (new URLSearchParams(location.search).get("o") || "").toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 24); }catch(e){}
+  try{ if(o) sessionStorage.getItem("zq_o") || sessionStorage.setItem("zq_o", o); o = sessionStorage.getItem("zq_o") || o; }catch(e){}
+  return o;
+})();
+const refOrigen = () => ORIGEN ? "o:" + ORIGEN : "";
 if(PROD && CF_TOKEN){ const sc = document.createElement("script"); sc.defer = true; sc.src = "https://static.cloudflareinsights.com/beacon.min.js"; sc.setAttribute("data-cf-beacon", JSON.stringify({token:CF_TOKEN})); document.head.appendChild(sc); }
 async function compartir(texto, url){
   try{ if(navigator.share){ await navigator.share({text:texto, url}); return; } }catch(err){ if(err && err.name === "AbortError") return; }
@@ -501,7 +509,7 @@ function enviar(tabla, fila, local, vista, box){
   const post = f => sb("/rest/v1/" + tabla, {method:"POST", body:Object.assign({}, f, {estado:"pendiente"}), prefer:"return=minimal", auth:false});
   post(fila)
     .catch(err => { if(fila.fuente && /fuente/i.test(err.message)){ const f = Object.assign({}, fila); delete f.fuente; return post(f); } throw err; })
-    .then(() => { metrica(tabla === "negocios" ? "registro_envio" : tabla === "eventos" ? "evento_envio" : "otro_envio", ""); app.innerHTML = vista(true); window.scrollTo(0,0); })
+    .then(() => { metrica(tabla === "negocios" ? "registro_envio" : tabla === "eventos" ? "evento_envio" : "otro_envio", refOrigen()); app.innerHTML = vista(true); window.scrollTo(0,0); })
     .catch(() => { box.hidden = false; box.textContent = "No pudimos enviar tu solicitud. Revisa tu conexión e intenta de nuevo."; if(btn) btn.disabled = false; });
 }
 /* ===== Métricas: gráfica por día y embudo de registro ===== */
@@ -1102,12 +1110,13 @@ function vAdminLive(tab){
     else {
       const sum = (tipo, ref) => M.filter(m => m.tipo === tipo && (ref === undefined || m.ref === ref)).reduce((a, m) => a + m.n, 0);
       const top = tipo => { const o = {}; M.filter(m => m.tipo === tipo).forEach(m => { o[m.ref] = (o[m.ref] || 0) + m.n; }); return Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `${esc(tipo === "cat" ? catNombre(k) : k)} (${v})`).join(", ") || "—"; };
+      const porOrigen = tipo => { const o = {}; M.filter(m => m.tipo === tipo).forEach(m => { const k = m.ref.startsWith("o:") ? m.ref.slice(2) : "directo / sin etiqueta"; o[k] = (o[k] || 0) + m.n; }); return Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} (${v})`).join(", ") || "—"; };
       const filas = A.neg.filter(x => x.estado === "aprobado").map(b => ({b, v:sum("vista", b.id), w:sum("wa", b.id), web:sum("web", b.id), c:sum("cupon", b.id), sh:M.filter(m => m.tipo === "compartir" && m.ref.split(":")[1] === b.id).reduce((a, m) => a + m.n, 0)})).sort((a, b) => b.v - a.v);
       const rep = x => "Hola 👋 Te cuento cómo te fue este último mes en ZonaQro: tu ficha tuvo " + x.v + " " + (x.v === 1 ? "vista" : "vistas") + " y " + x.w + " " + (x.w === 1 ? "persona te escribió" : "personas te escribieron") + " por WhatsApp" + (x.web ? ", " + x.web + " " + (x.web === 1 ? "entró" : "entraron") + " a tu página o redes" : "") + (x.c ? ", y vieron tus promos " + x.c + " " + (x.c === 1 ? "vez" : "veces") : "") + " ✨ Si quieres que te ayude a publicar una promo o a salir más arriba, dime 😊";
       cuerpo = `<p class="muted">Últimos 30 días. Conteos anónimos: no guardamos IP ni datos de las personas.</p>
         <div class="stats"><div class="stat"><b>${sum("visita").toLocaleString("es-MX")}</b><span>Visitas al sitio</span></div><div class="stat"><b>${sum("vista").toLocaleString("es-MX")}</b><span>Fichas vistas</span></div><div class="stat"><b>${sum("wa").toLocaleString("es-MX")}</b><span>Clics a WhatsApp</span></div><div class="stat"><b>${(sum("evento_wa") + sum("evento_link")).toLocaleString("es-MX")}</b><span>Clics en eventos</span></div></div>
         ${graficaDias(M)}${embudo(M)}
-        <p class="meta">Zonas más consultadas: ${top("zona")}</p><p class="meta">Categorías más consultadas: ${top("cat")}</p><p class="meta">Veces compartido: ${sum("compartir")}</p>
+        <p class="meta">Cómo llegaron (visitas): ${porOrigen("visita")}</p><p class="meta">Registros enviados por origen: ${porOrigen("registro_envio")}</p><p class="meta">Zonas más consultadas: ${top("zona")}</p><p class="meta">Categorías más consultadas: ${top("cat")}</p><p class="meta">Veces compartido: ${sum("compartir")}</p>
         <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th class="num">Vistas</th><th class="num">WhatsApp</th><th class="num">Web</th><th class="num">Promos</th><th></th></tr></thead><tbody>${filas.length ? filas.map(x => `<tr><td>${esc(x.b.nombre)}</td><td class="num">${x.v}</td><td class="num">${x.w}</td><td class="num">${x.web}</td><td class="num">${x.c}</td><td>${(x.v || x.w) && !x.b.referencia && x.b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(x.b.whatsapp), rep(x))}">Enviar reporte</a>` : ""}</td></tr>`).join("") : '<tr><td colspan="6">Todavía no hay negocios publicados.</td></tr>'}</tbody></table></div>`;
     }
   }
@@ -1508,7 +1517,7 @@ function render(){
   else if(h === "negocios") html = vParaNegocios();
   else { html = vInicio(); nav = "inicio"; }
   app.innerHTML = html;
-  if(h !== "admin" && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", "sitio"); if(h.startsWith("n-") && unaVez("v" + h)) metrica("vista", h.slice(2)); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
+  if(h !== "admin" && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", refOrigen() || "sitio"); if(h.startsWith("n-") && unaVez("v" + h)) metrica("vista", h.slice(2)); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
   if(h === "admin" && SB.ok && SB.token && !estado.admin.cargado && !estado.admin.cargando){ estado.admin.cargando = true; cargarAdmin().finally(() => { estado.admin.cargando = false; }); }
   document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   pintarZona();
