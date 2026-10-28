@@ -238,3 +238,15 @@ begin
 end $$;
 revoke all on function public.registrar_evento(text, text) from public;
 grant execute on function public.registrar_evento(text, text) to anon, authenticated;
+
+-- 15) Nueva categoría: Servicios profesionales (marketing, diseño, contabilidad, consultoría)
+do $$ declare r record; begin
+  for r in select conname from pg_constraint
+           where conrelid = 'public.negocios'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%gastronomia%'
+  loop execute format('alter table public.negocios drop constraint %I', r.conname); end loop;
+end $$;
+alter table public.negocios add constraint negocios_categoria_check
+  check (categoria in ('gastronomia','hogar','salud','belleza','mascotas','educacion','autos','tienda','fiestas','profesional'));
+
+-- Reasignar a quien ya se registró en otra categoría (ajusta el nombre si hace falta):
+-- update public.negocios set categoria = 'profesional' where nombre ilike '%caffeine%';
