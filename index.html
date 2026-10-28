@@ -290,6 +290,14 @@ th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);whit
 th{font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 tr:last-child td{border-bottom:0}
+.edit-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:grid;gap:10px}
+.edit-card[data-dirty="1"]{border-color:var(--agave);box-shadow:0 0 0 2px var(--soft-agave)}
+.edit-grid{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.edit-zonas{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:.9rem;align-items:center}
+.edit-zonas label{display:flex;gap:6px;align-items:center}
+.faq details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.faq summary{font-weight:700;cursor:pointer}
+.faq details p{margin-top:8px;color:var(--ink-soft)}
 .req{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:8px}
 .req-actions{display:flex;gap:8px;flex-wrap:wrap}
 .btn.danger{background:transparent;color:var(--danger);border:1.5px solid var(--danger)}
@@ -359,7 +367,8 @@ footer a{color:var(--muted)}
 
 <footer><div class="wrap">
   <span>ZonaQro · Zibatá, Zakia, Juriquilla y El Refugio, Querétaro</span>
-  <span class="flinks"><a href="#negocios">Para negocios</a><a href="#terminos">Términos de uso</a><a href="#privacidad">Aviso de privacidad</a></span>
+  <span class="flinks"><a href="#ayuda">Preguntas frecuentes</a><a href="#recomendar">Recomienda un negocio</a><a href="#negocios">Para negocios</a><a href="#terminos">Términos de uso</a><a href="#privacidad">Aviso de privacidad</a></span>
+  <span class="flinks" id="fContacto"></span>
 </div></footer>
 <div class="toast" id="toast" role="status" hidden></div>
 <nav class="tabbar" aria-label="Navegación principal"><a href="#inicio" data-nav="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Inicio</span></a><a href="#directorio" data-nav="directorio"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></svg><span>Directorio</span></a><a href="#eventos" data-nav="eventos"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Eventos</span></a><a href="#cupones" data-nav="cupones"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/></svg><span>Promos</span></a><a href="#vecinos" data-nav="vecinos"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6M17 5a3.5 3.5 0 0 1 0 7M21.5 20c0-2.5-1.5-4.5-3.5-5.5"/></svg><span>Vecinos</span></a></nav>
@@ -561,8 +570,15 @@ const RESP = {
   nombre: "Claudia Acosta",
   domicilio: "Querétaro, Querétaro, México",
   wa: "5582330752",      // WhatsApp público de ZonaQro, 10 dígitos (para verificar, corregir o dar de baja)
-  correo: "contacto@zonaqro.com"   // correo público de ZonaQro
+  correo: "contacto@zonaqro.com",   // correo público de ZonaQro
+  fb: "https://www.facebook.com/ZonaQroOf"   // página de Facebook (déjalo "" para ocultarla)
 };
+function pintarContacto(){
+  const el = document.getElementById("fContacto"); if(!el) return;
+  const wa = RESP.wa ? `<a href="${contactoHref("Hola, tengo una duda sobre ZonaQro")}" target="_blank" rel="noopener">Escríbenos por WhatsApp</a>` : "";
+  const fb = RESP.fb ? `<a href="${esc(RESP.fb)}" target="_blank" rel="noopener">Facebook</a>` : "";
+  el.innerHTML = wa + fb;
+}
 function contactoHref(texto){
   if(RESP.wa) return "https://wa.me/52" + RESP.wa + "?text=" + encodeURIComponent(texto);
   if(RESP.correo) return "mailto:" + RESP.correo + "?subject=" + encodeURIComponent("ZonaQro") + "&body=" + encodeURIComponent(texto);
@@ -741,7 +757,9 @@ function vInicio(){
   const sinNada = DATA.live && negocios().length === 0;
   const vecinos = negocios().filter(b => b.tipo === "emprendimiento" && enZona(b)).slice(0,3);
   const cupones = negocios().filter(enZona).flatMap(b => cupDe(b).map(c => ({b, c}))).slice(0,4);
-  const proxEv = eventos().filter(e => !estado.f.zona || e.zona === estado.f.zona).slice(0,3);
+  let proxEv = eventos().filter(e => !estado.f.zona || e.zona === estado.f.zona).slice(0,3);
+  const evCerca = !proxEv.length && !!estado.f.zona;
+  if(evCerca) proxEv = eventos().slice(0,3);
   const vacio = t => `<div class="empty">${t}</div>`;
   return `
   <section class="hero">
@@ -774,7 +792,7 @@ function vInicio(){
   </section>
 
   ${proxEv.length ? `<section>
-    <div class="sec-head"><h2>Próximos eventos</h2><a href="#eventos">Ver la agenda</a></div>
+    <div class="sec-head"><div><h2>Próximos eventos</h2>${evCerca ? `<p class="muted">Aún no hay en ${esc(estado.f.zona)}; mira estos cerca de ti.</p>` : ""}</div><a href="#eventos">Ver la agenda</a></div>
     <div class="ev-mini">${proxEv.map(eventoCard).join("")}</div>
   </section>` : ""}
 
@@ -832,7 +850,7 @@ function vDirectorio(soloVecinos){
       </div>`}
     </div>
     <p class="count">${lista.length} ${lista.length === 1 ? "resultado" : "resultados"}${hf ? " · solo negocios que registraron su horario" : ""}</p>
-    ${lista.length ? `<div class="grid">${lista.map(b => tarjeta(b, fav)).join("")}</div>` : `<div class="empty">${DATA.live && negocios().length === 0 ? "Estamos sumando los primeros negocios de la zona. ¿Tienes uno? <a href=\"#registrar\">Regístralo gratis</a>." : "No encontramos negocios con esos filtros. Prueba con otra zona o categoría."}</div>`}
+    ${lista.length ? `<div class="grid">${lista.map(b => tarjeta(b, fav)).join("")}</div>` : `<div class="empty">${DATA.live && negocios().length === 0 ? "Estamos sumando los primeros negocios de la zona. ¿Tienes uno? <a href=\"#registrar\">Regístralo gratis</a>." : (f.zona ? `Aún no hay negocios con esos filtros en ${esc(f.zona)}. Mira también las otras zonas cercanas. <button type="button" class="btn sm" data-fz="">Ver todas las zonas</button>` : "No encontramos negocios con esos filtros. Prueba con otra categoría.")}</div>`}
     ${soloVecinos ? `<div class="banner"><p><strong>¿Vendes desde casa?</strong> Convierte tu menú de WhatsApp en una tienda en línea profesional en 48 horas con nuestro aliado mimx.</p><a class="btn" href="https://mimx.store" target="_blank" rel="noopener">Conocer mimx</a></div>` : ""}
   </section>`;
 }
@@ -870,7 +888,7 @@ function vCupones(){
       <button class="chip" data-fz="" aria-pressed="${!f.zona}">Todas las zonas</button>
       ${zonasVisibles().map(z => `<button class="chip" data-fz="${z}" aria-pressed="${f.zona === z}">${z}</button>`).join("")}
     </div>
-    ${items.length ? `<div class="tickets">${items.map(({b,c}) => boleto(b,c)).join("")}</div>` : '<div class="empty">Todavía no hay cupones ni promociones en esta zona.</div>'}
+    ${items.length ? `<div class="tickets">${items.map(({b,c}) => boleto(b,c)).join("")}</div>` : `<div class="empty">Aún no hay cupones en ${f.zona ? esc(f.zona) : "esta zona"}. ${f.zona ? 'Mira también las otras zonas cercanas. <button type="button" class="btn sm" data-fz="">Ver todas las zonas</button>' : ""}</div>`}
   </section>`;
 }
 
@@ -1017,6 +1035,125 @@ function vRegistrar(enviado, adm){
   </section>`;
 }
 
+/* ===== Admin: editar muchas fichas a la vez ===== */
+const PRESETS = {lv:["Lun a vie", DK.slice(0,5)], ls:["Lun a sáb", DK.slice(0,6)], ld:["Todos los días", DK], mad:["Mar a dom", DK.slice(1)], vd:["Vie a dom", DK.slice(4)], sd:["Sáb y dom", DK.slice(5)]};
+function presetDe(b){
+  const h = horariosDe(b); if(!h) return {p:"", a:"", c:"", mixto:""};
+  const ds = Object.keys(h), t0 = h[ds[0]];
+  if(ds.every(d => h[d][0] === t0[0] && h[d][1] === t0[1])) for(const [k, [, dias]] of Object.entries(PRESETS)) if(dias.length === ds.length && dias.every(d => h[d])) return {p:k, a:t0[0], c:t0[1], mixto:""};
+  return {p:"", a:"", c:"", mixto:horarioTexto(h)};
+}
+function tituloNombre(s){
+  const peq = ["de","del","la","las","el","los","y","e","en","a","con","para","por"];
+  return s.toLowerCase().split(/(\s+)/).map((w, i) => /^\s*$/.test(w) ? w : (i > 0 && peq.includes(w)) ? w : w.charAt(0).toUpperCase() + w.slice(1)).join("");
+}
+function faltasDe(b){
+  const f = [];
+  if(!horariosDe(b) && !b.horario) f.push("horario");
+  if(!fotosDe(b).length) f.push("foto");
+  if((b.descripcion || "").length < 30) f.push("desc");
+  if(/[A-ZÁÉÍÓÚÑ]{3}/.test(b.nombre) && b.nombre === b.nombre.toUpperCase()) f.push("mayus");
+  return f;
+}
+const FALTA_TXT = {horario:"Sin horario", foto:"Sin foto", desc:"Descripción corta", mayus:"Nombre en mayúsculas"};
+function adminEditar(A){
+  const lista = A.neg.filter(b => b.estado === "aprobado" && !b.referencia).sort((a, b) => faltasDe(b).length - faltasDe(a).length || a.nombre.localeCompare(b.nombre));
+  if(!lista.length) return '<div class="empty">Aún no hay negocios publicados para editar.</div>';
+  const cuenta = k => lista.filter(b => faltasDe(b).includes(k)).length;
+  const card = b => {
+    const p = presetDe(b), fl = faltasDe(b);
+    const pedir = fl.filter(k => k !== "mayus").map(k => ({horario:"tu horario", foto:"una foto (de tu local, tu trabajo o tu logo)", desc:"una descripción corta de lo que ofreces"}[k]));
+    const msg = "Hola 👋 Ando completando las fichas de ZonaQro y la de " + b.nombre + " ya casi queda lista ✨ Nada más me faltaría: " + pedir.join(", ") + ". ¿Me los mandas por aquí? Así sales más completo cuando la gente busque 😊";
+    return `<div class="edit-card" data-eid="${esc(b.id)}" data-flags="${fl.join(" ")}" data-nom="${esc(b.nombre.toLowerCase())}">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><strong>${esc(b.nombre)}</strong><div class="badges">${fl.map(k => `<span class="badge b-promo">${FALTA_TXT[k]}</span>`).join("")}</div></div>
+      <div class="edit-grid">
+        <label class="fld">Nombre<input data-f="nombre" maxlength="80" value="${esc(b.nombre)}"></label>
+        <label class="fld">Categoría<select data-f="categoria">${CATEGORIAS.map(c => `<option value="${c.id}"${b.categoria === c.id ? " selected" : ""}>${c.nombre}</option>`).join("")}</select></label>
+        <label class="fld">Tipo<select data-f="tipo">${Object.entries(TIPOS).map(([k, t]) => `<option value="${k}"${b.tipo === k ? " selected" : ""}>${t.nombre}</option>`).join("")}</select></label>
+        <label class="fld">WhatsApp (10 dígitos)<input data-f="whatsapp" inputmode="numeric" maxlength="10" value="${esc(b.whatsapp)}"></label>
+        <label class="fld">Dirección<input data-f="direccion" maxlength="160" value="${esc(b.direccion)}"></label>
+      </div>
+      <label class="fld">Descripción<textarea data-f="descripcion" maxlength="300">${esc(b.descripcion)}</textarea></label>
+      <div class="edit-zonas"><b>Zonas:</b>${ZONAS.map(z => `<label><input type="checkbox" data-z="${z}"${(b.zonas || []).includes(z) ? " checked" : ""}> ${z}</label>`).join("")}</div>
+      <div class="edit-grid">
+        <label class="fld">Días<select data-f="preset"><option value="">${p.mixto ? "Sin cambios (" + esc(p.mixto) + ")" : "Sin horario por días"}</option>${Object.entries(PRESETS).map(([k, [n]]) => `<option value="${k}"${p.p === k ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+        <label class="fld">Abre<input type="time" data-f="abre" value="${esc(p.a)}"></label>
+        <label class="fld">Cierra<input type="time" data-f="cierra" value="${esc(p.c)}"></label>
+        <label class="fld">Horario en texto (si no usas días)<input data-f="horario" maxlength="160" value="${esc(b.horario)}"></label>
+      </div>
+      <div class="req-actions"><button class="btn sm" data-ed="guardar:${esc(b.id)}">Guardar</button>
+        <a class="btn sm ghost" href="#n-${esc(b.id)}" target="_blank">Ver ficha</a>
+        ${pedir.length && b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), msg)}">Pedir lo que falta</a>` : ""}
+        <span class="meta">Fotos: ${fotosDe(b).length}</span></div></div>`;
+  };
+  return `<p class="muted" style="max-width:66ch">Corrige varias fichas y guarda todo de una vez. Arriba salen las que tienen más pendientes. Las fotos las subes con el negocio desde "Agregar negocio" o las pides con el botón de WhatsApp.</p>
+    <div class="chips scrollrow" role="group" aria-label="Filtrar fichas">
+      <button class="chip" data-edf="" aria-pressed="true">Todas <small>${lista.length}</small></button>
+      <button class="chip" data-edf="horario" aria-pressed="false">Sin horario <small>${cuenta("horario")}</small></button>
+      <button class="chip" data-edf="foto" aria-pressed="false">Sin foto <small>${cuenta("foto")}</small></button>
+      <button class="chip" data-edf="desc" aria-pressed="false">Descripción corta <small>${cuenta("desc")}</small></button>
+      <button class="chip" data-edf="mayus" aria-pressed="false">Mayúsculas <small>${cuenta("mayus")}</small></button>
+      <button class="chip" data-edf="dirty" aria-pressed="false">Con cambios <small id="edN">0</small></button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input type="search" id="edQ" placeholder="Buscar por nombre…" aria-label="Buscar por nombre" style="max-width:240px">
+      ${cuenta("mayus") ? '<button class="btn sm ghost" data-ed="titulo">Poner nombres en formato título</button>' : ""}
+      <button class="btn sm" data-ed="todo">Guardar todos los cambios</button>
+    </div>
+    ${lista.map(card).join("")}
+    <div><button class="btn" data-ed="todo">Guardar todos los cambios</button></div>`;
+}
+function leerCardEd(c){
+  const g = f => ((c.querySelector('[data-f="' + f + '"]') || {}).value || "");
+  const nombre = g("nombre").trim();
+  if(nombre.length < 2) throw new Error("El nombre es muy corto");
+  let wa = g("whatsapp").replace(/\D/g, ""); if(wa.length === 12 && wa.startsWith("52")) wa = wa.slice(2);
+  if(!/^\d{10}$/.test(wa)) throw new Error("WhatsApp de " + nombre + " debe tener 10 dígitos");
+  const zonas = [...c.querySelectorAll("[data-z]")].filter(x => x.checked).map(x => x.dataset.z);
+  if(!zonas.length) throw new Error("Elige al menos una zona en " + nombre);
+  const cambios = {nombre, categoria:g("categoria"), tipo:g("tipo"), zonas, whatsapp:wa, direccion:g("direccion").trim().slice(0, 160), descripcion:g("descripcion").trim().slice(0, 300), horario:g("horario").trim().slice(0, 160)};
+  const p = g("preset");
+  if(p){
+    const a = g("abre"), ci = g("cierra");
+    if(!a || !ci) throw new Error("Falta la hora de apertura o cierre en " + nombre);
+    cambios.horarios = hs(PRESETS[p][1], a, ci);
+  }
+  return cambios;
+}
+async function guardarFichas(ids){
+  const A = estado.admin; let ok = 0; const errs = [];
+  for(const id of ids){
+    const c = document.querySelector('.edit-card[data-eid="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]'); if(!c) continue;
+    try{
+      const cambios = leerCardEd(c);
+      const r = await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:cambios, prefer:"return=representation"});
+      if(!r || !r.length) throw new Error("no se aplicó el cambio en " + cambios.nombre + " (¿entraste como administradora?)");
+      c.removeAttribute("data-dirty"); ok++;
+    }catch(err){ errs.push(err.message); }
+  }
+  const n = document.getElementById("edN"); if(n) n.textContent = document.querySelectorAll('.edit-card[data-dirty="1"]').length;
+  if(errs.length){ toast("Guardadas " + ok + ". Revisa: " + errs[0] + (errs.length > 1 ? " (+" + (errs.length - 1) + " más)" : "")); await cargarAdmin(); return; }
+  toast(ok ? "Guardadas " + ok + " fichas" : "No había cambios"); await cargarAdmin(); cargarPublico();
+}
+document.addEventListener("input", e => {
+  const c = e.target.closest && e.target.closest(".edit-card");
+  if(c){ c.dataset.dirty = "1"; const n = document.getElementById("edN"); if(n) n.textContent = document.querySelectorAll('.edit-card[data-dirty="1"]').length; }
+  if(e.target.id === "edQ"){ const q = e.target.value.trim().toLowerCase(); document.querySelectorAll(".edit-card").forEach(k => { k.hidden = !!q && !k.dataset.nom.includes(q); }); }
+});
+document.addEventListener("click", e => {
+  const f = e.target.closest("[data-edf]");
+  if(f){
+    document.querySelectorAll("[data-edf]").forEach(x => x.setAttribute("aria-pressed", x === f ? "true" : "false"));
+    const k = f.dataset.edf;
+    document.querySelectorAll(".edit-card").forEach(c => { c.hidden = k === "" ? false : k === "dirty" ? c.dataset.dirty !== "1" : !c.dataset.flags.split(" ").includes(k); });
+    return;
+  }
+  const t = e.target.closest("[data-ed]"); if(!t) return;
+  const [acc, id] = t.dataset.ed.split(":");
+  if(acc === "guardar"){ t.disabled = true; guardarFichas([id]).finally(() => { t.disabled = false; }); }
+  if(acc === "todo"){ const ids = [...document.querySelectorAll('.edit-card[data-dirty="1"]')].map(c => c.dataset.eid); if(!ids.length){ toast("No hay cambios por guardar"); return; } t.disabled = true; guardarFichas(ids).finally(() => { t.disabled = false; }); }
+  if(acc === "titulo"){ document.querySelectorAll('.edit-card[data-flags~="mayus"]').forEach(c => { const i = c.querySelector('[data-f="nombre"]'); i.value = tituloNombre(i.value); c.dataset.dirty = "1"; }); const n = document.getElementById("edN"); if(n) n.textContent = document.querySelectorAll('.edit-card[data-dirty="1"]').length; toast("Revisa los nombres y guarda"); }
+});
 function vAdminLive(tab){
   if(!SB.token) return `<section style="max-width:420px">
     <div><p class="eyebrow">Solo para ti</p><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1></div>
@@ -1028,7 +1165,7 @@ function vAdminLive(tab){
     </form></section>`;
   const A = estado.admin;
   if(!A.cargado) return `<section><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1><p class="muted">Cargando…</p></section>`;
-  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","rechazados","prospectos","agregar","metricas","zonas"].includes(tab) ? tab : "solicitudes";
+  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","rechazados","prospectos","agregar","metricas","zonas"].includes(tab) ? tab : "solicitudes";
   const RS = A.res || [];
   const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente"), pr = RS.filter(x => x.estado === "pendiente");
   const descartados = (() => { try{ return JSON.parse(localStorage.getItem("zq_desc") || "[]"); }catch(e){ return []; } })();
@@ -1058,6 +1195,7 @@ function vAdminLive(tab){
         <input id="mnota-${esc(s.id)}" type="text" maxlength="80" placeholder="Nota (opcional)" aria-label="Nota del rechazo" style="max-width:200px">
         ${btn("rechazar","negocios",s.id,"","Rechazar","danger")}</div></div>`).join("") : '<div class="empty">No hay solicitudes de negocios pendientes.</div>';
   if(tab === "agregar") cuerpo = vRegistrar(false, true);
+  if(tab === "editar") cuerpo = adminEditar(A);
   if(tab === "rechazados"){
     const rj = A.neg.filter(x => x.estado === "rechazado");
     cuerpo = rj.length ? rj.map(s => `<div class="req"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(s.nombre)}</h3><span class="meta">WhatsApp ${telFmt(esc(s.whatsapp))}</span></div>
@@ -1150,6 +1288,7 @@ function vAdminLive(tab){
       <button class="chip" data-atab="promos" aria-pressed="${tab==="promos"}">Promos</button>
       <button class="chip" data-atab="opiniones" aria-pressed="${tab==="opiniones"}">Opiniones <small>${pr.length}</small></button>
       <button class="chip" data-atab="publicados" aria-pressed="${tab==="publicados"}">Publicados</button>
+      <button class="chip" data-atab="editar" aria-pressed="${tab==="editar"}">Editar fichas</button>
       <button class="chip" data-atab="rechazados" aria-pressed="${tab==="rechazados"}">Rechazados</button>
       <button class="chip" data-atab="prospectos" aria-pressed="${tab==="prospectos"}">Prospectos mimx <small>${prospSi.length}</small></button>
       <button class="chip" data-atab="agregar" aria-pressed="${tab==="agregar"}">Agregar negocio</button>
@@ -1214,6 +1353,35 @@ function vAdmin(tab){
   </section>`;
 }
 
+function vAyuda(){
+  const q = [
+    ["¿Quién revisa los negocios?", "El equipo de ZonaQro. Antes de publicar una ficha le escribimos por WhatsApp al negocio para confirmar que existe y que los datos son suyos. Los que ya fueron confirmados llevan la palomita de verificado."],
+    ["¿Cuesta algo usar ZonaQro?", "Para los vecinos es gratis. Buscas, escribes directo por WhatsApp al negocio y listo, sin intermediarios y sin comisiones. Registrar un negocio también es gratis."],
+    ["¿Quién está detrás de ZonaQro?", "Es un proyecto independiente hecho por vecinos de la zona, sin relación con ninguna administración de fraccionamiento. La idea es que todos tengamos a dónde acudir cuando necesitamos un servicio."],
+    ["¿Qué hago si tuve un mal servicio?", "Puedes dejar tu opinión en la ficha del negocio; la revisamos antes de publicarla. Si es algo serio o un dato falso, escríbenos por WhatsApp y lo atendemos."],
+    ["¿Por qué no veo el negocio que busco?", "Seguimos sumando negocios cada semana. Si conoces uno de confianza, recomiéndalo y le escribimos para invitarlo."],
+    ["¿Guardan mis datos?", "Solo contamos visitas de forma anónima. No pedimos cuenta para buscar ni guardamos tu teléfono. Más detalle en el aviso de privacidad."]
+  ];
+  return `<section class="faq" style="max-width:720px">
+    <div><p class="eyebrow">Ayuda</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Preguntas frecuentes</h1></div>
+    ${q.map(([a, b]) => `<details><summary>${a}</summary><p>${b}</p></details>`).join("")}
+    <p class="muted">¿Otra duda? ${RESP.wa ? `<a href="${contactoHref("Hola, tengo una duda sobre ZonaQro")}" target="_blank" rel="noopener">Escríbenos por WhatsApp</a>.` : "Escríbenos."} <a href="#recomendar">Recomienda un negocio</a>.</p>
+  </section>`;
+}
+function vRecomendar(){
+  return `<section style="max-width:560px">
+    <div><p class="eyebrow">Entre vecinos</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Recomienda un negocio</h1>
+    <p class="muted" style="margin-top:8px">¿Conoces un negocio o servicio de confianza en la zona? Cuéntanos y le escribimos para invitarlo a sumarse, gratis.</p></div>
+    <form class="reg" id="fRec" novalidate>
+      <label class="fld" for="rc-n">Nombre del negocio o servicio<input id="rc-n" type="text" maxlength="80" autocomplete="off"></label>
+      <label class="fld" for="rc-t">Su WhatsApp o teléfono (si lo tienes)<input id="rc-t" type="tel" inputmode="tel" maxlength="20"></label>
+      <label class="fld" for="rc-z">Zona<select id="rc-z"><option value="">Elige…</option>${ZONAS.map(z => `<option>${z}</option>`).join("")}</select></label>
+      <label class="fld" for="rc-d">¿Qué hace y por qué lo recomiendas? (opcional)<textarea id="rc-d" maxlength="200"></textarea></label>
+      <div id="rc-err" class="notice err" hidden></div>
+      <div><button class="btn" type="submit">Enviar recomendación</button></div>
+      <p class="muted" style="font-size:.85rem">Se abre WhatsApp con tu mensaje listo para enviarlo a ZonaQro. No compartimos tus datos con el negocio.</p>
+    </form></section>`;
+}
 function vParaNegocios(){
   const hola = contactoHref("Hola 👋 Tengo un negocio en mi zona y quiero saber cómo aparecer en ZonaQro.");
   const paso = (n, t, d) => `<div class="panel"><p class="eyebrow">Paso ${n}</p><h3>${t}</h3><p class="muted">${d}</p></div>`;
@@ -1347,7 +1515,7 @@ function vEventos(){
       </div>
     </div>
     <div class="sec-head"><p class="count">${lista.length} ${lista.length === 1 ? "evento próximo" : "eventos próximos"}</p><a class="btn sm" href="#publicar-evento">¿Organizas un bazar o clase? Publícalo gratis</a></div>
-    ${lista.length ? `<div class="evlist">${lista.map(eventoCard).join("")}</div>` : '<div class="empty">No hay eventos con esos filtros. Prueba otra zona o publica el tuyo.</div>'}
+    ${lista.length ? `<div class="evlist">${lista.map(eventoCard).join("")}</div>` : `<div class="empty">${zev ? `Aún no hay eventos con esos filtros en ${esc(zev)}. Mira también las otras zonas cercanas. <button type="button" class="btn sm" data-fzev="">Ver todas las zonas</button>` : "No hay eventos con esos filtros. Prueba con otro tipo o publica el tuyo."}</div>`}
   </section>`;
 }
 function vRegEvento(enviado){
@@ -1524,6 +1692,8 @@ function render(){
   else if(h === "publicar-evento") html = vRegEvento(false);
   else if(h === "registrar") html = vRegistrar(false);
   else if(h === "admin") html = vAdmin(adminTab);
+  else if(h === "ayuda") html = vAyuda();
+  else if(h === "recomendar") html = vRecomendar();
   else if(h === "privacidad") html = vPrivacidad();
   else if(h === "terminos") html = vTerminos();
   else if(h === "negocios") html = vParaNegocios();
@@ -1532,7 +1702,7 @@ function render(){
   if(h !== "admin" && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", refOrigen() || "sitio"); if(h.startsWith("n-") && unaVez("v" + h)) metrica("vista", h.slice(2)); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
   if(h === "admin" && SB.ok && SB.token && !estado.admin.cargado && !estado.admin.cargando){ estado.admin.cargando = true; cargarAdmin().finally(() => { estado.admin.cargando = false; }); }
   document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
-  pintarZona();
+  pintarZona(); pintarContacto();
   try{ document.querySelectorAll('.chips.scrollrow .chip[aria-pressed="true"]').forEach(c => c.scrollIntoView({block:"nearest", inline:"center"})); }catch(err){}
   if(h === "registrar" || (h === "admin" && document.getElementById("fReg"))) prepararRegistro();
   else if(FOTOS.length){ FOTOS.forEach(f => URL.revokeObjectURL(f.url)); FOTOS = []; }
@@ -1595,6 +1765,16 @@ document.addEventListener("click", e => {
 document.addEventListener("submit", e => {
   if(e.target.id === "fBuscar"){ e.preventDefault(); estado.f = {q:document.getElementById("q").value, zona:estado.f.zona, cat:"", tipo:""}; irA("#directorio"); }
   if(e.target.id === "fReg"){ e.preventDefault(); enviarRegistro(); }
+  if(e.target.id === "fRec"){
+    e.preventDefault();
+    const v = id => (document.getElementById(id).value || "").trim(), er = document.getElementById("rc-err");
+    const n = v("rc-n"), t = v("rc-t"), z = v("rc-z"), d = v("rc-d");
+    const href = contactoHref("Hola 👋 Les recomiendo un negocio para ZonaQro:\nNegocio: " + n + (t ? "\nContacto: " + t : "") + (z ? "\nZona: " + z : "") + (d ? "\n" + d : ""));
+    if(n.length < 2){ er.textContent = "Escribe el nombre del negocio."; er.hidden = false; return; }
+    if(!z){ er.textContent = "Elige la zona."; er.hidden = false; return; }
+    if(!href){ er.textContent = "Por ahora no hay un medio de contacto configurado."; er.hidden = false; return; }
+    er.hidden = true; window.open(href, "_blank", "noopener"); toast("Gracias por recomendar 🙌");
+  }
 });
 
 function formIniciado(e){
