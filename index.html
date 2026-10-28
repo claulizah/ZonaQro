@@ -370,7 +370,7 @@ footer a{color:var(--muted)}
 /* ===== Configuración ===== */
 const ZONAS = ["Zibatá","Zakia","Juriquilla","El Refugio"];
 const ZONAS_EV = ZONAS.concat(["Ciudad de Querétaro","Tequisquiapan"]); // los eventos también cubren estas dos
-const DIAS_NUEVO = 28;
+const DIAS_NUEVO = 14;
 const MIN_CLICS_FAVORITO = 20;
 const CATEGORIAS = [
   {id:"gastronomia", nombre:"Gastronomía", sub:"Restaurantes, cafés, comida a domicilio"},
@@ -690,6 +690,12 @@ function badgesDe(b, fav, max){
 function porZona(z){ return negocios().filter(b => b.zonas.includes(z)).length; }
 function cuponesZona(z){ return negocios().filter(b => b.zonas.includes(z)).reduce((s,b) => s + cupDe(b).length, 0); }
 function zonasVisibles(){ return ZONAS.filter(z => porZona(z) >= minFichas()); }
+/* Para mostrar: cuenta solo negocios reales (con WhatsApp); los lugares de referencia no se presumen como negocios */
+function realesZona(z){ return negocios().filter(b => !b.referencia && b.zonas.includes(z)).length; }
+function textoZona(z){ const r = realesZona(z); return r ? r + (r === 1 ? " negocio" : " negocios") : porZona(z) + (porZona(z) === 1 ? " lugar" : " lugares"); }
+/* Igual que las zonas: una categoría aparece en el menú cuando tiene 3 negocios o más (el registro siempre muestra todas) */
+function porCat(c){ return negocios().filter(b => b.categoria === c).length; }
+function catsVisibles(sel){ return CATEGORIAS.filter(c => porCat(c.id) >= minFichas() || c.id === sel); }
 function ordenar(lista, fav){
   return lista.slice().sort((a,b) => (a.referencia?1:0) - (b.referencia?1:0) || (b.promocionado?1:0) - (a.promocionado?1:0) || (fav.has(b.id)?1:0) - (fav.has(a.id)?1:0) || totalClics(b) - totalClics(a));
 }
@@ -744,13 +750,13 @@ function vInicio(){
       <h1>Encuentra negocios, servicios y promos en tu misma zona.</h1>
       <p class="lead">Plomeros, comida a domicilio y emprendedores de Zibatá, Zakia, Juriquilla y El Refugio. Escríbeles directo por WhatsApp, sin intermediarios.</p>
       <form class="search" id="fBuscar" role="search">
-        <input id="q" type="search" placeholder="¿Qué necesitas hoy? Ej. plomero, pasteles, sushi…" aria-label="Buscar negocios">
+        <input id="q" type="search" placeholder="Ej. plomero, pasteles…" aria-label="¿Qué necesitas hoy? Buscar negocios">
         <button class="btn" type="submit">Buscar</button>
       </form>
     </div>
     ${sinNada ? `<div class="zones-board" aria-label="Estamos armando ZonaQro"><p class="eyebrow">Muy pronto</p><p style="margin:6px 0 12px">Estamos sumando los primeros negocios de tu zona. ¿Tienes uno? Sé de los primeros en aparecer, gratis.</p><a class="btn sm" href="#registrar">Registra tu negocio</a> <a class="btn sm ghost" href="#publicar-evento">Publica un evento</a></div>` : `<div class="zones-board" aria-label="Zonas">
       <p class="eyebrow">Explora por zona</p>
-      ${zonasVisibles().map(z => `<a class="zone-row" href="#directorio" data-zona="${z}"><strong>${z}</strong><span class="zinfo"><span>${porZona(z)} ${porZona(z) === 1 ? "lugar" : "lugares"}</span>${cuponesZona(z) ? `<span class="badge b-cupon">${cuponesZona(z)} ${cuponesZona(z) === 1 ? "cupón" : "cupones"}</span>` : ""}</span></a>`).join("")}
+      ${zonasVisibles().map(z => `<a class="zone-row" href="#directorio" data-zona="${z}"><strong>${z}</strong><span class="zinfo"><span>${textoZona(z)}</span>${cuponesZona(z) ? `<span class="badge b-cupon">${cuponesZona(z)} ${cuponesZona(z) === 1 ? "cupón" : "cupones"}</span>` : ""}</span></a>`).join("")}
     </div>`}
   </section>
 
@@ -758,7 +764,7 @@ function vInicio(){
 
   <section>
     <div class="sec-head"><h2>Categorías</h2></div>
-    <div class="cats">${CATEGORIAS.map(c => `<a class="cat" href="#directorio" data-cat="${c.id}"><strong>${c.nombre}</strong><span>${c.sub}</span></a>`).join("")}</div>
+    <div class="cats">${catsVisibles().map(c => `<a class="cat" href="#directorio" data-cat="${c.id}"><strong>${c.nombre}</strong><span>${c.sub}</span></a>`).join("")}</div>
   </section>
 
   <section>
@@ -766,20 +772,20 @@ function vInicio(){
     ${destacados.length ? `<div class="grid">${destacados.map(b => tarjeta(b, fav)).join("")}</div>` : vacio("Aún no hay negocios en esta zona. <a href=\"#registrar\">Registra el primero</a>.")}
   </section>
 
-  <section>
+  ${proxEv.length ? `<section>
     <div class="sec-head"><h2>Próximos eventos</h2><a href="#eventos">Ver la agenda</a></div>
-    ${proxEv.length ? `<div class="ev-mini">${proxEv.map(eventoCard).join("")}</div>` : vacio("No hay eventos próximos en esta zona. <a href=\"#publicar-evento\">Publica el primero</a>.")}
-  </section>
+    <div class="ev-mini">${proxEv.map(eventoCard).join("")}</div>
+  </section>` : ""}
 
-  <section>
+  ${cupones.length ? `<section>
     <div class="sec-head"><h2>Cupones y promociones</h2><a href="#cupones">Ver todos</a></div>
-    ${cupones.length ? `<div class="tickets">${cupones.map(({b,c}) => boleto(b, c)).join("")}</div>` : vacio("Todavía no hay cupones ni promociones en esta zona. Si tienes un negocio, puedes publicar los tuyos.")}
-  </section>
+    <div class="tickets">${cupones.map(({b,c}) => boleto(b, c)).join("")}</div>
+  </section>` : ""}
 
-  <section>
+  ${vecinos.length ? `<section>
     <div class="sec-head"><div><h2>Apoya el comercio local: hecho por tus vecinos</h2><p class="muted">Emprendedores sin local que venden desde casa o en línea.</p></div><a href="#vecinos">Ver todos</a></div>
-    ${vecinos.length ? `<div class="grid">${vecinos.map(b => tarjeta(b, fav)).join("")}</div>` : vacio("Todavía no hay emprendedores en esta zona.")}
-  </section>
+    <div class="grid">${vecinos.map(b => tarjeta(b, fav)).join("")}</div>
+  </section>` : ""}
 
   <section class="mimx">
     <div><h2>¿Tienes un negocio en la zona?</h2><p class="muted">Regístrate gratis, con o sin local.</p></div>
@@ -810,11 +816,11 @@ function vDirectorio(soloVecinos){
     <div class="filters">
       <div class="chips scrollrow" role="group" aria-label="Zona">
         <button class="chip" data-fz="" aria-pressed="${!f.zona}">Todas las zonas</button>
-        ${zonasVisibles().map(z => `<button class="chip" data-fz="${z}" aria-pressed="${f.zona === z}">${z} <small>${porZona(z)}</small></button>`).join("")}
+        ${zonasVisibles().map(z => `<button class="chip" data-fz="${z}" aria-pressed="${f.zona === z}">${z} <small>${realesZona(z) || porZona(z)}</small></button>`).join("")}
       </div>
       <div class="frow">
         <label class="fld" for="fq">Buscar<input id="fq" type="search" value="${esc(f.q)}" placeholder="Nombre o servicio"></label>
-        <label class="fld" for="fcat">Categoría<select id="fcat"><option value="">Todas</option>${CATEGORIAS.map(c => `<option value="${c.id}"${f.cat === c.id ? " selected" : ""}>${c.nombre}</option>`).join("")}</select></label>
+        <label class="fld" for="fcat">Categoría<select id="fcat"><option value="">Todas</option>${catsVisibles(f.cat).map(c => `<option value="${c.id}"${f.cat === c.id ? " selected" : ""}>${c.nombre}</option>`).join("")}</select></label>
         ${soloVecinos ? "<span></span>" : `<label class="fld" for="ftipo">Tipo de negocio<select id="ftipo"><option value="">Todos</option>${Object.entries(TIPOS).map(([k,t]) => `<option value="${k}"${f.tipo === k ? " selected" : ""}>${t.nombre}</option>`).join("")}</select></label>`}
       </div>
       ${soloVecinos ? "" : `<div class="frow hrs">
