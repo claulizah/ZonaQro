@@ -3,7 +3,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ZonaQro</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Directorio de negocios, servicios, cupones y promociones en Zibatá, Zakia, Juriquilla y El Refugio, Querétaro.">
 <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -750,6 +749,7 @@ function vInicio(){
       <p class="eyebrow">Norte de Querétaro</p>
       <h1>Encuentra negocios, servicios y promos en tu misma zona.</h1>
       <p class="lead">Plomeros, comida a domicilio y emprendedores de Zibatá, Zakia, Juriquilla y El Refugio. Escríbeles directo por WhatsApp, sin intermediarios.</p>
+      <p class="muted" style="font-weight:600">Negocios revisados por WhatsApp · Contacto directo · Sin comisiones</p>
       <form class="search" id="fBuscar" role="search">
         <input id="q" type="search" placeholder="Ej. plomero, pasteles…" aria-label="¿Qué necesitas hoy? Buscar negocios">
         <button class="btn" type="submit">Buscar</button>
@@ -858,6 +858,11 @@ function boleto(b, c, conLink = true){
 function vCupones(){
   const f = estado.f;
   const items = negocios().filter(b => !f.zona || b.zonas.includes(f.zona)).flatMap(b => cupDe(b).map(c => ({b,c})));
+  if(!negocios().some(b => cupDe(b).length)) return `<section>
+    <div><p class="eyebrow">Cupones y promociones</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Pronto</h1>
+    <p class="muted" style="margin-top:8px">Estamos juntando descuentos y promos de los negocios de tu zona. Mientras tanto, mira el directorio.</p></div>
+    <p><a class="btn" href="#directorio">Ver negocios</a></p>
+  </section>`;
   return `<section>
     <div><p class="eyebrow">Cupones y promociones</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Descuentos y promos de la zona</h1>
     <p class="muted" style="margin-top:8px">Muestra el código o el QR al pagar en el negocio.</p></div>
