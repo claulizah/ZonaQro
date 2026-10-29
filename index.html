@@ -255,6 +255,8 @@ textarea{min-height:90px;resize:vertical}
 .biz-head .avatar{width:76px;height:76px;font-size:1.7rem;border-radius:18px}
 .biz-grid{display:grid;grid-template-columns:1.3fr .7fr;gap:20px;align-items:start}
 @media (max-width:820px){.biz-grid{grid-template-columns:1fr}}
+.wa-movil{display:none}
+@media (max-width:820px){.wa-movil{display:inline-flex}}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
 dl.info{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0;font-size:.95rem}
 dl.info dt{font-weight:700;color:var(--muted)}
@@ -293,6 +295,8 @@ th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);whit
 th{font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 tr:last-child td{border-bottom:0}
+fieldset{min-width:0}
+input[type=file]{max-width:100%}
 .edit-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:grid;gap:10px}
 .edit-card[data-dirty="1"]{border-color:var(--agave);box-shadow:0 0 0 2px var(--soft-agave)}
 .edit-grid{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
@@ -784,7 +788,7 @@ function vInicio(){
       <p class="eyebrow">Norte de Querétaro</p>
       <h1>Encuentra negocios, servicios y promos en tu misma zona.</h1>
       <p class="lead">Plomeros, comida a domicilio y emprendedores de Zibatá, Zakia, Juriquilla y El Refugio. Escríbeles directo por WhatsApp, sin intermediarios.</p>
-      <p class="muted" style="font-weight:600">Contacto directo por WhatsApp · Sin comisiones · Palomita en los negocios verificados</p>
+      <p class="muted" style="font-weight:600">Contacto directo · Sin comisiones · La palomita marca los verificados</p>
       <form class="search" id="fBuscar" role="search">
         <input id="q" type="search" placeholder="Ej. plomero, pasteles…" aria-label="¿Qué necesitas hoy? Buscar negocios">
         <button class="btn" type="submit">Buscar</button>
@@ -795,8 +799,6 @@ function vInicio(){
       ${zonasVisibles().map(z => `<a class="zone-row" href="#directorio" data-zona="${z}"><strong>${z}</strong><span class="zinfo"><span>${textoZona(z)}</span>${cuponesZona(z) ? `<span class="badge b-cupon">${cuponesZona(z)} ${cuponesZona(z) === 1 ? "cupón" : "cupones"}</span>` : ""}</span></a>`).join("")}
     </div>`}
   </section>
-
-  ${bannerReclutar()}
 
   <section>
     <div class="sec-head"><h2>Categorías</h2></div>
@@ -937,6 +939,7 @@ function vNegocio(id){
     <div class="biz-grid">
       <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
         <div class="panel">${galeria}<p>${esc(b.descripcion)}</p><dl class="info">${info}</dl></div>
+        ${b.referencia ? "" : `<a class="btn wa wa-movil" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${b.id}">Escribir por WhatsApp</a>`}
         ${catalogo}${cupones}${b.referencia ? "" : panelOpiniones(b)}
       </div>
       <aside class="panel">
