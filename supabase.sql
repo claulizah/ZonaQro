@@ -256,3 +256,14 @@ alter table public.negocios add constraint negocios_categoria_check
 alter table public.negocios add column if not exists ultimo_contacto date;
 alter table public.negocios add column if not exists ultimo_reporte date;
 alter table public.negocios add column if not exists notas text not null default '' check (char_length(notas) <= 500);
+
+
+-- 17) Nuevas categorías: tecnología, deporte, transporte, cuidado, construcción y foto/video
+do $$ declare r record; begin
+  for r in select conname from pg_constraint
+           where conrelid = 'public.negocios'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%gastronomia%'
+  loop execute format('alter table public.negocios drop constraint %I', r.conname); end loop;
+end $$;
+alter table public.negocios add constraint negocios_categoria_check
+  check (categoria in ('gastronomia','hogar','salud','belleza','mascotas','educacion','autos','tienda','fiestas','profesional',
+                       'tecnologia','deporte','transporte','cuidado','construccion','foto'));
