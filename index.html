@@ -936,7 +936,7 @@ function vNegocio(id){
   let info = "";
   if(b.tipo === "local") info = `${b.direccion ? `<dt>Dirección</dt><dd>${esc(b.direccion)}</dd>` : ""}${horarioDe(b) ? `<dt>Horario</dt><dd>${esc(horarioDe(b))}</dd>` : ""}<dt>Zona</dt><dd>${esc(b.zonas.join(", "))}</dd>`;
   if(b.tipo === "domicilio") info = `<dt>Atiende en</dt><dd>${esc(b.zonas.join(", "))}</dd><dt>Horario</dt><dd>${esc(horarioDe(b) || "Consultar por WhatsApp")}</dd><dt>Modalidad</dt><dd>Va a tu casa</dd>`;
-  if(b.tipo === "emprendimiento") info = `<dt>Entrega</dt><dd>${esc(b.entrega)}</dd><dt>Zonas</dt><dd>${esc(b.zonas.join(", "))}</dd>${b.redes ? `<dt>Redes</dt><dd>${esc(b.redes)}</dd>` : ""}`;
+  if(b.tipo === "emprendimiento") info = `<dt>Entrega</dt><dd>${esc(b.entrega)}</dd><dt>Zonas</dt><dd>${esc(b.zonas.join(", "))}</dd>${b.redes && !redesDe(b) ? `<dt>Redes</dt><dd>${esc(b.redes)}</dd>` : ""}`;
   const fo = fotosDe(b);
   const galeria = fo.length ? `<div class="gal${fo.length === 1 ? " uno" : ""}">${fo.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="Foto ${i + 1} de ${esc(b.nombre)}" loading="lazy"></a>`).join("")}</div>` : "";
   const catalogo = (b.catalogo || []).length ? `<div class="panel"><h2>Catálogo</h2><div class="catalog">${b.catalogo.map((p,i) => `
@@ -963,7 +963,7 @@ function vNegocio(id){
       <aside class="panel">
         <h3>${b.referencia ? "Sobre este lugar" : "Contacto directo"}</h3>
         ${b.referencia ? "" : `<a class="btn wa" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${b.id}">Escribir por WhatsApp</a>`}
-        ${botonSitio(b)}
+        ${botonesExtra(b)}${botonSitio(b)}
         <button type="button" class="btn ghost" data-compartir="n:${esc(b.id)}">Compartir este negocio</button>
         ${b.referencia ? "" : `<p class="muted" style="font-size:.85rem">Si no se abre WhatsApp, guarda el número:</p>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="phone">${telFmt(b.whatsapp)}</span><button class="btn sm ghost" data-copy="${b.whatsapp}">Copiar</button></div>`}
@@ -978,6 +978,23 @@ function vNegocio(id){
   </section>`;
 }
 
+function mapaHref(b){
+  if(b.tipo !== "local" || !(b.direccion || "").trim()) return "";
+  return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(b.nombre + ", " + b.direccion + ", Querétaro");
+}
+function redesDe(b){
+  const t = (b.redes || "").trim(); if(!t) return null;
+  let m;
+  if(/^https?:\/\//i.test(t)){ try{ const h = new URL(t).hostname.replace(/^www\./, "").toLowerCase(); const ig = /instagram\.com$/.test(h), fb = /(facebook\.com|fb\.com|fb\.me)$/.test(h); if(ig || fb) return {url:t, txt:ig ? "Instagram" : "Facebook"}; }catch(e){} return null; }
+  if((m = t.match(/^@?([A-Za-z0-9._]{2,30})$/)) && (t[0] === "@" || !/\s/.test(t))) return {url:"https://instagram.com/" + m[1], txt:"Instagram @" + m[1]};
+  if((m = t.match(/(?:instagram\.com|ig\.me)\/([A-Za-z0-9._]+)/i))) return {url:"https://instagram.com/" + m[1], txt:"Instagram @" + m[1]};
+  if(/facebook\.com\/\S+/i.test(t)) return {url:"https://" + t.replace(/^https?:\/\//i, ""), txt:"Facebook"};
+  return null;
+}
+function botonesExtra(b){
+  const mp = mapaHref(b), r = redesDe(b);
+  return (mp ? `<a class="btn ghost" href="${esc(mp)}" target="_blank" rel="noopener">Cómo llegar</a>` : "") + (r ? `<a class="btn ghost" href="${esc(r.url)}" target="_blank" rel="noopener nofollow" data-web="${esc(b.id)}">${esc(r.txt)}</a>` : "");
+}
 function botonSitio(b){
   if(!/^https?:\/\//i.test(b.sitio_web || "")) return "";
   let h = ""; try{ h = new URL(b.sitio_web).hostname.replace(/^www\./, "").toLowerCase(); }catch(e){ return ""; }
@@ -1121,6 +1138,23 @@ document.addEventListener("click", async e => {
 
 
 
+/* ===== QR de la ficha (para imprimir) ===== */
+function qrFichaPng(id, nombre){
+  const qr = qrcode(0, "M"); qr.addData(BASE_URL + "?o=qr#n-" + id); qr.make();
+  const n = qr.getModuleCount(), cell = 14, m = 4 * cell, W = n * cell + 2 * m, H = W + 150;
+  const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, W, H); g.fillStyle = "#1b2a22";
+  for(let y = 0; y < n; y++) for(let x = 0; x < n; x++) if(qr.isDark(y, x)) g.fillRect(m + x * cell, m + y * cell, cell, cell);
+  g.textAlign = "center"; g.font = "bold 34px Arial"; g.fillText(nombre.slice(0, 34), W / 2, W + 38);
+  g.font = "26px Arial"; g.fillText("Escanéanos en ZonaQro", W / 2, W + 80); g.fillStyle = "#2a6a4b"; g.font = "bold 28px Arial"; g.fillText("zonaqro.com", W / 2, W + 118);
+  return c.toDataURL("image/png");
+}
+function bajarQr(id, nombre){
+  try{ const a = document.createElement("a"); a.href = qrFichaPng(id, nombre); a.download = "qr-" + id + ".png"; document.body.appendChild(a); a.click(); a.remove(); }
+  catch(err){ toast("No se pudo crear el QR: " + err.message); }
+}
+document.addEventListener("click", e => { const q = e.target.closest("[data-qrficha]"); if(!q) return; const [id, nom] = [q.dataset.qrficha, q.dataset.qrnom]; bajarQr(id, nom); });
+
 /* ===== Enlace personal: el negocio edita su propia ficha ===== */
 const ED = {token:"", datos:null, error:"", cargando:false, fotos:[]};
 const rpc = (fn, body) => sb("/rest/v1/rpc/" + fn, {method:"POST", body, auth:false, timeout:15000});
@@ -1165,6 +1199,7 @@ function vEditarProp(){
       <div id="ep-err" class="notice err" hidden></div>
       <div><button class="btn" type="submit">Guardar cambios</button></div>
     </form>
+    <div class="panel"><h2 style="font-size:1.15rem">QR de tu ficha</h2><p class="muted" style="margin:6px 0 10px">Descárgalo e imprímelo para tu local, tu mostrador o tus empaques: quien lo escanee llega directo a tu ficha.</p><button type="button" class="btn ghost" data-qrficha="${esc(d.id)}" data-qrnom="${esc(d.nombre)}">Descargar mi QR</button></div>
     <h2 style="font-size:1.25rem;margin-top:12px">Opiniones de tus clientes (${resenas.length})</h2>
     ${resenas.length ? resenas.map(r => `<div class="req"><div style="display:flex;justify-content:space-between;gap:8px"><strong>${esc(r.nombre)}</strong><span class="rate">${estrellasTxt(r.estrellas)}</span></div><p>${esc(r.texto)}</p>
       <label class="fld" for="rs-${esc(r.id)}">Tu respuesta (se ve en tu ficha)<textarea id="rs-${esc(r.id)}" maxlength="300">${esc(r.respuesta)}</textarea></label>
@@ -1338,6 +1373,7 @@ function adminEditar(A){
         <a class="btn sm ghost" href="#n-${esc(b.id)}" target="_blank">Ver ficha</a>
         ${pedir.length && b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), msg)}">Pedir lo que falta</a>` : ""}
         ${"token_edicion" in b ? `<button type="button" class="btn sm ghost" data-tk="copiar:${esc(b.id)}">Copiar enlace de edición</button>${b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" data-tk="enviado:${esc(b.id)}" href="${waTexto(esc(b.whatsapp), msgPedir(b, false))}">Enviar enlace</a>` : ""}<button type="button" class="btn sm danger" data-tk="nuevo:${esc(b.id)}">Cambiar enlace</button>` : ""}
+        <button type="button" class="btn sm ghost" data-qrficha="${esc(b.id)}" data-qrnom="${esc(b.nombre)}">Descargar QR</button>
         </div></div>`;
   };
   const comp = lista.filter(b => !faltasDe(b).length).length, crm = hayCrm(A), dups = duplicadosDe(A);
