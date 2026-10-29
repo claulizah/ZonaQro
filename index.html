@@ -1265,9 +1265,11 @@ function pedidosDe(b, crmPed){ return crmPed ? (b.pedidos_ficha || 0) : (b.ultim
 function pideDe(b){ return faltasDe(b).filter(k => k !== "mayus").map(k => ({horario:"tu horario", foto:"una foto (de tu local, tu trabajo o tu logo cuadrado)", desc:"una descripción corta de lo que ofreces"}[k])); }
 const enlaceDe = b => b && b.token_edicion ? BASE_URL + "#editar-" + b.token_edicion : "";
 function msgPedir(b, recordatorio){
-  const lk = enlaceDe(b);
-  if(lk) return (recordatorio ? "Hola, buen día 👋. Te recuerdo lo de tu ficha de " : "Hola, buen día 👋. Ya puedes completar y actualizar tú mismo la ficha de ") + b.nombre + " en ZonaQro (horario, fotos, descripción y responder opiniones). Te toma 2 minutos. Este es tu enlace personal, no lo compartas:\n\n" + lk + "\n\nSi tienes dudas, aquí estoy 🙌";
-  const p = pideDe(b), l = p.map(x => "• " + x).join("\n"), lo = p.length > 1 ? "los" : "lo";
+  const p = pideDe(b), l = p.map(x => "• " + x).join("\n"), lo = p.length > 1 ? "los" : "lo", lk = enlaceDe(b);
+  if(!p.length && lk) return "Hola, buen día 👋. Ya quedó lista la ficha de " + b.nombre + " en ZonaQro, gracias por mandar tu info ✨\n\nPor si algún día quieres cambiar tu horario, subir fotos nuevas o contestar opiniones, este es tu enlace personal (no lo compartas):\n\n" + lk + "\n\nNo tienes que hacer nada ahorita, es para cuando lo necesites 😊";
+  if(lk) return recordatorio
+    ? "Hola, buen día 👋. Te recuerdo lo de la ficha de " + b.nombre + " en ZonaQro, todavía falta:\n\n" + l + "\n\nAquí está tu enlace personal por si se te perdió (no lo compartas):\n\n" + lk + "\n\nSi prefieres, mándame los datos por aquí y yo la actualizo 🙌"
+    : "Hola, buen día 👋. Ando completando las fichas de ZonaQro y la de " + b.nombre + " ya casi queda lista, solo falta:\n\n" + l + "\n\nLa puedes completar tú en 2 minutos con este enlace personal (no lo compartas):\n\n" + lk + "\n\nAhí también puedes subir fotos y contestar opiniones. Las fichas completas salen primero cuando la gente busca 😊";
   return recordatorio
     ? "Hola, buen día 👋. Te recuerdo lo de la ficha de " + b.nombre + " en ZonaQro, solo me falta:\n\n" + l + "\n\n¿Me " + lo + " mandas cuando puedas? 🙌"
     : "Hola, buen día 👋. Ando completando las fichas de ZonaQro y la de " + b.nombre + " ya casi queda lista. Nada más me falta:\n\n" + l + "\n\nSi me " + lo + " mandas por aquí, yo la actualizo. Las fichas completas salen primero cuando la gente busca 😊";
@@ -1288,7 +1290,14 @@ function adminPedir(A){
     <div class="notice">Por pedir: <b>${cuenta("pedir")}</b> · Recordatorios: <b>${cuenta("recordar")}</b> · Esperando: <b>${cuenta("espera")}</b> · Sin respuesta: <b>${cuenta("sinrespuesta")}</b></div>
     <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Les falta</th><th>Estado</th><th></th></tr></thead><tbody>${cola.length ? cola.map(x => {
       const act = x.etapa === "pedir" || x.etapa === "recordar" || x.etapa === "sinrespuesta";
-      return `<tr><td>${esc(x.b.nombre)}</td><td>${pideDe(x.b).map(t => esc(t.split(" (")[0].replace("tu ", "").replace("una ", ""))).join(", ")}</td><td data-pedc="${esc(x.b.id)}">${tx[x.etapa]}${x.b.ultimo_contacto ? " · " + esc(x.b.ultimo_contacto) : ""}</td><td>${act ? `<a class="btn sm wa" target="_blank" rel="noopener" data-ped="${esc(x.b.id)}" href="${waTexto(esc(x.b.whatsapp), msgPedir(x.b, x.etapa !== "pedir"))}">${x.etapa === "pedir" ? "Pedir datos" : x.etapa === "recordar" ? "Recordar" : "Pedir otra vez"}</a>` : ""}</td></tr>`; }).join("") : '<tr><td colspan="4">Todas las fichas tienen lo básico 🎉</td></tr>'}</tbody></table></div>`;
+      return `<tr><td>${esc(x.b.nombre)}</td><td>${pideDe(x.b).map(t => esc(t.split(" (")[0].replace("tu ", "").replace("una ", ""))).join(", ")}</td><td data-pedc="${esc(x.b.id)}">${tx[x.etapa]}${x.b.ultimo_contacto ? " · " + esc(x.b.ultimo_contacto) : ""}</td><td>${act ? `<a class="btn sm wa" target="_blank" rel="noopener" data-ped="${esc(x.b.id)}" href="${waTexto(esc(x.b.whatsapp), msgPedir(x.b, x.etapa !== "pedir"))}">${x.etapa === "pedir" ? "Pedir datos" : x.etapa === "recordar" ? "Recordar" : "Pedir otra vez"}</a>` : ""}</td></tr>`; }).join("") : '<tr><td colspan="4">Todas las fichas tienen lo básico 🎉</td></tr>'}</tbody></table></div>${completasHtml(A, crmPed0(A))}`;
+}
+const crmPed0 = A => !!(A.neg[0] && "pedidos_ficha" in A.neg[0]);
+function completasHtml(A, crmPed){
+  const lista = A.neg.filter(b => b.estado === "aprobado" && !b.referencia && b.whatsapp && b.token_edicion && !pideDe(b).length).sort((x, y) => pedidosDe(x, crmPed) - pedidosDe(y, crmPed));
+  if(!lista.length) return "";
+  return `<h3 style="margin-top:18px">Fichas completas: avísales de su enlace</h3><p class="muted" style="max-width:66ch">Ya tienen todo lo básico. Este mensaje solo les da su enlace por si algún día quieren actualizar. No es urgente.</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Estado</th><th></th></tr></thead><tbody>${lista.map(b => { const n = pedidosDe(b, crmPed); return `<tr><td>${esc(b.nombre)}</td><td data-pedc="${esc(b.id)}">${n ? "Aviso enviado" + (b.ultimo_contacto ? " · " + esc(b.ultimo_contacto) : "") : "Sin avisar"}</td><td>${n ? "" : `<a class="btn sm wa" target="_blank" rel="noopener" data-ped="${esc(b.id)}" href="${waTexto(esc(b.whatsapp), msgPedir(b, false))}">Enviar enlace</a>`}</td></tr>`; }).join("")}</tbody></table></div>`;
 }
 document.addEventListener("click", async e => {
   const a = e.target.closest("[data-ped]"); if(!a) return;
