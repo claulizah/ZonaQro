@@ -329,6 +329,20 @@ input[type=file]{max-width:100%}
 .b-tipo{background:transparent;color:var(--ink-soft);border:1px solid var(--line)}
 @media (max-width:480px){.evento{grid-template-columns:56px 1fr;gap:12px}.fecha b{font-size:1.5rem}}
 .ev-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.home-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:28px}
+.home-cols .evlado{gap:10px}
+.evlado .sec-head h2{font-size:1.25rem}
+.ev-row{display:flex;gap:10px;align-items:flex-start;padding:10px;background:var(--card,#fff);border:1px solid var(--line,#e2e6df);border-radius:14px;color:inherit;text-decoration:none}
+.ev-row .f{flex:none;width:44px;text-align:center;background:#ece6f6;color:#5b3fa0;border-radius:10px;padding:4px 0;line-height:1.1}
+.ev-row .f b{display:block;font-size:1.2rem}.ev-row .f span{font-size:.68rem;font-weight:700;text-transform:uppercase}
+.ev-row strong{display:block;font-size:.95rem;line-height:1.25}
+.ev-row small{display:block;color:var(--ink-soft);font-size:.8rem;margin-top:2px}
+@media (min-width:1000px){
+  .home-cols{grid-template-columns:minmax(0,1fr) 290px;column-gap:28px;align-items:start}
+  .home-cols > section{grid-column:1}
+  .home-cols > .evlado{grid-column:2;grid-row:1 / span 4;position:sticky;top:84px}
+  .home-cols .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 @media (max-width:900px){.ev-mini{grid-template-columns:1fr}}
 
 footer{border-top:1px solid var(--line);background:var(--surface)}
@@ -779,9 +793,9 @@ function vInicio(){
   const sinNada = DATA.live && negocios().length === 0;
   const vecinos = negocios().filter(b => b.tipo === "emprendimiento" && enZona(b)).slice(0,3);
   const cupones = negocios().filter(enZona).flatMap(b => cupDe(b).map(c => ({b, c}))).slice(0,4);
-  let proxEv = eventos().filter(e => !estado.f.zona || e.zona === estado.f.zona).slice(0,3);
+  let proxEv = eventos().filter(e => !estado.f.zona || e.zona === estado.f.zona).slice(0,5);
   const evCerca = !proxEv.length && !!estado.f.zona;
-  if(evCerca) proxEv = eventos().slice(0,3);
+  if(evCerca) proxEv = eventos().slice(0,5);
   const vacio = t => `<div class="empty">${t}</div>`;
   return `
   <section class="hero">
@@ -806,14 +820,15 @@ function vInicio(){
     <div class="cats">${catsVisibles().map(c => `<a class="cat" href="#directorio" data-cat="${c.id}"><strong>${c.nombre}</strong><span>${c.sub}</span></a>`).join("")}</div>
   </section>
 
+  <div class="home-cols">
   <section>
     <div class="sec-head"><h2>${sinRecom ? "Negocios de la zona" : "Recomendados en la zona"}</h2><a href="#directorio">Ver todo el directorio</a></div>
     ${destacados.length ? `<div class="grid">${destacados.map(b => tarjeta(b, fav)).join("")}</div>` : vacio("Aún no hay negocios en esta zona. <a href=\"#registrar\">Registra el primero</a>.")}
   </section>
 
-  ${proxEv.length ? `<section>
-    <div class="sec-head"><div><h2>Próximos eventos</h2>${evCerca ? `<p class="muted">Aún no hay en ${esc(estado.f.zona)}; mira estos cerca de ti.</p>` : ""}</div><a href="#eventos">Ver la agenda</a></div>
-    <div class="ev-mini">${proxEv.map(eventoCard).join("")}</div>
+  ${proxEv.length ? `<section class="evlado">
+    <div class="sec-head"><div><h2>Próximos eventos</h2>${evCerca ? `<p class="muted">Aún no hay en ${esc(estado.f.zona)}; mira estos cerca de ti.</p>` : ""}</div><a href="#eventos">Agenda</a></div>
+    ${proxEv.map(eventoMini).join("")}
   </section>` : ""}
 
   ${cupones.length ? `<section>
@@ -825,6 +840,8 @@ function vInicio(){
     <div class="sec-head"><div><h2>Apoya el comercio local: hecho por tus vecinos</h2><p class="muted">Emprendedores sin local que venden desde casa o en línea.</p></div><a href="#vecinos">Ver todos</a></div>
     <div class="grid">${vecinos.map(b => tarjeta(b, fav)).join("")}</div>
   </section>` : ""}
+
+  </div>
 
   <section class="mimx">
     <div><h2>¿Tienes un negocio en la zona?</h2><p class="muted">Regístrate gratis, con o sin local.</p></div>
@@ -1764,6 +1781,11 @@ function vPrivacidad(){
 /* ===== Eventos ===== */
 function hoyISO(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 function eventos(){ return (DATA.live ? DATA.eventos : EVENTOS.concat(estado.evAprobados)).filter(e => e.fecha >= hoyISO()).sort((a,b) => a.fecha.localeCompare(b.fecha)); }
+function eventoMini(e){
+  const dia = +e.fecha.slice(8), mes = MESES.at(+e.fecha.slice(5,7) - 1);
+  const sem = new Date(e.fecha + "T12:00:00").toLocaleDateString("es-MX", {weekday:"short"});
+  return `<a class="ev-row" href="#eventos"><div class="f" aria-label="${dia} de ${mes}"><b>${dia}</b><span>${mes}</span></div><div><strong>${esc(e.titulo)}</strong><small>${esc(sem)}, ${esc(e.hora)} · ${esc(e.zona)}</small></div></a>`;
+}
 function eventoCard(e){
   const dia = +e.fecha.slice(8), mes = MESES.at(+e.fecha.slice(5,7) - 1);
   const sem = new Date(e.fecha + "T12:00:00").toLocaleDateString("es-MX", {weekday:"long"});
