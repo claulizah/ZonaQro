@@ -713,8 +713,9 @@ function textoZona(z){ const r = realesZona(z); return r ? r + (r === 1 ? " nego
 /* Igual que las zonas: una categoría aparece en el menú cuando tiene 3 negocios o más (el registro siempre muestra todas) */
 function porCat(c){ return negocios().filter(b => b.categoria === c).length; }
 function catsVisibles(sel){ return CATEGORIAS.filter(c => porCat(c.id) >= minFichas() || c.id === sel); }
+const puntosFicha = b => (b.verificado ? 2 : 0) + (fotosDe(b).length ? 2 : 0) + (horariosDe(b) || b.horario ? 1 : 0) + ((b.descripcion || "").length >= 30 ? 1 : 0); // las fichas completas salen primero
 function ordenar(lista, fav){
-  return lista.slice().sort((a,b) => (a.referencia?1:0) - (b.referencia?1:0) || (b.promocionado?1:0) - (a.promocionado?1:0) || (fav.has(b.id)?1:0) - (fav.has(a.id)?1:0) || totalClics(b) - totalClics(a));
+  return lista.slice().sort((a,b) => (a.referencia?1:0) - (b.referencia?1:0) || (b.promocionado?1:0) - (a.promocionado?1:0) || (fav.has(b.id)?1:0) - (fav.has(a.id)?1:0) || puntosFicha(b) - puntosFicha(a) || totalClics(b) - totalClics(a));
 }
 function toast(msg){ const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2400); }
 function waLink(b, texto){ return "https://wa.me/52" + b.whatsapp + "?text=" + encodeURIComponent(texto || ("Hola, vi " + b.nombre + " en ZonaQro.")); }
@@ -1788,6 +1789,11 @@ function render(){
   else if(h === "negocios") html = vParaNegocios();
   else { html = vInicio(); nav = "inicio"; }
   app.innerHTML = html;
+  try{
+    const TT = {directorio:"Directorio de negocios y servicios", vecinos:"Hecho por tus vecinos", cupones:"Cupones y promociones", eventos:"Eventos y qué hacer", "publicar-evento":"Publica tu evento", registrar:"Registra tu negocio gratis", ayuda:"Preguntas frecuentes", recomendar:"Recomienda un negocio", negocios:"Para negocios", terminos:"Términos de uso", privacidad:"Aviso de privacidad", admin:"Administración"};
+    const nb = h.startsWith("n-") ? negocios().find(x => x.id === h.slice(2)) : null;
+    document.title = nb ? nb.nombre + " en " + nb.zonas.join(", ") + " | ZonaQro" : TT[h] ? TT[h] + " | ZonaQro" : "ZonaQro: negocios, servicios y cupones en tu zona";
+  }catch(err){}
   if(h !== "admin" && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", refOrigen() || "sitio"); if(h.startsWith("n-") && unaVez("v" + h)) metrica("vista", h.slice(2)); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
   if(h === "admin" && SB.ok && SB.token && !estado.admin.cargado && !estado.admin.cargando){ estado.admin.cargando = true; cargarAdmin().finally(() => { estado.admin.cargando = false; }); }
   document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
