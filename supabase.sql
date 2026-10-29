@@ -250,3 +250,9 @@ alter table public.negocios add constraint negocios_categoria_check
 
 -- Reasignar a quien ya se registró en otra categoría (ajusta el nombre si hace falta):
 -- update public.negocios set categoria = 'profesional' where nombre ilike '%caffeine%';
+
+
+-- 16) Seguimiento de negocios (solo lo ve la administradora; el público no puede leer estas columnas)
+alter table public.negocios add column if not exists ultimo_contacto date;
+alter table public.negocios add column if not exists ultimo_reporte date;
+alter table public.negocios add column if not exists notas text not null default '' check (char_length(notas) <= 500);

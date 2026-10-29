@@ -1036,6 +1036,52 @@ function vRegistrar(enviado, adm){
   </section>`;
 }
 
+function msgReporte(x){
+    const pl = (k, u, p) => k + " " + (k === 1 ? u : p);
+    const b = ["• " + pl(x.v, "vista", "vistas") + " a tu ficha",
+      x.w ? "• " + pl(x.w, "persona te escribió", "personas te escribieron") + " por WhatsApp" : "• Todavía nadie te ha escrito por WhatsApp (apenas estamos arrancando)",
+      x.web ? "• " + pl(x.web, "persona entró", "personas entraron") + " a tu página o redes" : "",
+      x.c ? "• Tus promos se vieron " + pl(x.c, "vez", "veces") : ""].filter(Boolean).join("\n");
+    return "Hola, buen día 👋. Ando revisando cómo les va a los negocios en ZonaQro y te cuento lo de " + x.b.nombre + " este último mes:\n\n" + b + "\n\n" +
+      (x.w ? "Si quieres te ayudo a subir una promo o a mejorar tu ficha para que te encuentren más. ¿Cómo lo ves? 😊" : "Si quieres te ayudo a mejorar tu ficha (fotos, horario, una promo) para que más gente te escriba. ¿Te late? 😊");
+}
+
+const hayCrm = A => !!(A.neg && A.neg.length && ("ultimo_contacto" in A.neg[0]));
+const hoyMes = () => hoyISO().slice(0, 7);
+const ultRep = b => b.ultimo_reporte || (() => { try{ return localStorage.getItem("zq_rep_" + b.id) || ""; }catch(e){ return ""; } })();
+function metPorNegocio(A){
+  const o = {}, k = {vista:"v", wa:"w", web:"web", cupon:"c"};
+  (A.met || []).forEach(m => { if(!k[m.tipo]) return; (o[m.ref] = o[m.ref] || {v:0, w:0, web:0, c:0})[k[m.tipo]] += m.n; });
+  return o;
+}
+function reportesDe(A){
+  const M = metPorNegocio(A);
+  return A.neg.filter(b => b.estado === "aprobado" && !b.referencia && b.whatsapp).map(b => Object.assign({b}, M[b.id] || {v:0, w:0, web:0, c:0})).filter(x => x.v || x.w).sort((a, b) => b.w - a.w || b.v - a.v);
+}
+function duplicadosDe(A){
+  const norm = t => String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  const grupos = [], vis = A.neg.filter(b => b.estado !== "rechazado");
+  const por = (clave, etiqueta) => { const m = {}; vis.forEach(b => { const k = clave(b); if(k) (m[k] = m[k] || []).push(b); }); Object.values(m).filter(g => g.length > 1).forEach(g => grupos.push({etiqueta, g})); };
+  por(b => b.whatsapp, "mismo WhatsApp"); por(b => norm(b.nombre), "mismo nombre");
+  return grupos;
+}
+function adminReportes(A){
+  const lista = reportesDe(A), crm = hayCrm(A);
+  if(!A.met) return '<div class="empty">Aún no hay estadísticas. Corre la sección 10 de supabase.sql.</div>';
+  const pend = lista.filter(x => (ultRep(x.b) || "").slice(0, 7) !== hoyMes()).length;
+  return `<p class="muted" style="max-width:66ch">Negocios con visitas o clics en los últimos 30 días. Al tocar "Enviar reporte" se abre WhatsApp con el mensaje y queda marcado como enviado este mes${crm ? "" : " (en este navegador; corre la sección 16 de supabase.sql para guardarlo en la base)"}.</p>
+    <div class="notice">Por enviar este mes: <b>${pend}</b> de ${lista.length}</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th class="num">Vistas</th><th class="num">WhatsApp</th><th>Último reporte</th><th></th></tr></thead><tbody>${lista.length ? lista.map(x => { const u = ultRep(x.b); return `<tr><td>${esc(x.b.nombre)}</td><td class="num">${x.v}</td><td class="num">${x.w}</td><td data-repc="${esc(x.b.id)}">${u ? esc(u) : "—"}</td><td><a class="btn sm wa" target="_blank" rel="noopener" data-rep="${esc(x.b.id)}" href="${waTexto(esc(x.b.whatsapp), msgReporte(x))}">${(u || "").slice(0, 7) === hoyMes() ? "Enviar otra vez" : "Enviar reporte"}</a></td></tr>`; }).join("") : '<tr><td colspan="5">Todavía no hay negocios con visitas.</td></tr>'}</tbody></table></div>`;
+}
+document.addEventListener("click", async e => {
+  const a = e.target.closest("[data-rep]"); if(!a) return;
+  const id = a.dataset.rep, hoy = hoyISO(), c = document.querySelector('[data-repc="' + id + '"]');
+  if(c) c.textContent = hoy;
+  const A = estado.admin;
+  if(hayCrm(A)){ try{ await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:{ultimo_reporte:hoy}, prefer:"return=minimal"}); const b = A.neg.find(x => x.id === id); if(b) b.ultimo_reporte = hoy; }catch(err){ toast("No se pudo guardar la fecha: " + err.message); } }
+  else { try{ localStorage.setItem("zq_rep_" + id, hoy); }catch(err){} }
+});
+
 /* ===== Admin: editar muchas fichas a la vez ===== */
 const PRESETS = {lv:["Lun a vie", DK.slice(0,5)], ls:["Lun a sáb", DK.slice(0,6)], ld:["Todos los días", DK], mad:["Mar a dom", DK.slice(1)], vd:["Vie a dom", DK.slice(4)], sd:["Sáb y dom", DK.slice(5)]};
 function presetDe(b){
@@ -1082,13 +1128,19 @@ function adminEditar(A){
         <label class="fld">Cierra<input type="time" data-f="cierra" value="${esc(p.c)}"></label>
         <label class="fld">Horario en texto (si no usas días)<input data-f="horario" maxlength="160" value="${esc(b.horario)}"></label>
       </div>
+      ${crm ? `<div class="edit-grid"><label class="fld">Último contacto<input type="date" data-f="ultimo_contacto" value="${esc(b.ultimo_contacto || "")}"></label>
+        <label class="fld" style="grid-column:span 2">Notas (solo tú las ves)<input data-f="notas" maxlength="500" value="${esc(b.notas || "")}"></label>
+        <button type="button" class="btn sm ghost" data-ed="hoy:${esc(b.id)}" style="align-self:end">Contacté hoy</button></div>` : ""}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b class="meta">Fotos:</b>${fotosDe(b).map((u, i) => `<span style="display:inline-flex;align-items:center;gap:2px"><img src="${esc(u)}" alt="" style="width:64px;height:48px;object-fit:cover;border-radius:8px"><button type="button" class="btn sm ghost" data-edquitar="${esc(b.id)}:${i}" aria-label="Quitar foto ${i + 1}">×</button></span>`).join("")}${fotosDe(b).length < 3 ? `<label class="btn sm ghost" style="cursor:pointer">Agregar foto<input type="file" accept="image/*" data-edfoto="${esc(b.id)}" hidden></label>` : ""}</div>
       <div class="req-actions"><button class="btn sm" data-ed="guardar:${esc(b.id)}">Guardar</button>
         <a class="btn sm ghost" href="#n-${esc(b.id)}" target="_blank">Ver ficha</a>
         ${pedir.length && b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), msg)}">Pedir lo que falta</a>` : ""}
-        <span class="meta">Fotos: ${fotosDe(b).length}</span></div></div>`;
+        </div></div>`;
   };
-  const comp = lista.filter(b => !faltasDe(b).length).length;
-  return `<div class="notice">Fichas completas: <b>${comp}</b> de ${lista.length} negocios reales. Para abrir páginas individuales conviene tener al menos 50 completas.</div>
+  const comp = lista.filter(b => !faltasDe(b).length).length, crm = hayCrm(A), dups = duplicadosDe(A);
+  const dupHtml = dups.length ? `<div class="notice err"><b>Posibles duplicados (${dups.length}):</b>${dups.map(d => `<div style="margin-top:6px">${d.etiqueta}: ${d.g.map(b => `<b>${esc(b.nombre)}</b> (${esc(b.estado)}) <button class="btn sm danger" data-sb="ocultar:negocios:${esc(b.id)}:">Ocultar</button>`).join(" · ")}</div>`).join("")}</div>` : "";
+  const crmHtml = crm ? "" : '<div class="notice err">Para guardar último contacto, notas y fecha de reportes, corre la sección 16 de supabase.sql en Supabase.</div>';
+  return `${dupHtml}${crmHtml}<div class="notice">Fichas completas: <b>${comp}</b> de ${lista.length} negocios reales. Para abrir páginas individuales conviene tener al menos 50 completas.</div>
     <p class="muted" style="max-width:66ch">Corrige varias fichas y guarda todo de una vez. Arriba salen las que tienen más pendientes. Las fotos las subes con el negocio desde "Agregar negocio" o las pides con el botón de WhatsApp.</p>
     <div class="chips scrollrow" role="group" aria-label="Filtrar fichas">
       <button class="chip" data-edf="" aria-pressed="true">Todas <small>${lista.length}</small></button>
@@ -1115,6 +1167,7 @@ function leerCardEd(c){
   const zonas = [...c.querySelectorAll("[data-z]")].filter(x => x.checked).map(x => x.dataset.z);
   if(!zonas.length) throw new Error("Elige al menos una zona en " + nombre);
   const cambios = {nombre, categoria:g("categoria"), tipo:g("tipo"), zonas, whatsapp:wa, direccion:g("direccion").trim().slice(0, 160), descripcion:g("descripcion").trim().slice(0, 300), horario:g("horario").trim().slice(0, 160)};
+  if(c.querySelector('[data-f="notas"]')){ cambios.notas = g("notas").trim().slice(0, 500); cambios.ultimo_contacto = g("ultimo_contacto") || null; }
   const p = g("preset");
   if(p){
     const a = g("abre"), ci = g("cierra");
@@ -1155,7 +1208,29 @@ document.addEventListener("click", e => {
   const [acc, id] = t.dataset.ed.split(":");
   if(acc === "guardar"){ t.disabled = true; guardarFichas([id]).finally(() => { t.disabled = false; }); }
   if(acc === "todo"){ const ids = [...document.querySelectorAll('.edit-card[data-dirty="1"]')].map(c => c.dataset.eid); if(!ids.length){ toast("No hay cambios por guardar"); return; } t.disabled = true; guardarFichas(ids).finally(() => { t.disabled = false; }); }
+  if(acc === "hoy"){ const c = document.querySelector('.edit-card[data-eid="' + id + '"]'), d = c && c.querySelector('[data-f="ultimo_contacto"]'); if(d){ d.value = hoyISO(); c.dataset.dirty = "1"; const n = document.getElementById("edN"); if(n) n.textContent = document.querySelectorAll('.edit-card[data-dirty="1"]').length; } }
   if(acc === "titulo"){ document.querySelectorAll('.edit-card[data-flags~="mayus"]').forEach(c => { const i = c.querySelector('[data-f="nombre"]'); i.value = tituloNombre(i.value); c.dataset.dirty = "1"; }); const n = document.getElementById("edN"); if(n) n.textContent = document.querySelectorAll('.edit-card[data-dirty="1"]').length; toast("Revisa los nombres y guarda"); }
+});
+async function cambiarFotos(id, fn){
+  const A = estado.admin, b = A.neg.find(x => x.id === id); if(!b) return;
+  if(document.querySelector('.edit-card[data-dirty="1"]')){ toast("Primero guarda tus cambios, luego cambia las fotos"); return; }
+  try{
+    const fotos = await fn(fotosDe(b).slice());
+    const r = await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:{fotos}, prefer:"return=representation"});
+    if(!r || !r.length) throw new Error("no se aplicó el cambio");
+    toast("Fotos actualizadas"); await cargarAdmin(); render();
+  }catch(err){ toast("No se pudo: " + (err.message === "grande" || err.message === "img" ? "esa imagen no sirve, prueba otra" : err.message)); }
+}
+document.addEventListener("click", e => { const q = e.target.closest("[data-edquitar]"); if(!q) return; const [id, i] = q.dataset.edquitar.split(":"); cambiarFotos(id, f => { f.splice(+i, 1); return f; }); });
+document.addEventListener("change", e => {
+  const t = e.target; if(!t.dataset || !t.dataset.edfoto || !t.files || !t.files[0]) return;
+  const id = t.dataset.edfoto, file = t.files[0]; t.value = "";
+  cambiarFotos(id, async f => {
+    const blob = await comprimir(file), path = id + "/" + (f.length + 1) + "-" + Math.random().toString(36).slice(2, 8) + ".jpg";
+    const r = await fetch(SB_URL + "/storage/v1/object/fotos/" + path, {method:"POST", headers:{apikey:SB_KEY, Authorization:"Bearer " + (SB.token || SB_KEY), "Content-Type":"image/jpeg"}, body:blob});
+    if(!r.ok) throw new Error("no se pudo subir la foto");
+    f.push(FOTO_BASE + path); return f;
+  });
 });
 function vAdminLive(tab){
   if(!SB.token) return `<section style="max-width:420px">
@@ -1168,7 +1243,7 @@ function vAdminLive(tab){
     </form></section>`;
   const A = estado.admin;
   if(!A.cargado) return `<section><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1><p class="muted">Cargando…</p></section>`;
-  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","rechazados","prospectos","agregar","metricas","zonas"].includes(tab) ? tab : "solicitudes";
+  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","reportes","rechazados","prospectos","agregar","metricas","zonas"].includes(tab) ? tab : "solicitudes";
   const RS = A.res || [];
   const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente"), pr = RS.filter(x => x.estado === "pendiente");
   const descartados = (() => { try{ return JSON.parse(localStorage.getItem("zq_desc") || "[]"); }catch(e){ return []; } })();
@@ -1199,6 +1274,7 @@ function vAdminLive(tab){
         ${btn("rechazar","negocios",s.id,"","Rechazar","danger")}</div></div>`).join("") : '<div class="empty">No hay solicitudes de negocios pendientes.</div>';
   if(tab === "agregar") cuerpo = vRegistrar(false, true);
   if(tab === "editar") cuerpo = adminEditar(A);
+  if(tab === "reportes") cuerpo = adminReportes(A);
   if(tab === "rechazados"){
     const rj = A.neg.filter(x => x.estado === "rechazado");
     cuerpo = rj.length ? rj.map(s => `<div class="req"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(s.nombre)}</h3><span class="meta">WhatsApp ${telFmt(esc(s.whatsapp))}</span></div>
@@ -1265,15 +1341,7 @@ function vAdminLive(tab){
       const top = tipo => { const o = {}; M.filter(m => m.tipo === tipo).forEach(m => { o[m.ref] = (o[m.ref] || 0) + m.n; }); return Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `${esc(tipo === "cat" ? catNombre(k) : k)} (${v})`).join(", ") || "—"; };
       const porOrigen = tipo => { const o = {}; M.filter(m => m.tipo === tipo).forEach(m => { const k = m.ref.startsWith("o:") ? m.ref.slice(2) : "directo / sin etiqueta"; o[k] = (o[k] || 0) + m.n; }); return Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} (${v})`).join(", ") || "—"; };
       const filas = A.neg.filter(x => x.estado === "aprobado").map(b => ({b, v:sum("vista", b.id), w:sum("wa", b.id), web:sum("web", b.id), c:sum("cupon", b.id), sh:M.filter(m => m.tipo === "compartir" && m.ref.split(":")[1] === b.id).reduce((a, m) => a + m.n, 0)})).sort((a, b) => b.v - a.v);
-      const rep = x => {
-        const pl = (k, u, p) => k + " " + (k === 1 ? u : p);
-        const b = ["• " + pl(x.v, "vista", "vistas") + " a tu ficha",
-          x.w ? "• " + pl(x.w, "persona te escribió", "personas te escribieron") + " por WhatsApp" : "• Todavía nadie te ha escrito por WhatsApp (apenas estamos arrancando)",
-          x.web ? "• " + pl(x.web, "persona entró", "personas entraron") + " a tu página o redes" : "",
-          x.c ? "• Tus promos se vieron " + pl(x.c, "vez", "veces") : ""].filter(Boolean).join("\n");
-        return "Hola, buen día 👋. Ando revisando cómo les va a los negocios en ZonaQro y te cuento lo de " + x.b.nombre + " este último mes:\n\n" + b + "\n\n" +
-          (x.w ? "Si quieres te ayudo a subir una promo o a mejorar tu ficha para que te encuentren más. ¿Cómo lo ves? 😊" : "Si quieres te ayudo a mejorar tu ficha (fotos, horario, una promo) para que más gente te escriba. ¿Te late? 😊");
-      };
+      const rep = msgReporte;
       cuerpo = `<p class="muted">Últimos 30 días. Conteos anónimos: no guardamos IP ni datos de las personas.</p>
         <div class="stats"><div class="stat"><b>${sum("visita").toLocaleString("es-MX")}</b><span>Visitas al sitio</span></div><div class="stat"><b>${sum("vista").toLocaleString("es-MX")}</b><span>Fichas vistas</span></div><div class="stat"><b>${sum("wa").toLocaleString("es-MX")}</b><span>Clics a WhatsApp</span></div><div class="stat"><b>${(sum("evento_wa") + sum("evento_link")).toLocaleString("es-MX")}</b><span>Clics en eventos</span></div></div>
         ${graficaDias(M)}${embudo(M)}
@@ -1283,9 +1351,18 @@ function vAdminLive(tab){
   }
   if(tab === "zonas") cuerpo = `<div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Negocios</th><th class="num">Meta</th><th>En el filtro</th></tr></thead><tbody>${ZONAS.map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= minFichas() ? "Visible" : "Oculta (menos de " + minFichas() + ")"}</td></tr>`).join("")}</tbody></table></div>`;
   const totalWa = A.neg.filter(x => x.estado === "aprobado").reduce((n,b) => n + (b.clics || 0), 0);
+  const reales = A.neg.filter(x => x.estado === "aprobado" && !x.referencia);
+  const hoyToca = [
+    [pn.length, "negocios por aprobar", "solicitudes"], [pe.length, "eventos por aprobar", "eventos"], [pr.length, "opiniones por revisar", "opiniones"], [sug.length, "eventos sugeridos", "sugeridos"],
+    [reales.filter(b => faltasDe(b).length).length, "fichas incompletas", "editar"],
+    [reportesDe(A).filter(x => (ultRep(x.b) || "").slice(0, 7) !== hoyMes()).length, "reportes por enviar este mes", "reportes"],
+    [duplicadosDe(A).length, "posibles duplicados", "editar"]
+  ].filter(x => x[0] > 0);
+  const panelHoy = `<div class="notice"><b>Hoy toca:</b> ${hoyToca.length ? hoyToca.map(([n, t, k]) => `<button class="chip" data-atab="${k}" aria-pressed="false">${n} ${t}</button>`).join(" ") : "todo al día ✨"}</div>`;
   return `<section>
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:end"><div><p class="eyebrow">Solo para ti</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Panel de administración</h1></div><button class="btn sm ghost" data-salir>Cerrar sesión</button></div>
     ${A.error ? `<div class="notice err">${esc(A.error)}</div>` : ""}
+    ${panelHoy}
     <div class="stats">
       <div class="stat"><b>${A.neg.filter(x => x.estado === "aprobado").length}</b><span>Negocios publicados</span></div>
       <div class="stat"><b>${pn.length + pe.length + pr.length + sug.length}</b><span>Por revisar</span></div>
@@ -1300,6 +1377,7 @@ function vAdminLive(tab){
       <button class="chip" data-atab="opiniones" aria-pressed="${tab==="opiniones"}">Opiniones <small>${pr.length}</small></button>
       <button class="chip" data-atab="publicados" aria-pressed="${tab==="publicados"}">Publicados</button>
       <button class="chip" data-atab="editar" aria-pressed="${tab==="editar"}">Editar fichas</button>
+      <button class="chip" data-atab="reportes" aria-pressed="${tab==="reportes"}">Reportes</button>
       <button class="chip" data-atab="rechazados" aria-pressed="${tab==="rechazados"}">Rechazados</button>
       <button class="chip" data-atab="prospectos" aria-pressed="${tab==="prospectos"}">Prospectos mimx <small>${prospSi.length}</small></button>
       <button class="chip" data-atab="agregar" aria-pressed="${tab==="agregar"}">Agregar negocio</button>
