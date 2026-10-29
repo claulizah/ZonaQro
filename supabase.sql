@@ -271,3 +271,93 @@ alter table public.negocios add constraint negocios_categoria_check
 
 -- 18) Cuántas veces se le ha pedido a un negocio que complete su ficha (para el recordatorio, una sola vez)
 alter table public.negocios add column if not exists pedidos_ficha smallint not null default 0;
+
+-- 19) Enlace personal para que cada negocio edite su propia ficha (sin contraseña)
+--     La llave vive en negocios.token_edicion. El público NO puede leer esa columna (no está en el grant de la sección 7).
+alter table public.negocios add column if not exists token_edicion text unique
+  default (replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', ''));
+
+-- Historial de cambios hechos por los negocios (para revisarlos o revertirlos desde el admin)
+create table if not exists public.ediciones (
+  id          uuid primary key default gen_random_uuid(),
+  negocio_id  text not null references public.negocios(id) on delete cascade,
+  antes       jsonb not null default '{}'::jsonb,
+  despues     jsonb not null default '{}'::jsonb,
+  revisada    boolean not null default false,
+  revertida   boolean not null default false,
+  created_at  timestamptz not null default now()
+);
+create index if not exists ediciones_negocio_idx on public.ediciones (negocio_id, created_at desc);
+alter table public.ediciones enable row level security;
+drop policy if exists "admin ediciones" on public.ediciones;
+create policy "admin ediciones" on public.ediciones for all to authenticated using (public.es_admin()) with check (public.es_admin());
+
+-- Lo que ve el negocio al abrir su enlace
+create or replace function public.ficha_por_token(p_token text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare n public.negocios;
+begin
+  if p_token is null or char_length(p_token) < 20 then return null; end if;
+  select * into n from public.negocios where token_edicion = p_token and estado <> 'rechazado';
+  if not found then return null; end if;
+  return jsonb_build_object(
+    'id', n.id, 'nombre', n.nombre, 'tipo', n.tipo, 'categoria', n.categoria, 'estado', n.estado,
+    'descripcion', n.descripcion, 'direccion', n.direccion, 'horario', n.horario, 'horarios', n.horarios,
+    'redes', n.redes, 'entrega', n.entrega, 'sitio_web', n.sitio_web, 'fotos', n.fotos,
+    'resenas', (select coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'nombre', r.nombre, 'estrellas', r.estrellas,
+                  'texto', r.texto, 'respuesta', r.respuesta, 'fecha', r.created_at) order by r.created_at desc), '[]'::jsonb)
+                from public.resenas r where r.negocio_id = n.id and r.estado = 'aprobado'));
+end $$;
+
+-- Guardar cambios: solo estos campos, solo en la ficha dueña de la llave, con historial y límite por hora
+create or replace function public.editar_ficha(p_token text, p_cambios jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare n public.negocios; k text; antes jsonb := '{}'::jsonb;
+        permitidas text[] := array['descripcion','direccion','horario','horarios','redes','entrega','sitio_web','fotos'];
+begin
+  if p_token is null or char_length(p_token) < 20 or p_cambios is null or jsonb_typeof(p_cambios) <> 'object' then raise exception 'Enlace no válido'; end if;
+  select * into n from public.negocios where token_edicion = p_token and estado <> 'rechazado';
+  if not found then raise exception 'Enlace no válido'; end if;
+  if (select count(*) from public.ediciones where negocio_id = n.id and created_at > now() - interval '1 hour') >= 20 then
+    raise exception 'Demasiados cambios seguidos, intenta en un rato'; end if;
+  for k in select jsonb_object_keys(p_cambios) loop
+    if not (k = any(permitidas)) then raise exception 'Campo no permitido: %', k; end if;
+    antes := antes || jsonb_build_object(k, to_jsonb(n) -> k);
+  end loop;
+  if p_cambios ? 'fotos' then
+    if jsonb_typeof(p_cambios->'fotos') <> 'array' or exists (select 1 from jsonb_array_elements(p_cambios->'fotos') e where jsonb_typeof(e) <> 'string' or (e #>> '{}') not like '%/storage/v1/object/public/fotos/%') then
+      raise exception 'Fotos no válidas'; end if;
+  end if;
+  update public.negocios set
+    descripcion = case when p_cambios ? 'descripcion' then left(btrim(p_cambios->>'descripcion'), 300) else descripcion end,
+    direccion   = case when p_cambios ? 'direccion'   then left(btrim(p_cambios->>'direccion'), 160)   else direccion end,
+    horario     = case when p_cambios ? 'horario'     then left(btrim(p_cambios->>'horario'), 160)     else horario end,
+    horarios    = case when p_cambios ? 'horarios'    then p_cambios->'horarios'                       else horarios end,
+    redes       = case when p_cambios ? 'redes'       then left(btrim(p_cambios->>'redes'), 80)        else redes end,
+    entrega     = case when p_cambios ? 'entrega'     then left(btrim(p_cambios->>'entrega'), 200)     else entrega end,
+    sitio_web   = case when p_cambios ? 'sitio_web'   then btrim(p_cambios->>'sitio_web')              else sitio_web end,
+    fotos       = case when p_cambios ? 'fotos'       then p_cambios->'fotos'                          else fotos end
+  where id = n.id;
+  insert into public.ediciones (negocio_id, antes, despues) values (n.id, antes, p_cambios);
+  return public.ficha_por_token(p_token);
+end $$;
+
+-- Responder una opinión publicada de su propio negocio
+create or replace function public.responder_resena(p_token text, p_resena uuid, p_texto text)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare n public.negocios; c integer;
+begin
+  select * into n from public.negocios where token_edicion = p_token and estado <> 'rechazado';
+  if not found then raise exception 'Enlace no válido'; end if;
+  update public.resenas set respuesta = left(btrim(coalesce(p_texto, '')), 300)
+   where id = p_resena and negocio_id = n.id and estado = 'aprobado';
+  get diagnostics c = row_count;
+  return c = 1;
+end $$;
+
+revoke all on function public.ficha_por_token(text) from public;
+revoke all on function public.editar_ficha(text, jsonb) from public;
+revoke all on function public.responder_resena(text, uuid, text) from public;
+grant execute on function public.ficha_por_token(text) to anon, authenticated;
+grant execute on function public.editar_ficha(text, jsonb) to anon, authenticated;
+grant execute on function public.responder_resena(text, uuid, text) to anon, authenticated;

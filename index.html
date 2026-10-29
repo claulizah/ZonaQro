@@ -572,6 +572,7 @@ async function cargarAdmin(){
     const [n, ev, rs] = await Promise.all([sb("/rest/v1/negocios?select=*&order=created_at.desc"), sb("/rest/v1/eventos?select=*&order=created_at.desc"), sb("/rest/v1/resenas?select=*&order=created_at.desc").catch(() => [])]);
     A.neg = n; A.ev = ev; A.res = rs; A.error = "";
   }catch(err){ A.error = err.message; }
+  try{ A.edic = await sb("/rest/v1/ediciones?select=*&order=created_at.desc&limit=100"); }catch(err){ A.edic = null; }
   try{ const r = await fetch("eventos-sugeridos.json?v=" + Date.now(), {cache:"no-store"}); A.sug = r.ok ? await r.json() : []; }catch(err){ A.sug = []; }
   try{ const d = new Date(Date.now() - 30 * 864e5), iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); A.met = await sb("/rest/v1/metricas?select=dia,tipo,ref,n&dia=gte." + iso + "&limit=20000"); }catch(err){ A.met = null; }
   A.cargado = true;
@@ -1102,11 +1103,107 @@ document.addEventListener("click", async e => {
 });
 
 
+
+/* ===== Enlace personal: el negocio edita su propia ficha ===== */
+const ED = {token:"", datos:null, error:"", cargando:false, fotos:[]};
+const rpc = (fn, body) => sb("/rest/v1/rpc/" + fn, {method:"POST", body, auth:false, timeout:15000});
+async function cargarEdicion(token){
+  if(ED.cargando) return; ED.cargando = true; ED.token = token;
+  try{ const d = await rpc("ficha_por_token", {p_token:token}); ED.datos = d; ED.fotos = d ? (Array.isArray(d.fotos) ? d.fotos.slice() : []) : []; ED.error = d ? "" : "invalido"; }
+  catch(err){ ED.datos = null; ED.error = "red"; }
+  ED.cargando = false; if((location.hash || "").startsWith("#editar-")) render();
+}
+function filasHorarioEd(h){
+  return DK.map(d => { const t = h && h[d]; return `<div class="ep-dia" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="display:flex;gap:6px;align-items:center;min-width:92px"><input type="checkbox" data-epd="${d}"${t ? " checked" : ""}> ${DL[d]}</label>
+    <input type="time" data-epa="${d}" value="${esc(t ? t[0] : "09:00")}" aria-label="Abre ${DL[d]}"> a <input type="time" data-epc="${d}" value="${esc(t ? t[1] : "18:00")}" aria-label="Cierra ${DL[d]}"></div>`; }).join("");
+}
+function vEditarProp(){
+  const d = ED.datos;
+  if(ED.cargando || (!d && !ED.error)) return `<section style="max-width:680px"><h1 style="font-size:1.8rem">Tu ficha en ZonaQro</h1><p class="muted">Cargando…</p></section>`;
+  if(!d) return `<section style="max-width:680px"><h1 style="font-size:1.8rem">Tu ficha en ZonaQro</h1><div class="notice err">${ED.error === "red" ? "No pudimos cargar tu ficha. Revisa tu conexión e intenta otra vez." : "Este enlace ya no es válido. Pídele uno nuevo a ZonaQro por WhatsApp."}</div>${RESP.wa ? `<p><a class="btn wa" href="${contactoHref("Hola, necesito un enlace nuevo para editar mi ficha")}" target="_blank" rel="noopener">Escribir a ZonaQro</a></p>` : ""}</section>`;
+  const fotos = ED.fotos.filter(u => typeof u === "string" && u.startsWith(FOTO_BASE));
+  const hs0 = (d.horarios && typeof d.horarios === "object") ? d.horarios : {};
+  const resenas = d.resenas || [];
+  return `<section style="max-width:680px">
+    <div><p class="eyebrow">Solo para ti</p><h1 style="font-size:clamp(1.7rem,5vw,2.4rem)">${esc(d.nombre)}</h1>
+    <p class="muted" style="margin-top:6px">Aquí actualizas tu ficha. Los cambios se ven en ZonaQro al guardar. Este enlace es personal: no lo compartas.</p></div>
+    ${d.estado === "pendiente" ? '<div class="notice">Tu ficha todavía está en revisión. Puedes completarla desde ahora.</div>' : ""}
+    <form class="reg" id="fEdit" novalidate>
+      <label class="fld" for="ep-desc">Descripción (qué vendes o qué servicio das)<textarea id="ep-desc" maxlength="300">${esc(d.descripcion)}</textarea></label>
+      ${d.tipo === "local" ? `<label class="fld" for="ep-dir">Dirección del local<input id="ep-dir" type="text" maxlength="160" value="${esc(d.direccion)}"></label>` : ""}
+      ${d.tipo === "emprendimiento" ? `<label class="fld" for="ep-ent">¿Cómo entregas?<input id="ep-ent" type="text" maxlength="200" value="${esc(d.entrega)}"></label>` : ""}
+      <fieldset><legend>Días y horario</legend>
+        <div class="chips" style="margin-bottom:8px"><button type="button" class="chip" data-eph="lv">Lun a vie</button><button type="button" class="chip" data-eph="ls">Lun a sáb</button><button type="button" class="chip" data-eph="ld">Todos los días</button></div>
+        ${filasHorarioEd(hs0)}
+        <p class="muted" style="font-size:.85rem;margin-top:6px">Si cierras después de medianoche, pon la hora del día siguiente (por ejemplo 12:00 am).</p>
+        <label class="fld" for="ep-hor" style="margin-top:8px">Otro horario, en texto (opcional)<input id="ep-hor" type="text" maxlength="160" value="${esc(d.horario)}" placeholder="Ej. Con cita, o los sábados de 10 a 2"></label>
+      </fieldset>
+      <label class="fld" for="ep-redes">Redes sociales (Instagram, Facebook…)<input id="ep-redes" type="text" maxlength="80" value="${esc(d.redes)}" placeholder="@minegocio"></label>
+      <label class="fld" for="ep-web">Página web (opcional)<input id="ep-web" type="url" maxlength="160" value="${esc(d.sitio_web)}" placeholder="https://"></label>
+      <fieldset><legend>Fotos (hasta 3)</legend>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${fotos.map((u, i) => `<span style="display:inline-flex;align-items:center;gap:2px"><img src="${esc(u)}" alt="Foto ${i + 1}" style="width:84px;height:64px;object-fit:cover;border-radius:10px"><button type="button" class="btn sm ghost" data-epq="${i}" aria-label="Quitar foto ${i + 1}">×</button></span>`).join("")}
+        ${fotos.length < 3 ? `<label class="btn sm ghost" style="cursor:pointer">Agregar foto<input type="file" accept="image/*" id="ep-foto" hidden></label>` : ""}</div>
+        <p class="muted small" id="ep-fmsg" style="font-size:.85rem;margin-top:6px">Foto de tu local, tu producto o tu trabajo. Las reducimos solas para que carguen rápido.</p>
+      </fieldset>
+      <div id="ep-err" class="notice err" hidden></div>
+      <div><button class="btn" type="submit">Guardar cambios</button></div>
+    </form>
+    <h2 style="font-size:1.25rem;margin-top:12px">Opiniones de tus clientes (${resenas.length})</h2>
+    ${resenas.length ? resenas.map(r => `<div class="req"><div style="display:flex;justify-content:space-between;gap:8px"><strong>${esc(r.nombre)}</strong><span class="rate">${estrellasTxt(r.estrellas)}</span></div><p>${esc(r.texto)}</p>
+      <label class="fld" for="rs-${esc(r.id)}">Tu respuesta (se ve en tu ficha)<textarea id="rs-${esc(r.id)}" maxlength="300">${esc(r.respuesta)}</textarea></label>
+      <div class="req-actions"><button class="btn sm" data-eprs="${esc(r.id)}">Guardar respuesta</button></div></div>`).join("") : '<div class="empty">Todavía no tienes opiniones. Cuando lleguen, aquí podrás responderlas.</div>'}
+    <p class="muted" style="font-size:.85rem">¿Quieres cambiar el nombre, la categoría o tu WhatsApp? Escríbenos${RESP.wa ? ` <a href="${contactoHref("Hola, quiero cambiar un dato de mi ficha: " + d.nombre)}" target="_blank" rel="noopener">por WhatsApp</a>` : ""}.</p>
+  </section>`;
+}
+function leerEdicion(){
+  const v = id => ((document.getElementById(id) || {}).value || "").trim();
+  const horarios = {};
+  for(const dk of DK){
+    const on = document.querySelector('[data-epd="' + dk + '"]'); if(!on || !on.checked) continue;
+    const a = document.querySelector('[data-epa="' + dk + '"]').value, c = document.querySelector('[data-epc="' + dk + '"]').value;
+    if(!/^\d\d:\d\d$/.test(a) || !/^\d\d:\d\d$/.test(c)) throw new Error("Falta la hora de apertura o cierre del " + DL[dk].toLowerCase());
+    horarios[dk] = [a, c];
+  }
+  const web = v("ep-web"); if(web && !/^https?:\/\/\S+$/i.test(web)) throw new Error("La página web debe empezar con https://");
+  const c = {descripcion:v("ep-desc"), horarios, horario:v("ep-hor"), redes:v("ep-redes"), sitio_web:web, fotos:ED.fotos.filter(u => typeof u === "string" && u.startsWith(FOTO_BASE)).slice(0, 3)};
+  if(document.getElementById("ep-dir")) c.direccion = v("ep-dir");
+  if(document.getElementById("ep-ent")) c.entrega = v("ep-ent");
+  return c;
+}
+document.addEventListener("submit", async e => {
+  if(e.target.id !== "fEdit") return; e.preventDefault();
+  const er = document.getElementById("ep-err"), bt = e.target.querySelector('button[type="submit"]');
+  try{ const c = leerEdicion(); er.hidden = true; bt.disabled = true; const d = await rpc("editar_ficha", {p_token:ED.token, p_cambios:c}); if(d){ ED.datos = d; ED.fotos = Array.isArray(d.fotos) ? d.fotos.slice() : []; } toast("Listo, tu ficha quedó actualizada ✨"); render(); }
+  catch(err){ er.textContent = err.message || "No se pudo guardar"; er.hidden = false; }
+  bt.disabled = false;
+});
+document.addEventListener("click", async e => {
+  const h = e.target.closest("[data-eph]");
+  if(h){ const dias = {lv:DK.slice(0,5), ls:DK.slice(0,6), ld:DK}[h.dataset.eph]; const a = document.querySelector('[data-epa="' + dias[0] + '"]').value, c = document.querySelector('[data-epc="' + dias[0] + '"]').value; DK.forEach(d => { const on = document.querySelector('[data-epd="' + d + '"]'); on.checked = dias.includes(d); document.querySelector('[data-epa="' + d + '"]').value = a; document.querySelector('[data-epc="' + d + '"]').value = c; }); return; }
+  const q = e.target.closest("[data-epq]");
+  if(q){ ED.fotos.splice(+q.dataset.epq, 1); const c = ED.datos; ED.datos = Object.assign({}, c, {fotos:ED.fotos.slice(), descripcion:(document.getElementById("ep-desc") || {value:c.descripcion}).value}); render(); return; }
+  const r = e.target.closest("[data-eprs]");
+  if(r){ const id = r.dataset.eprs; r.disabled = true; try{ await rpc("responder_resena", {p_token:ED.token, p_resena:id, p_texto:document.getElementById("rs-" + id).value}); toast("Respuesta guardada"); }catch(err){ toast("No se pudo: " + err.message); } r.disabled = false; }
+});
+document.addEventListener("change", async e => {
+  if(e.target.id !== "ep-foto" || !e.target.files || !e.target.files[0]) return;
+  const f = e.target.files[0], msg = document.getElementById("ep-fmsg"); e.target.value = "";
+  try{
+    msg.textContent = "Subiendo foto…"; const blob = await comprimir(f), path = ED.datos.id + "/" + (ED.fotos.length + 1) + "-" + Math.random().toString(36).slice(2, 8) + ".jpg";
+    const r = await fetch(SB_URL + "/storage/v1/object/fotos/" + path, {method:"POST", headers:{apikey:SB_KEY, Authorization:"Bearer " + SB_KEY, "Content-Type":"image/jpeg"}, body:blob});
+    if(!r.ok) throw new Error("No se pudo subir la foto");
+    ED.fotos.push(FOTO_BASE + path); const c = ED.datos; ED.datos = Object.assign({}, c, {fotos:ED.fotos.slice(), descripcion:(document.getElementById("ep-desc") || {value:c.descripcion}).value}); render(); toast("Foto agregada: recuerda guardar los cambios");
+  }catch(err){ msg.textContent = err.message === "grande" || err.message === "img" ? "Esa imagen no sirve, prueba con otra." : err.message; }
+});
+
 /* ===== Admin: cola para pedir que completen su ficha ===== */
 const diasDesde = f => f ? Math.floor((Date.parse(hoyISO()) - Date.parse(f)) / 864e5) : null;
 function pedidosDe(b, crmPed){ return crmPed ? (b.pedidos_ficha || 0) : (b.ultimo_contacto ? 1 : 0); }
 function pideDe(b){ return faltasDe(b).filter(k => k !== "mayus").map(k => ({horario:"tu horario", foto:"una foto (de tu local, tu trabajo o tu logo cuadrado)", desc:"una descripción corta de lo que ofreces"}[k])); }
+const enlaceDe = b => b && b.token_edicion ? BASE_URL + "#editar-" + b.token_edicion : "";
 function msgPedir(b, recordatorio){
+  const lk = enlaceDe(b);
+  if(lk) return (recordatorio ? "Hola, buen día 👋. Te recuerdo lo de tu ficha de " : "Hola, buen día 👋. Ya puedes completar y actualizar tú mismo la ficha de ") + b.nombre + " en ZonaQro (horario, fotos, descripción y responder opiniones). Este es tu enlace personal, no lo compartas:\n\n" + lk + "\n\nSi tienes dudas, aquí estoy 🙌";
   const p = pideDe(b), l = p.map(x => "• " + x).join("\n"), lo = p.length > 1 ? "los" : "lo";
   return recordatorio
     ? "Hola, buen día 👋. Te recuerdo lo de la ficha de " + b.nombre + " en ZonaQro, solo me falta:\n\n" + l + "\n\n¿Me " + lo + " mandas cuando puedas? 🙌"
@@ -1137,6 +1234,37 @@ document.addEventListener("click", async e => {
   const c = document.querySelector('[data-pedc="' + id + '"]'); if(c) c.textContent = "Enviado · " + hoy; a.remove();
   try{ await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:cuerpo, prefer:"return=minimal"}); Object.assign(b, cuerpo); }catch(err){ toast("No se pudo guardar el envío: " + err.message); }
 });
+
+
+/* ===== Admin: enlaces personales y cambios hechos por los negocios ===== */
+const nuevoToken = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), x => x.toString(16).padStart(2, "0")).join("");
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-tk]"); if(!t) return;
+  const [acc, id] = t.dataset.tk.split(":"), A = estado.admin, b = A.neg.find(x => x.id === id);
+  if((acc === "copiar" || acc === "nuevo") && !b) return;
+  if(acc === "copiar"){ try{ await navigator.clipboard.writeText(enlaceDe(b)); toast("Enlace copiado"); }catch(err){ prompt("Copia el enlace:", enlaceDe(b)); } }
+  else if(acc === "nuevo"){
+    if(!confirm("El enlace anterior de " + b.nombre + " dejará de funcionar. ¿Generar uno nuevo?")) return;
+    const tk = nuevoToken();
+    try{ await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:{token_edicion:tk}, prefer:"return=minimal"}); b.token_edicion = tk; toast("Enlace nuevo listo: cópialo o envíalo"); render(); }catch(err){ toast("No se pudo: " + err.message); }
+  }
+  else if(acc === "ver"){ const ed = (A.edic || []).find(x => x.id === id); if(!ed) return; try{ await sb("/rest/v1/ediciones?id=eq." + id, {method:"PATCH", body:{revisada:true}, prefer:"return=minimal"}); ed.revisada = true; render(); }catch(err){ toast("No se pudo: " + err.message); } }
+  else if(acc === "revertir"){
+    const ed = (A.edic || []).find(x => x.id === id); if(!ed || !confirm("¿Regresar la ficha a como estaba antes de este cambio?")) return;
+    const n = A.neg.find(x => x.id === ed.negocio_id); if(!n) return;
+    try{ await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(n.id), {method:"PATCH", body:ed.antes, prefer:"return=minimal"}); await sb("/rest/v1/ediciones?id=eq." + id, {method:"PATCH", body:{revisada:true, revertida:true}, prefer:"return=minimal"}); Object.assign(n, ed.antes); ed.revisada = ed.revertida = true; toast("Cambio revertido"); render(); }catch(err){ toast("No se pudo: " + err.message); }
+  }
+});
+function adminCambios(A){
+  if(A.edic === null) return '<div class="notice err">Corre la sección 19 de supabase.sql para activar los enlaces personales.</div>';
+  const l = A.edic || [], nom = id => ((A.neg.find(x => x.id === id) || {}).nombre || id);
+  const campos = (o) => Object.keys(o || {}).map(k => k + ": " + (typeof o[k] === "object" ? JSON.stringify(o[k]) : String(o[k])).slice(0, 140));
+  return `<p class="muted" style="max-width:66ch">Cambios que los negocios hicieron desde su enlace personal. Ya están publicados; aquí los revisas y, si algo no va, lo regresas.</p>` + (l.length ? l.map(x => {
+    const a = x.antes || {}, d = x.despues || {}, dif = Object.keys(d).filter(k => JSON.stringify(a[k]) !== JSON.stringify(d[k]));
+    return `<div class="req"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong>${esc(nom(x.negocio_id))}</strong><span class="meta">${esc(String(x.created_at || "").slice(0, 16).replace("T", " "))}${x.revertida ? " · revertido" : x.revisada ? " · visto" : ""}</span></div>
+      ${dif.length ? dif.map(k => `<p class="meta"><b>${esc(k)}</b><br>Antes: ${esc(typeof a[k] === "object" ? JSON.stringify(a[k]) : String(a[k] == null ? "" : a[k]).slice(0, 160))}<br>Ahora: ${esc(typeof d[k] === "object" ? JSON.stringify(d[k]) : String(d[k] == null ? "" : d[k]).slice(0, 160))}</p>`).join("") : '<p class="meta">Sin diferencias.</p>'}
+      ${x.revisada ? "" : `<div class="req-actions"><button class="btn sm" data-tk="ver:${esc(x.id)}">Visto</button><button class="btn sm danger" data-tk="revertir:${esc(x.id)}">Revertir</button></div>`}</div>`; }).join("") : '<div class="empty">Todavía nadie ha editado desde su enlace.</div>');
+}
 
 /* ===== Admin: editar muchas fichas a la vez ===== */
 const PRESETS = {lv:["Lun a vie", DK.slice(0,5)], ls:["Lun a sáb", DK.slice(0,6)], ld:["Todos los días", DK], mad:["Mar a dom", DK.slice(1)], vd:["Vie a dom", DK.slice(4)], sd:["Sáb y dom", DK.slice(5)]};
@@ -1192,6 +1320,7 @@ function adminEditar(A){
       <div class="req-actions"><button class="btn sm" data-ed="guardar:${esc(b.id)}">Guardar</button>
         <a class="btn sm ghost" href="#n-${esc(b.id)}" target="_blank">Ver ficha</a>
         ${pedir.length && b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), msg)}">Pedir lo que falta</a>` : ""}
+        ${"token_edicion" in b ? `<button type="button" class="btn sm ghost" data-tk="copiar:${esc(b.id)}">Copiar enlace de edición</button>${b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" data-tk="enviado:${esc(b.id)}" href="${waTexto(esc(b.whatsapp), msgPedir(b, false))}">Enviar enlace</a>` : ""}<button type="button" class="btn sm danger" data-tk="nuevo:${esc(b.id)}">Cambiar enlace</button>` : ""}
         </div></div>`;
   };
   const comp = lista.filter(b => !faltasDe(b).length).length, crm = hayCrm(A), dups = duplicadosDe(A);
@@ -1301,7 +1430,7 @@ function vAdminLive(tab){
     </form></section>`;
   const A = estado.admin;
   if(!A.cargado) return `<section><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1><p class="muted">Cargando…</p></section>`;
-  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","reportes","rechazados","prospectos","agregar","metricas","zonas"].includes(tab) ? tab : "solicitudes";
+  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas"].includes(tab) ? tab : "solicitudes";
   const RS = A.res || [];
   const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente"), pr = RS.filter(x => x.estado === "pendiente");
   const descartados = (() => { try{ return JSON.parse(localStorage.getItem("zq_desc") || "[]"); }catch(e){ return []; } })();
@@ -1334,6 +1463,7 @@ function vAdminLive(tab){
   if(tab === "editar") cuerpo = adminEditar(A);
   if(tab === "reportes") cuerpo = adminReportes(A);
   if(tab === "pedir") cuerpo = adminPedir(A);
+  if(tab === "cambios") cuerpo = adminCambios(A);
   if(tab === "rechazados"){
     const rj = A.neg.filter(x => x.estado === "rechazado");
     cuerpo = rj.length ? rj.map(s => `<div class="req"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(s.nombre)}</h3><span class="meta">WhatsApp ${telFmt(esc(s.whatsapp))}</span></div>
@@ -1415,6 +1545,7 @@ function vAdminLive(tab){
     [pn.length, "negocios por aprobar", "solicitudes"], [pe.length, "eventos por aprobar", "eventos"], [pr.length, "opiniones por revisar", "opiniones"], [sug.length, "eventos sugeridos", "sugeridos"],
     [reales.filter(b => faltasDe(b).length).length, "fichas incompletas", "editar"],
     [colaDe(A).filter(x => x.etapa === "pedir" || x.etapa === "recordar").length, "por pedir datos", "pedir"],
+    [(A.edic || []).filter(x => !x.revisada).length, "cambios por revisar", "cambios"],
     [reportesDe(A).filter(x => (ultRep(x.b) || "").slice(0, 7) !== hoyMes()).length, "reportes por enviar este mes", "reportes"],
     [duplicadosDe(A).length, "posibles duplicados", "editar"]
   ].filter(x => x[0] > 0);
@@ -1439,6 +1570,7 @@ function vAdminLive(tab){
       <button class="chip" data-atab="publicados" aria-pressed="${tab==="publicados"}">Publicados</button>
       <button class="chip" data-atab="editar" aria-pressed="${tab==="editar"}">Editar fichas</button>
       <button class="chip" data-atab="pedir" aria-pressed="${tab==="pedir"}">Pedir datos</button>
+      <button class="chip" data-atab="cambios" aria-pressed="${tab==="cambios"}">Cambios <small>${(A.edic || []).filter(x => !x.revisada).length}</small></button>
       <button class="chip" data-atab="reportes" aria-pressed="${tab==="reportes"}">Reportes</button>
       <button class="chip" data-atab="rechazados" aria-pressed="${tab==="rechazados"}">Rechazados</button>
       <button class="chip" data-atab="prospectos" aria-pressed="${tab==="prospectos"}">Prospectos mimx <small>${prospSi.length}</small></button>
@@ -1845,6 +1977,7 @@ function render(){
   else if(h === "publicar-evento") html = vRegEvento(false);
   else if(h === "registrar") html = vRegistrar(false);
   else if(h === "admin") html = vAdmin(adminTab);
+  else if(h.startsWith("editar-")){ html = vEditarProp(); nav = ""; }
   else if(h === "ayuda") html = vAyuda();
   else if(h === "recomendar") html = vRecomendar();
   else if(h === "privacidad") html = vPrivacidad();
@@ -1855,9 +1988,11 @@ function render(){
   try{
     const TT = {directorio:"Directorio de negocios y servicios", vecinos:"Hecho por tus vecinos", cupones:"Cupones y promociones", eventos:"Eventos y qué hacer", "publicar-evento":"Publica tu evento", registrar:"Registra tu negocio gratis", ayuda:"Preguntas frecuentes", recomendar:"Recomienda un negocio", negocios:"Para negocios", terminos:"Términos de uso", privacidad:"Aviso de privacidad", admin:"Administración"};
     const nb = h.startsWith("n-") ? negocios().find(x => x.id === h.slice(2)) : null;
+    let rb = document.querySelector('meta[name="robots"]'); if(!rb){ rb = document.createElement("meta"); rb.name = "robots"; document.head.appendChild(rb); } rb.content = h.startsWith("editar-") || h === "admin" ? "noindex, nofollow" : "index, follow";
+    if(h.startsWith("editar-")){ document.title = "Editar tu ficha | ZonaQro"; if(ED.token !== h.slice(7) && !ED.cargando){ ED.datos = null; ED.error = ""; cargarEdicion(h.slice(7)); } } else
     document.title = nb ? nb.nombre + " en " + nb.zonas.join(", ") + " | ZonaQro" : TT[h] ? TT[h] + " | ZonaQro" : "ZonaQro: negocios, servicios y cupones en tu zona";
   }catch(err){}
-  if(h !== "admin" && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", refOrigen() || "sitio"); if(h.startsWith("n-") && unaVez("v" + h)) metrica("vista", h.slice(2)); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
+  if(h !== "admin" && !h.startsWith("editar-") && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", refOrigen() || "sitio"); if(h.startsWith("n-") && unaVez("v" + h)) metrica("vista", h.slice(2)); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
   if(h === "admin" && SB.ok && SB.token && !estado.admin.cargado && !estado.admin.cargando){ estado.admin.cargando = true; cargarAdmin().finally(() => { estado.admin.cargando = false; }); }
   document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   pintarZona(); pintarContacto();
