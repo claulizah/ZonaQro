@@ -1271,7 +1271,7 @@ function vAdminLive(tab){
           x.w ? "• " + pl(x.w, "persona te escribió", "personas te escribieron") + " por WhatsApp" : "• Todavía nadie te ha escrito por WhatsApp (apenas estamos arrancando)",
           x.web ? "• " + pl(x.web, "persona entró", "personas entraron") + " a tu página o redes" : "",
           x.c ? "• Tus promos se vieron " + pl(x.c, "vez", "veces") : ""].filter(Boolean).join("\n");
-        return "Hola, buen día 👋 Ando revisando cómo les va a los negocios en ZonaQro y te cuento lo de " + x.b.nombre + " este último mes:\n\n" + b + "\n\n" +
+        return "Hola, buen día 👋. Ando revisando cómo les va a los negocios en ZonaQro y te cuento lo de " + x.b.nombre + " este último mes:\n\n" + b + "\n\n" +
           (x.w ? "Si quieres te ayudo a subir una promo o a mejorar tu ficha para que te encuentren más. ¿Cómo lo ves? 😊" : "Si quieres te ayudo a mejorar tu ficha (fotos, horario, una promo) para que más gente te escriba. ¿Te late? 😊");
       };
       cuerpo = `<p class="muted">Últimos 30 días. Conteos anónimos: no guardamos IP ni datos de las personas.</p>
