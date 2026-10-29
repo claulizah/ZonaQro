@@ -1047,7 +1047,7 @@ function panelOpiniones(b){
 
 function vRegistrar(enviado, adm){
   if(enviado && adm) return `<div class="notice">Listo, el negocio quedó publicado como "Agregado por ZonaQro".</div>`;
-  if(enviado) return `<section style="max-width:680px"><div class="notice">Recibimos tu solicitud. La revisamos y te avisamos por WhatsApp cuando tu ficha esté publicada.</div><a class="btn ghost" href="#inicio">Volver al inicio</a></section>`;
+  if(enviado) return `<section style="max-width:680px"><div class="notice"><b>¡Gracias! Recibimos tu solicitud.</b><br>La revisamos y en 1 o 2 días te escribimos por WhatsApp${RESP.wa ? " desde el " + telFmt(RESP.wa) : ""}. Guarda ese número para que te llegue el mensaje.<br>Cuando tu ficha esté publicada te mandamos un enlace personal para completar tu horario y tus fotos.</div><a class="btn ghost" href="#inicio">Volver al inicio</a></section>`;
   return `<section>
     ${adm ? `<div><h2 style="font-size:1.3rem">Agregar un negocio</h2><p class="muted" style="margin-top:6px;max-width:62ch">Usa solo información pública que el propio negocio ya difunde (su nombre, giro, zona, teléfono y dirección del local si es público). No copies fotos, logos, descripciones ni reseñas de otros sitios. Se publica como "Agregado por ZonaQro" hasta que el dueño lo confirme.</p></div>` : `<div><p class="eyebrow">Gratis para negocios de la zona</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Registra tu negocio</h1>
     <p class="muted" style="margin-top:8px;max-width:60ch">Con local, a domicilio o si vendes desde casa. Revisamos cada solicitud antes de publicarla.</p></div>`}
@@ -1188,6 +1188,7 @@ function vEditarProp(){
     <p class="muted" style="margin-top:6px">Aquí cambias lo que quieras de tu ficha: horario, fotos, descripción… Al terminar toca <b>Guardar cambios</b> (hasta abajo). Este enlace es solo tuyo, no lo compartas.</p></div>
     ${ED.ok ? `<div class="notice ep-ok" role="status">Listo, tu ficha ya quedó actualizada. <a href="#n-${esc(d.id)}" target="_blank">Ver cómo se ve</a></div>` : ""}
     ${d.estado === "pendiente" ? '<div class="notice">Tu ficha todavía está en revisión. Puedes completarla desde ahora.</div>' : ""}
+    <div class="panel ep-prog" id="epProg" aria-live="polite"></div>
     <form class="reg" id="fEdit" novalidate>
       <label class="fld" for="ep-desc">Descripción (qué vendes o qué servicio das)<textarea id="ep-desc" maxlength="300">${esc(d.descripcion)}</textarea></label>
       ${d.tipo === "local" ? `<label class="fld" for="ep-dir">Dirección del local<input id="ep-dir" type="text" maxlength="160" value="${esc(d.direccion)}"></label>` : ""}
@@ -1217,6 +1218,19 @@ function vEditarProp(){
     <p class="muted" style="font-size:.85rem">¿Quieres cambiar el nombre, la categoría o tu WhatsApp? Escríbenos${RESP.wa ? ` <a href="${contactoHref("Hola, quiero cambiar un dato de mi ficha: " + d.nombre)}" target="_blank" rel="noopener">por WhatsApp</a>` : ""}.</p>
   </section>`;
 }
+function avanceEd(){
+  const g = id => ((document.getElementById(id) || {}).value || "").trim();
+  const hay = DK.some(d => (document.querySelector('[data-epd="' + d + '"]') || {}).checked) || g("ep-hor");
+  const pasos = [[hay, "tu horario"], [ED.fotos.filter(u => typeof u === "string" && u.startsWith(FOTO_BASE)).length > 0, "una foto"], [g("ep-desc").length >= 30, "una descripción de al menos 30 letras"]];
+  if(ED.datos && ED.datos.tipo === "local") pasos.push([g("ep-dir").length >= 5, "la dirección"]);
+  const ok = pasos.filter(x => x[0]).length, pct = Math.round(ok / pasos.length * 100), falta = pasos.filter(x => !x[0]).map(x => x[1]);
+  const el = document.getElementById("epProg"); if(!el) return;
+  el.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px;font-weight:700"><span>Tu ficha está al ${pct}%</span>${pct === 100 ? "<span>Completa ✨</span>" : ""}</div>
+    <div style="height:10px;border-radius:6px;background:#e3e8e2;overflow:hidden;margin:8px 0"><div style="height:100%;width:${pct}%;background:#2a6a4b;transition:width .3s"></div></div>
+    <p class="muted" style="font-size:.9rem;margin:0">${falta.length ? "Te falta: " + falta.join(", ") + ". Las fichas completas salen primero cuando la gente busca." : "Ya tienes lo básico. Las fichas completas salen primero cuando la gente busca."}</p>`;
+}
+document.addEventListener("input", e => { if(e.target.closest && e.target.closest("#fEdit")) avanceEd(); });
+document.addEventListener("change", e => { if(e.target.closest && e.target.closest("#fEdit")) avanceEd(); });
 function leerEdicion(){
   const v = id => ((document.getElementById(id) || {}).value || "").trim();
   const horarios = {};
@@ -1241,7 +1255,7 @@ document.addEventListener("submit", async e => {
 });
 document.addEventListener("click", async e => {
   const h = e.target.closest("[data-eph]");
-  if(h){ const dias = {lv:DK.slice(0,5), ls:DK.slice(0,6), ld:DK}[h.dataset.eph]; const a = document.querySelector('[data-epa="' + dias[0] + '"]').value, c = document.querySelector('[data-epc="' + dias[0] + '"]').value; DK.forEach(d => { const on = document.querySelector('[data-epd="' + d + '"]'); on.checked = dias.includes(d); on.closest(".ep-dia").classList.toggle("off", !on.checked); document.querySelector('[data-epa="' + d + '"]').value = a; document.querySelector('[data-epc="' + d + '"]').value = c; }); return; }
+  if(h){ const dias = {lv:DK.slice(0,5), ls:DK.slice(0,6), ld:DK}[h.dataset.eph]; const a = document.querySelector('[data-epa="' + dias[0] + '"]').value, c = document.querySelector('[data-epc="' + dias[0] + '"]').value; DK.forEach(d => { const on = document.querySelector('[data-epd="' + d + '"]'); on.checked = dias.includes(d); on.closest(".ep-dia").classList.toggle("off", !on.checked); document.querySelector('[data-epa="' + d + '"]').value = a; document.querySelector('[data-epc="' + d + '"]').value = c; }); avanceEd(); return; }
   const q = e.target.closest("[data-epq]");
   if(q){ ED.fotos.splice(+q.dataset.epq, 1); const c = ED.datos; ED.datos = Object.assign({}, c, {fotos:ED.fotos.slice(), descripcion:(document.getElementById("ep-desc") || {value:c.descripcion}).value}); render(); return; }
   const r = e.target.closest("[data-eprs]");
@@ -1274,13 +1288,21 @@ function msgPedir(b, recordatorio){
     ? "Hola, buen día 👋. Te recuerdo lo de la ficha de " + b.nombre + " en ZonaQro, solo me falta:\n\n" + l + "\n\n¿Me " + lo + " mandas cuando puedas? 🙌"
     : "Hola, buen día 👋. Ando completando las fichas de ZonaQro y la de " + b.nombre + " ya casi queda lista. Nada más me falta:\n\n" + l + "\n\nSi me " + lo + " mandas por aquí, yo la actualizo. Las fichas completas salen primero cuando la gente busca 😊";
 }
+function aperturaTxt(b){
+  if(!("aperturas" in b)) return "";
+  if(!b.token_edicion) return "Sin enlace";
+  if(b.aperturas > 0){ const f = b.enlace_abierto ? String(b.enlace_abierto).slice(0, 10) : ""; return "Abrió su enlace (" + b.aperturas + (b.aperturas === 1 ? " vez" : " veces") + (f ? ", último " + f : "") + ")"; }
+  const d = diasDesde(b.ultimo_contacto);
+  return b.ultimo_contacto ? "Aún no abre su enlace" + (d !== null ? " (hace " + d + " d)" : "") : "Sin enviar";
+}
+const sinAbrir = b => "aperturas" in b && b.token_edicion && !b.aperturas && b.ultimo_contacto && diasDesde(b.ultimo_contacto) >= 3;
 function colaDe(A){
-  const crmPed = !!(A.neg[0] && "pedidos_ficha" in A.neg[0]);
+  const crmPed = !!(A.neg[0] && "pedidos_ficha" in A.neg[0]), M = metPorNegocio(A);
   return A.neg.filter(b => b.estado === "aprobado" && !b.referencia && b.whatsapp && pideDe(b).length).map(b => {
     const n = pedidosDe(b, crmPed), d = diasDesde(b.ultimo_contacto);
     const etapa = n === 0 ? "pedir" : d !== null && d < 3 ? "espera" : n === 1 ? "recordar" : "sinrespuesta";
     return {b, n, d, etapa};
-  }).sort((a, c) => ["pedir","recordar","espera","sinrespuesta"].indexOf(a.etapa) - ["pedir","recordar","espera","sinrespuesta"].indexOf(c.etapa) || pideDe(c.b).length - pideDe(a.b).length);
+  }).sort((a, c) => ["pedir","recordar","espera","sinrespuesta"].indexOf(a.etapa) - ["pedir","recordar","espera","sinrespuesta"].indexOf(c.etapa) || ((M[c.b.id] || {}).v || 0) - ((M[a.b.id] || {}).v || 0) || pideDe(c.b).length - pideDe(a.b).length);
 }
 function adminPedir(A){
   if(!hayCrm(A)) return '<div class="notice err">Corre la sección 16 de supabase.sql para usar esta cola (guarda a quién ya le pediste datos).</div>';
@@ -1288,16 +1310,16 @@ function adminPedir(A){
   const cuenta = k => cola.filter(x => x.etapa === k).length;
   return `<p class="muted" style="max-width:66ch">Negocios a los que les falta horario, foto o descripción. Toca el botón, se abre WhatsApp con el mensaje listo y queda marcado. Si no contestan en 3 días, te sale el recordatorio (una sola vez).</p>
     <div class="notice">Por pedir: <b>${cuenta("pedir")}</b> · Recordatorios: <b>${cuenta("recordar")}</b> · Esperando: <b>${cuenta("espera")}</b> · Sin respuesta: <b>${cuenta("sinrespuesta")}</b></div>
-    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Les falta</th><th>Estado</th><th></th></tr></thead><tbody>${cola.length ? cola.map(x => {
+    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Les falta</th><th>Estado</th><th>Su enlace</th><th></th></tr></thead><tbody>${cola.length ? cola.map(x => {
       const act = x.etapa === "pedir" || x.etapa === "recordar" || x.etapa === "sinrespuesta";
-      return `<tr><td>${esc(x.b.nombre)}</td><td>${pideDe(x.b).map(t => esc(t.split(" (")[0].replace("tu ", "").replace("una ", ""))).join(", ")}</td><td data-pedc="${esc(x.b.id)}">${tx[x.etapa]}${x.b.ultimo_contacto ? " · " + esc(x.b.ultimo_contacto) : ""}</td><td>${act ? `<a class="btn sm wa" target="_blank" rel="noopener" data-ped="${esc(x.b.id)}" href="${waTexto(esc(x.b.whatsapp), msgPedir(x.b, x.etapa !== "pedir"))}">${x.etapa === "pedir" ? "Pedir datos" : x.etapa === "recordar" ? "Recordar" : "Pedir otra vez"}</a>` : ""}</td></tr>`; }).join("") : '<tr><td colspan="4">Todas las fichas tienen lo básico 🎉</td></tr>'}</tbody></table></div>${completasHtml(A, crmPed0(A))}`;
+      return `<tr><td>${esc(x.b.nombre)}</td><td>${pideDe(x.b).map(t => esc(t.split(" (")[0].replace("tu ", "").replace("una ", ""))).join(", ")}</td><td data-pedc="${esc(x.b.id)}">${tx[x.etapa]}${x.b.ultimo_contacto ? " · " + esc(x.b.ultimo_contacto) : ""}</td><td>${esc(aperturaTxt(x.b))}</td><td>${act ? `<a class="btn sm wa" target="_blank" rel="noopener" data-ped="${esc(x.b.id)}" href="${waTexto(esc(x.b.whatsapp), msgPedir(x.b, x.etapa !== "pedir"))}">${x.etapa === "pedir" ? "Pedir datos" : x.etapa === "recordar" ? "Recordar" : "Pedir otra vez"}</a>` : ""}</td></tr>`; }).join("") : '<tr><td colspan="5">Todas las fichas tienen lo básico 🎉</td></tr>'}</tbody></table></div>${completasHtml(A, crmPed0(A))}`;
 }
 const crmPed0 = A => !!(A.neg[0] && "pedidos_ficha" in A.neg[0]);
 function completasHtml(A, crmPed){
   const lista = A.neg.filter(b => b.estado === "aprobado" && !b.referencia && b.whatsapp && b.token_edicion && !pideDe(b).length).sort((x, y) => pedidosDe(x, crmPed) - pedidosDe(y, crmPed));
   if(!lista.length) return "";
   return `<h3 style="margin-top:18px">Fichas completas: avísales de su enlace</h3><p class="muted" style="max-width:66ch">Ya tienen todo lo básico. Este mensaje solo les da su enlace por si algún día quieren actualizar. No es urgente.</p>
-    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Estado</th><th></th></tr></thead><tbody>${lista.map(b => { const n = pedidosDe(b, crmPed); return `<tr><td>${esc(b.nombre)}</td><td data-pedc="${esc(b.id)}">${n ? "Aviso enviado" + (b.ultimo_contacto ? " · " + esc(b.ultimo_contacto) : "") : "Sin avisar"}</td><td>${n ? "" : `<a class="btn sm wa" target="_blank" rel="noopener" data-ped="${esc(b.id)}" href="${waTexto(esc(b.whatsapp), msgPedir(b, false))}">Enviar enlace</a>`}</td></tr>`; }).join("")}</tbody></table></div>`;
+    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Estado</th><th>Su enlace</th><th></th></tr></thead><tbody>${lista.map(b => { const n = pedidosDe(b, crmPed); return `<tr><td>${esc(b.nombre)}</td><td data-pedc="${esc(b.id)}">${n ? "Aviso enviado" + (b.ultimo_contacto ? " · " + esc(b.ultimo_contacto) : "") : "Sin avisar"}</td><td>${esc(aperturaTxt(b))}</td><td>${n ? "" : `<a class="btn sm wa" target="_blank" rel="noopener" data-ped="${esc(b.id)}" href="${waTexto(esc(b.whatsapp), msgPedir(b, false))}">Enviar enlace</a>`}</td></tr>`; }).join("")}</tbody></table></div>`;
 }
 document.addEventListener("click", async e => {
   const a = e.target.closest("[data-ped]"); if(!a) return;
@@ -1392,7 +1414,7 @@ function adminEditar(A){
       <div class="req-actions"><button class="btn sm" data-ed="guardar:${esc(b.id)}">Guardar</button>
         <a class="btn sm ghost" href="#n-${esc(b.id)}" target="_blank">Ver ficha</a>
         ${pedir.length && b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), msg)}">Pedir lo que falta</a>` : ""}
-        ${"token_edicion" in b ? `<button type="button" class="btn sm ghost" data-tk="copiar:${esc(b.id)}">Copiar enlace de edición</button>${b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" data-tk="enviado:${esc(b.id)}" href="${waTexto(esc(b.whatsapp), msgPedir(b, false))}">Enviar enlace</a>` : ""}<button type="button" class="btn sm danger" data-tk="nuevo:${esc(b.id)}">Cambiar enlace</button>` : ""}
+        ${"token_edicion" in b ? `<span class="meta" style="align-self:center">${esc(aperturaTxt(b))}</span><button type="button" class="btn sm ghost" data-tk="copiar:${esc(b.id)}">Copiar enlace de edición</button>${b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" data-tk="enviado:${esc(b.id)}" href="${waTexto(esc(b.whatsapp), msgPedir(b, false))}">Enviar enlace</a>` : ""}<button type="button" class="btn sm danger" data-tk="nuevo:${esc(b.id)}">Cambiar enlace</button>` : ""}
         <button type="button" class="btn sm ghost" data-qrficha="${esc(b.id)}" data-qrnom="${esc(b.nombre)}">Descargar QR</button>
         </div></div>`;
   };
@@ -1619,6 +1641,7 @@ function vAdminLive(tab){
     [reales.filter(b => faltasDe(b).length).length, "fichas incompletas", "editar"],
     [colaDe(A).filter(x => x.etapa === "pedir" || x.etapa === "recordar").length, "por pedir datos", "pedir"],
     [(A.edic || []).filter(x => !x.revisada).length, "cambios por revisar", "cambios"],
+    [A.neg.filter(sinAbrir).length, "enlaces sin abrir (3+ días)", "pedir"],
     [reportesDe(A).filter(x => (ultRep(x.b) || "").slice(0, 7) !== hoyMes()).length, "reportes por enviar este mes", "reportes"],
     [duplicadosDe(A).length, "posibles duplicados", "editar"]
   ].filter(x => x[0] > 0);
@@ -2063,6 +2086,7 @@ function render(){
   else if(h === "negocios") html = vParaNegocios();
   else { html = vInicio(); nav = "inicio"; }
   app.innerHTML = html;
+  if(h.startsWith("editar-")) try{ avanceEd(); }catch(err){}
   try{
     const TT = {directorio:"Directorio de negocios y servicios", vecinos:"Hecho por tus vecinos", cupones:"Cupones y promociones", eventos:"Eventos y qué hacer", "publicar-evento":"Publica tu evento", registrar:"Registra tu negocio gratis", ayuda:"Preguntas frecuentes", recomendar:"Recomienda un negocio", negocios:"Para negocios", terminos:"Términos de uso", privacidad:"Aviso de privacidad", admin:"Administración"};
     const nb = h.startsWith("n-") ? negocios().find(x => x.id === h.slice(2)) : null;

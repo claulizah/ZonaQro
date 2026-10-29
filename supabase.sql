@@ -361,3 +361,26 @@ revoke all on function public.responder_resena(text, uuid, text) from public;
 grant execute on function public.ficha_por_token(text) to anon, authenticated;
 grant execute on function public.editar_ficha(text, jsonb) to anon, authenticated;
 grant execute on function public.responder_resena(text, uuid, text) to anon, authenticated;
+
+-- ===== 20. Saber si el negocio abrió su enlace personal =====
+alter table public.negocios add column if not exists aperturas integer not null default 0;
+alter table public.negocios add column if not exists enlace_abierto timestamptz;
+
+create or replace function public.ficha_por_token(p_token text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare n public.negocios;
+begin
+  if p_token is null or char_length(p_token) < 20 then return null; end if;
+  select * into n from public.negocios where token_edicion = p_token and estado <> 'rechazado';
+  if not found then return null; end if;
+  update public.negocios set aperturas = aperturas + 1, enlace_abierto = now() where id = n.id;
+  return jsonb_build_object(
+    'id', n.id, 'nombre', n.nombre, 'tipo', n.tipo, 'categoria', n.categoria, 'estado', n.estado,
+    'descripcion', n.descripcion, 'direccion', n.direccion, 'horario', n.horario, 'horarios', n.horarios,
+    'redes', n.redes, 'entrega', n.entrega, 'sitio_web', n.sitio_web, 'fotos', n.fotos,
+    'resenas', (select coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'nombre', r.nombre, 'estrellas', r.estrellas,
+                  'texto', r.texto, 'respuesta', r.respuesta, 'fecha', r.created_at) order by r.created_at desc), '[]'::jsonb)
+                from public.resenas r where r.negocio_id = n.id and r.estado = 'aprobado'));
+end $$;
+revoke all on function public.ficha_por_token(text) from public;
+grant execute on function public.ficha_por_token(text) to anon, authenticated;
