@@ -1010,7 +1010,7 @@ function vRegistrar(enviado, adm){
       </div>
       <fieldset><legend id="lg-zonas">Zona</legend><div class="inline-opts">
         ${ZONAS.map(z => `<label class="opt"><input type="checkbox" name="zonas" id="z-${z.replace(/\s/g,"")}" value="${z}"><span>${z}</span></label>`).join("")}
-      </div></fieldset>
+      </div><p class="muted" style="font-size:.85rem;margin-top:6px">¿Estás en otra zona, como Campanario, Jurica, La Vista o Centro Sur? Si atiendes clientes en alguna de estas 4, elígela. Si no, <a href="#recomendar">avísanos tu zona</a> y te tomamos en cuenta.</p></fieldset>
       <label class="fld" for="r-desc">Describe tu negocio<textarea id="r-desc" maxlength="240" placeholder="Qué vendes o qué servicio das, en una o dos frases."></textarea></label>
       <div id="campos-local"><label class="fld" for="r-dir">Dirección del local<input id="r-dir" type="text" placeholder="Plaza, calle y número"></label></div>
       <fieldset id="campos-hor"><legend id="lg-hor">Días y horario</legend>
@@ -1461,6 +1461,7 @@ function vAyuda(){
     ["¿Quién está detrás de ZonaQro?", "Es un proyecto independiente hecho por vecinos de la zona, sin relación con ninguna administración de fraccionamiento. La idea es que todos tengamos a dónde acudir cuando necesitamos un servicio."],
     ["¿Qué hago si tuve un mal servicio?", "Puedes dejar tu opinión en la ficha del negocio; la revisamos antes de publicarla. Si es algo serio o un dato falso, escríbenos por WhatsApp y lo atendemos."],
     ["¿Por qué no veo el negocio que busco?", "Seguimos sumando negocios cada semana. Si conoces uno de confianza, recomiéndalo y le escribimos para invitarlo."],
+    ["¿Habrá más zonas?", "Sí. Empezamos con Zibatá, Zakia, Juriquilla y El Refugio para hacerlo bien y queremos llegar a más. Si vives en otra zona (Campanario, Jurica, La Vista, Centro Sur…), cuéntanos en \"Recomienda un negocio\" y la tomamos en cuenta."],
     ["¿Guardan mis datos?", "Solo contamos visitas de forma anónima. No pedimos cuenta para buscar ni guardamos tu teléfono. Más detalle en el aviso de privacidad."]
   ];
   return `<section class="faq" style="max-width:720px">
@@ -1476,7 +1477,8 @@ function vRecomendar(){
     <form class="reg" id="fRec" novalidate>
       <label class="fld" for="rc-n">Nombre del negocio o servicio<input id="rc-n" type="text" maxlength="80" autocomplete="off"></label>
       <label class="fld" for="rc-t">Su WhatsApp o teléfono (si lo tienes)<input id="rc-t" type="tel" inputmode="tel" maxlength="20"></label>
-      <label class="fld" for="rc-z">Zona<select id="rc-z"><option value="">Elige…</option>${ZONAS.map(z => `<option>${z}</option>`).join("")}</select></label>
+      <label class="fld" for="rc-z">Zona<select id="rc-z"><option value="">Elige…</option>${ZONAS.map(z => `<option>${z}</option>`).join("")}<option value="otra">Otra zona (Campanario, Jurica, La Vista…)</option></select></label>
+      <label class="fld" for="rc-o" id="rc-ol" hidden>¿Cuál zona?<input id="rc-o" type="text" maxlength="40" placeholder="Ej. Campanario"></label>
       <label class="fld" for="rc-d">¿Qué hace y por qué lo recomiendas? (opcional)<textarea id="rc-d" maxlength="200"></textarea></label>
       <div id="rc-err" class="notice err" hidden></div>
       <div><button class="btn" type="submit">Enviar recomendación</button></div>
@@ -1874,14 +1876,15 @@ document.addEventListener("submit", e => {
   if(e.target.id === "fRec"){
     e.preventDefault();
     const v = id => (document.getElementById(id).value || "").trim(), er = document.getElementById("rc-err");
-    const n = v("rc-n"), t = v("rc-t"), z = v("rc-z"), d = v("rc-d");
+    const n = v("rc-n"), t = v("rc-t"), d = v("rc-d"), z0 = v("rc-z"), z = z0 === "otra" ? (v("rc-o") || "otra zona") : z0;
     const href = contactoHref("Hola 👋 Les recomiendo un negocio para ZonaQro:\nNegocio: " + n + (t ? "\nContacto: " + t : "") + (z ? "\nZona: " + z : "") + (d ? "\n" + d : ""));
     if(n.length < 2){ er.textContent = "Escribe el nombre del negocio."; er.hidden = false; return; }
-    if(!z){ er.textContent = "Elige la zona."; er.hidden = false; return; }
+    if(!z0){ er.textContent = "Elige la zona."; er.hidden = false; return; }
     if(!href){ er.textContent = "Por ahora no hay un medio de contacto configurado."; er.hidden = false; return; }
     er.hidden = true; window.open(href, "_blank", "noopener"); toast("Gracias por recomendar 🙌");
   }
 });
+document.addEventListener("change", e => { if(e.target.id === "rc-z"){ const l = document.getElementById("rc-ol"); if(l) l.hidden = e.target.value !== "otra"; } });
 
 function formIniciado(e){
   const f = e.target.closest && e.target.closest("#fReg,#fEv"); if(!f || f.dataset.admin) return;
