@@ -1101,6 +1101,43 @@ document.addEventListener("click", async e => {
   else { try{ localStorage.setItem("zq_rep_" + id, hoy); }catch(err){} }
 });
 
+
+/* ===== Admin: cola para pedir que completen su ficha ===== */
+const diasDesde = f => f ? Math.floor((Date.parse(hoyISO()) - Date.parse(f)) / 864e5) : null;
+function pedidosDe(b, crmPed){ return crmPed ? (b.pedidos_ficha || 0) : (b.ultimo_contacto ? 1 : 0); }
+function pideDe(b){ return faltasDe(b).filter(k => k !== "mayus").map(k => ({horario:"tu horario", foto:"una foto (de tu local, tu trabajo o tu logo cuadrado)", desc:"una descripción corta de lo que ofreces"}[k])); }
+function msgPedir(b, recordatorio){
+  const p = pideDe(b), l = p.map(x => "• " + x).join("\n"), lo = p.length > 1 ? "los" : "lo";
+  return recordatorio
+    ? "Hola, buen día 👋. Te recuerdo lo de la ficha de " + b.nombre + " en ZonaQro, solo me falta:\n\n" + l + "\n\n¿Me " + lo + " mandas cuando puedas? 🙌"
+    : "Hola, buen día 👋. Ando completando las fichas de ZonaQro y la de " + b.nombre + " ya casi queda lista. Nada más me falta:\n\n" + l + "\n\nSi me " + lo + " mandas por aquí, yo la actualizo. Las fichas completas salen primero cuando la gente busca 😊";
+}
+function colaDe(A){
+  const crmPed = !!(A.neg[0] && "pedidos_ficha" in A.neg[0]);
+  return A.neg.filter(b => b.estado === "aprobado" && !b.referencia && b.whatsapp && pideDe(b).length).map(b => {
+    const n = pedidosDe(b, crmPed), d = diasDesde(b.ultimo_contacto);
+    const etapa = n === 0 ? "pedir" : d !== null && d < 3 ? "espera" : n === 1 ? "recordar" : "sinrespuesta";
+    return {b, n, d, etapa};
+  }).sort((a, c) => ["pedir","recordar","espera","sinrespuesta"].indexOf(a.etapa) - ["pedir","recordar","espera","sinrespuesta"].indexOf(c.etapa) || pideDe(c.b).length - pideDe(a.b).length);
+}
+function adminPedir(A){
+  if(!hayCrm(A)) return '<div class="notice err">Corre la sección 16 de supabase.sql para usar esta cola (guarda a quién ya le pediste datos).</div>';
+  const cola = colaDe(A), tx = {pedir:"Primer mensaje", recordar:"Recordatorio", espera:"Esperando respuesta", sinrespuesta:"Sin respuesta (2 intentos)"};
+  const cuenta = k => cola.filter(x => x.etapa === k).length;
+  return `<p class="muted" style="max-width:66ch">Negocios a los que les falta horario, foto o descripción. Toca el botón, se abre WhatsApp con el mensaje listo y queda marcado. Si no contestan en 3 días, te sale el recordatorio (una sola vez).</p>
+    <div class="notice">Por pedir: <b>${cuenta("pedir")}</b> · Recordatorios: <b>${cuenta("recordar")}</b> · Esperando: <b>${cuenta("espera")}</b> · Sin respuesta: <b>${cuenta("sinrespuesta")}</b></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Les falta</th><th>Estado</th><th></th></tr></thead><tbody>${cola.length ? cola.map(x => {
+      const act = x.etapa === "pedir" || x.etapa === "recordar" || x.etapa === "sinrespuesta";
+      return `<tr><td>${esc(x.b.nombre)}</td><td>${pideDe(x.b).map(t => esc(t.split(" (")[0].replace("tu ", "").replace("una ", ""))).join(", ")}</td><td data-pedc="${esc(x.b.id)}">${tx[x.etapa]}${x.b.ultimo_contacto ? " · " + esc(x.b.ultimo_contacto) : ""}</td><td>${act ? `<a class="btn sm wa" target="_blank" rel="noopener" data-ped="${esc(x.b.id)}" href="${waTexto(esc(x.b.whatsapp), msgPedir(x.b, x.etapa !== "pedir"))}">${x.etapa === "pedir" ? "Pedir datos" : x.etapa === "recordar" ? "Recordar" : "Pedir otra vez"}</a>` : ""}</td></tr>`; }).join("") : '<tr><td colspan="4">Todas las fichas tienen lo básico 🎉</td></tr>'}</tbody></table></div>`;
+}
+document.addEventListener("click", async e => {
+  const a = e.target.closest("[data-ped]"); if(!a) return;
+  const A = estado.admin, id = a.dataset.ped, b = A.neg.find(x => x.id === id); if(!b) return;
+  const crmPed = "pedidos_ficha" in b, hoy = hoyISO(), cuerpo = {ultimo_contacto:hoy}; if(crmPed) cuerpo.pedidos_ficha = (b.pedidos_ficha || 0) + 1;
+  const c = document.querySelector('[data-pedc="' + id + '"]'); if(c) c.textContent = "Enviado · " + hoy; a.remove();
+  try{ await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:cuerpo, prefer:"return=minimal"}); Object.assign(b, cuerpo); }catch(err){ toast("No se pudo guardar el envío: " + err.message); }
+});
+
 /* ===== Admin: editar muchas fichas a la vez ===== */
 const PRESETS = {lv:["Lun a vie", DK.slice(0,5)], ls:["Lun a sáb", DK.slice(0,6)], ld:["Todos los días", DK], mad:["Mar a dom", DK.slice(1)], vd:["Vie a dom", DK.slice(4)], sd:["Sáb y dom", DK.slice(5)]};
 function presetDe(b){
@@ -1264,7 +1301,7 @@ function vAdminLive(tab){
     </form></section>`;
   const A = estado.admin;
   if(!A.cargado) return `<section><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1><p class="muted">Cargando…</p></section>`;
-  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","reportes","rechazados","prospectos","agregar","metricas","zonas"].includes(tab) ? tab : "solicitudes";
+  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","reportes","rechazados","prospectos","agregar","metricas","zonas"].includes(tab) ? tab : "solicitudes";
   const RS = A.res || [];
   const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente"), pr = RS.filter(x => x.estado === "pendiente");
   const descartados = (() => { try{ return JSON.parse(localStorage.getItem("zq_desc") || "[]"); }catch(e){ return []; } })();
@@ -1296,6 +1333,7 @@ function vAdminLive(tab){
   if(tab === "agregar") cuerpo = vRegistrar(false, true);
   if(tab === "editar") cuerpo = adminEditar(A);
   if(tab === "reportes") cuerpo = adminReportes(A);
+  if(tab === "pedir") cuerpo = adminPedir(A);
   if(tab === "rechazados"){
     const rj = A.neg.filter(x => x.estado === "rechazado");
     cuerpo = rj.length ? rj.map(s => `<div class="req"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(s.nombre)}</h3><span class="meta">WhatsApp ${telFmt(esc(s.whatsapp))}</span></div>
@@ -1376,6 +1414,7 @@ function vAdminLive(tab){
   const hoyToca = [
     [pn.length, "negocios por aprobar", "solicitudes"], [pe.length, "eventos por aprobar", "eventos"], [pr.length, "opiniones por revisar", "opiniones"], [sug.length, "eventos sugeridos", "sugeridos"],
     [reales.filter(b => faltasDe(b).length).length, "fichas incompletas", "editar"],
+    [colaDe(A).filter(x => x.etapa === "pedir" || x.etapa === "recordar").length, "por pedir datos", "pedir"],
     [reportesDe(A).filter(x => (ultRep(x.b) || "").slice(0, 7) !== hoyMes()).length, "reportes por enviar este mes", "reportes"],
     [duplicadosDe(A).length, "posibles duplicados", "editar"]
   ].filter(x => x[0] > 0);
@@ -1389,6 +1428,7 @@ function vAdminLive(tab){
       <div class="stat"><b>${pn.length + pe.length + pr.length + sug.length}</b><span>Por revisar</span></div>
       <div class="stat"><b>${totalWa.toLocaleString("es-MX")}</b><span>Clics a WhatsApp</span></div>
       <div class="stat"><b>${A.ev.filter(x => x.estado === "aprobado").length}</b><span>Eventos publicados</span></div>
+      <div class="stat"><b>${reales.filter(b => !faltasDe(b).length).length} de ${reales.length}</b><span>Fichas completas · ${reales.filter(b => faltasDe(b).length).length} incompletas</span></div>
     </div>
     <div class="tabs" role="group" aria-label="Secciones del panel">
       <button class="chip" data-atab="solicitudes" aria-pressed="${tab==="solicitudes"}">Negocios <small>${pn.length}</small></button>
@@ -1398,6 +1438,7 @@ function vAdminLive(tab){
       <button class="chip" data-atab="opiniones" aria-pressed="${tab==="opiniones"}">Opiniones <small>${pr.length}</small></button>
       <button class="chip" data-atab="publicados" aria-pressed="${tab==="publicados"}">Publicados</button>
       <button class="chip" data-atab="editar" aria-pressed="${tab==="editar"}">Editar fichas</button>
+      <button class="chip" data-atab="pedir" aria-pressed="${tab==="pedir"}">Pedir datos</button>
       <button class="chip" data-atab="reportes" aria-pressed="${tab==="reportes"}">Reportes</button>
       <button class="chip" data-atab="rechazados" aria-pressed="${tab==="rechazados"}">Rechazados</button>
       <button class="chip" data-atab="prospectos" aria-pressed="${tab==="prospectos"}">Prospectos mimx <small>${prospSi.length}</small></button>

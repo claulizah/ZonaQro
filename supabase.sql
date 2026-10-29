@@ -267,3 +267,7 @@ end $$;
 alter table public.negocios add constraint negocios_categoria_check
   check (categoria in ('gastronomia','hogar','salud','belleza','mascotas','educacion','autos','tienda','fiestas','profesional',
                        'tecnologia','deporte','transporte','cuidado','construccion','foto'));
+
+
+-- 18) Cuántas veces se le ha pedido a un negocio que complete su ficha (para el recordatorio, una sola vez)
+alter table public.negocios add column if not exists pedidos_ficha smallint not null default 0;
