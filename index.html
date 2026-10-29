@@ -349,7 +349,7 @@ footer a{color:var(--muted)}
 @media (prefers-reduced-motion:no-preference){.card,.cat,.btn{transition:border-color .15s, filter .15s}}
 </style>
 
-<div class="demo" id="demoBar"><div class="wrap">Versión de prueba: todos los negocios, teléfonos y cupones son ejemplos.</div></div>
+<div class="demo" id="demoBar" hidden><div class="wrap">Versión de prueba: todos los negocios, teléfonos y cupones son ejemplos.</div></div>
 <a class="skip" href="#inicio" onclick="event.preventDefault();document.getElementById('app').focus()">Saltar al contenido</a>
 <header class="top"><div class="wrap">
   <a class="logo" href="#inicio" aria-label="ZonaQro, inicio"><img class="li" src="icon-128.png" alt="" width="26" height="30">Zona<b>Qro</b></a>
@@ -508,7 +508,7 @@ async function cargarPublico(){
     DATA.live = PROD || n.length > 0; // en el sitio real solo se muestran datos reales, aunque aún no haya ninguno
     DATA.negocios = n; DATA.eventos = ev; DATA.resenas = rs;
   }catch(err){ SB.ok = false; DATA.live = PROD; }
-  const bar = document.getElementById("demoBar"); if(bar) bar.hidden = DATA.live;
+  const bar = document.getElementById("demoBar"); if(bar) bar.hidden = PROD || DATA.live;
   render();
 }
 function enviar(tabla, fila, local, vista, box){
@@ -580,7 +580,7 @@ function pintarContacto(){
   el.innerHTML = wa + fb;
 }
 function contactoHref(texto){
-  if(RESP.wa) return "https://wa.me/52" + RESP.wa + "?text=" + encodeURIComponent(texto);
+  if(RESP.wa) return "https://wa.me/52" + RESP.wa + "?text=" + encodeURIComponent(sinEmoji(texto));
   if(RESP.correo) return "mailto:" + RESP.correo + "?subject=" + encodeURIComponent("ZonaQro") + "&body=" + encodeURIComponent(texto);
   return "";
 }
@@ -668,7 +668,8 @@ const MOTIVOS = {
   contenido:["Contenido no permitido","el contenido no cumple con lo que publicamos"],
   otro:["Otro motivo","hay un detalle que te explico por aquí"]
 };
-const waTexto = (tel, t) => "https://wa.me/52" + tel + "?text=" + encodeURIComponent(t);
+const sinEmoji = t => String(t).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "").replace(/[ \t]{2,}/g, " ").replace(/ +([,.:;!?])/g, "$1").replace(/ +\n/g, "\n").trim(); // algunos WhatsApp Web muestran � en vez de emojis en mensajes prellenados
+const waTexto = (tel, t) => "https://wa.me/52" + tel + "?text=" + encodeURIComponent(sinEmoji(t));
 const msgRechazo = s => "Hola 👋 Ando revisando tu registro de " + s.nombre + " en ZonaQro y todavía no lo puedo publicar porque " + (s.motivo_rechazo || "falta revisar algo") + ". Si me lo mandas corregido lo publico ✨";
 const msgMimx = s => "Ando haciendo sitios web para negocios de la zona con mimx 👋 Vi que registraste " + s.nombre + " en ZonaQro y marcaste que te interesa tener tu página. ¿Te cuento cómo sería? Te la dejo lista en 48 horas ✨";
 
@@ -1086,7 +1087,9 @@ function adminEditar(A){
         ${pedir.length && b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), msg)}">Pedir lo que falta</a>` : ""}
         <span class="meta">Fotos: ${fotosDe(b).length}</span></div></div>`;
   };
-  return `<p class="muted" style="max-width:66ch">Corrige varias fichas y guarda todo de una vez. Arriba salen las que tienen más pendientes. Las fotos las subes con el negocio desde "Agregar negocio" o las pides con el botón de WhatsApp.</p>
+  const comp = lista.filter(b => !faltasDe(b).length).length;
+  return `<div class="notice">Fichas completas: <b>${comp}</b> de ${lista.length} negocios reales. Para abrir páginas individuales conviene tener al menos 50 completas.</div>
+    <p class="muted" style="max-width:66ch">Corrige varias fichas y guarda todo de una vez. Arriba salen las que tienen más pendientes. Las fotos las subes con el negocio desde "Agregar negocio" o las pides con el botón de WhatsApp.</p>
     <div class="chips scrollrow" role="group" aria-label="Filtrar fichas">
       <button class="chip" data-edf="" aria-pressed="true">Todas <small>${lista.length}</small></button>
       <button class="chip" data-edf="horario" aria-pressed="false">Sin horario <small>${cuenta("horario")}</small></button>
@@ -1262,12 +1265,18 @@ function vAdminLive(tab){
       const top = tipo => { const o = {}; M.filter(m => m.tipo === tipo).forEach(m => { o[m.ref] = (o[m.ref] || 0) + m.n; }); return Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `${esc(tipo === "cat" ? catNombre(k) : k)} (${v})`).join(", ") || "—"; };
       const porOrigen = tipo => { const o = {}; M.filter(m => m.tipo === tipo).forEach(m => { const k = m.ref.startsWith("o:") ? m.ref.slice(2) : "directo / sin etiqueta"; o[k] = (o[k] || 0) + m.n; }); return Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} (${v})`).join(", ") || "—"; };
       const filas = A.neg.filter(x => x.estado === "aprobado").map(b => ({b, v:sum("vista", b.id), w:sum("wa", b.id), web:sum("web", b.id), c:sum("cupon", b.id), sh:M.filter(m => m.tipo === "compartir" && m.ref.split(":")[1] === b.id).reduce((a, m) => a + m.n, 0)})).sort((a, b) => b.v - a.v);
-      const rep = x => "Hola 👋 Te cuento cómo te fue este último mes en ZonaQro: tu ficha tuvo " + x.v + " " + (x.v === 1 ? "vista" : "vistas") + " y " + x.w + " " + (x.w === 1 ? "persona te escribió" : "personas te escribieron") + " por WhatsApp" + (x.web ? ", " + x.web + " " + (x.web === 1 ? "entró" : "entraron") + " a tu página o redes" : "") + (x.c ? ", y vieron tus promos " + x.c + " " + (x.c === 1 ? "vez" : "veces") : "") + " ✨ Si quieres que te ayude a publicar una promo o a salir más arriba, dime 😊";
+      const rep = x => {
+        const n = x.b.nombre, pl = (k, u, p) => k + " " + (k === 1 ? u : p);
+        const cola = x.web || x.c ? " También " + [x.web ? pl(x.web, "persona entró", "personas entraron") + " a tu página o redes" : "", x.c ? "vieron tus promos " + pl(x.c, "vez", "veces") : ""].filter(Boolean).join(" y ") + "." : "";
+        return x.w
+          ? "Hola, buen día 👋 Ando revisando cómo les va a los negocios en ZonaQro y quería contarte lo de " + n + " este último mes: tu ficha tuvo " + pl(x.v, "vista", "vistas") + " y " + pl(x.w, "persona te escribió", "personas te escribieron") + " por WhatsApp ✨" + cola + " Si quieres te ayudo a subir una promo o a mejorar tu ficha para que te encuentren más. ¿Cómo lo ves? 😊"
+          : "Hola, buen día 👋 Ando revisando cómo les va a los negocios en ZonaQro y quería contarte lo de " + n + ": tu ficha ya tuvo " + pl(x.v, "vista", "vistas") + " este último mes, apenas estamos arrancando 🙌" + cola + " Si quieres te ayudo a mejorarla (fotos, horario, una promo) para que más gente te escriba. ¿Te late?";
+      };
       cuerpo = `<p class="muted">Últimos 30 días. Conteos anónimos: no guardamos IP ni datos de las personas.</p>
         <div class="stats"><div class="stat"><b>${sum("visita").toLocaleString("es-MX")}</b><span>Visitas al sitio</span></div><div class="stat"><b>${sum("vista").toLocaleString("es-MX")}</b><span>Fichas vistas</span></div><div class="stat"><b>${sum("wa").toLocaleString("es-MX")}</b><span>Clics a WhatsApp</span></div><div class="stat"><b>${(sum("evento_wa") + sum("evento_link")).toLocaleString("es-MX")}</b><span>Clics en eventos</span></div></div>
         ${graficaDias(M)}${embudo(M)}
         <p class="meta">Cómo llegaron (visitas): ${porOrigen("visita")}</p><p class="meta">Registros enviados por origen: ${porOrigen("registro_envio")}</p><p class="meta">Zonas más consultadas: ${top("zona")}</p><p class="meta">Categorías más consultadas: ${top("cat")}</p><p class="meta">Veces compartido: ${sum("compartir")}</p>
-        <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th class="num">Vistas</th><th class="num">WhatsApp</th><th class="num">Web</th><th class="num">Promos</th><th></th></tr></thead><tbody>${filas.length ? filas.map(x => `<tr><td>${esc(x.b.nombre)}</td><td class="num">${x.v}</td><td class="num">${x.w}</td><td class="num">${x.web}</td><td class="num">${x.c}</td><td>${(x.v || x.w) && !x.b.referencia && x.b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(x.b.whatsapp), rep(x))}">Enviar reporte</a>` : ""}</td></tr>`).join("") : '<tr><td colspan="6">Todavía no hay negocios publicados.</td></tr>'}</tbody></table></div>`;
+        <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th class="num">Vistas</th><th class="num">WhatsApp</th><th class="num">Web</th><th class="num">Promos</th><th></th></tr></thead><tbody>${filas.length ? filas.map(x => `<tr><td>${esc(x.b.nombre)}</td><td class="num">${x.v}</td><td class="num">${x.w}</td><td class="num">${x.web}</td><td class="num">${x.c}</td><td>${(x.v || x.w) && !x.b.referencia && x.b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(x.b.whatsapp), rep(x))}">Enviar reporte</a>` : `<span class="meta">${x.b.referencia || !x.b.whatsapp ? "Lugar de referencia (sin WhatsApp)" : "Sin visitas todavía"}</span>`}</td></tr>`).join("") : '<tr><td colspan="6">Todavía no hay negocios publicados.</td></tr>'}</tbody></table></div>`;
     }
   }
   if(tab === "zonas") cuerpo = `<div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Negocios</th><th class="num">Meta</th><th>En el filtro</th></tr></thead><tbody>${ZONAS.map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= minFichas() ? "Visible" : "Oculta (menos de " + minFichas() + ")"}</td></tr>`).join("")}</tbody></table></div>`;
