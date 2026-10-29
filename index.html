@@ -1266,11 +1266,13 @@ function vAdminLive(tab){
       const porOrigen = tipo => { const o = {}; M.filter(m => m.tipo === tipo).forEach(m => { const k = m.ref.startsWith("o:") ? m.ref.slice(2) : "directo / sin etiqueta"; o[k] = (o[k] || 0) + m.n; }); return Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} (${v})`).join(", ") || "—"; };
       const filas = A.neg.filter(x => x.estado === "aprobado").map(b => ({b, v:sum("vista", b.id), w:sum("wa", b.id), web:sum("web", b.id), c:sum("cupon", b.id), sh:M.filter(m => m.tipo === "compartir" && m.ref.split(":")[1] === b.id).reduce((a, m) => a + m.n, 0)})).sort((a, b) => b.v - a.v);
       const rep = x => {
-        const n = x.b.nombre, pl = (k, u, p) => k + " " + (k === 1 ? u : p);
-        const cola = x.web || x.c ? " También " + [x.web ? pl(x.web, "persona entró", "personas entraron") + " a tu página o redes" : "", x.c ? "vieron tus promos " + pl(x.c, "vez", "veces") : ""].filter(Boolean).join(" y ") + "." : "";
-        return x.w
-          ? "Hola, buen día 👋 Ando revisando cómo les va a los negocios en ZonaQro y quería contarte lo de " + n + " este último mes: tu ficha tuvo " + pl(x.v, "vista", "vistas") + " y " + pl(x.w, "persona te escribió", "personas te escribieron") + " por WhatsApp ✨" + cola + " Si quieres te ayudo a subir una promo o a mejorar tu ficha para que te encuentren más. ¿Cómo lo ves? 😊"
-          : "Hola, buen día 👋 Ando revisando cómo les va a los negocios en ZonaQro y quería contarte lo de " + n + ": tu ficha ya tuvo " + pl(x.v, "vista", "vistas") + " este último mes, apenas estamos arrancando 🙌" + cola + " Si quieres te ayudo a mejorarla (fotos, horario, una promo) para que más gente te escriba. ¿Te late?";
+        const pl = (k, u, p) => k + " " + (k === 1 ? u : p);
+        const b = ["• " + pl(x.v, "vista", "vistas") + " a tu ficha",
+          x.w ? "• " + pl(x.w, "persona te escribió", "personas te escribieron") + " por WhatsApp" : "• Todavía nadie te ha escrito por WhatsApp (apenas estamos arrancando)",
+          x.web ? "• " + pl(x.web, "persona entró", "personas entraron") + " a tu página o redes" : "",
+          x.c ? "• Tus promos se vieron " + pl(x.c, "vez", "veces") : ""].filter(Boolean).join("\n");
+        return "Hola, buen día 👋 Ando revisando cómo les va a los negocios en ZonaQro y te cuento lo de " + x.b.nombre + " este último mes:\n\n" + b + "\n\n" +
+          (x.w ? "Si quieres te ayudo a subir una promo o a mejorar tu ficha para que te encuentren más. ¿Cómo lo ves? 😊" : "Si quieres te ayudo a mejorar tu ficha (fotos, horario, una promo) para que más gente te escriba. ¿Te late? 😊");
       };
       cuerpo = `<p class="muted">Últimos 30 días. Conteos anónimos: no guardamos IP ni datos de las personas.</p>
         <div class="stats"><div class="stat"><b>${sum("visita").toLocaleString("es-MX")}</b><span>Visitas al sitio</span></div><div class="stat"><b>${sum("vista").toLocaleString("es-MX")}</b><span>Fichas vistas</span></div><div class="stat"><b>${sum("wa").toLocaleString("es-MX")}</b><span>Clics a WhatsApp</span></div><div class="stat"><b>${(sum("evento_wa") + sum("evento_link")).toLocaleString("es-MX")}</b><span>Clics en eventos</span></div></div>
