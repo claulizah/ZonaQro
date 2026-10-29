@@ -329,6 +329,14 @@ input[type=file]{max-width:100%}
 .b-tipo{background:transparent;color:var(--ink-soft);border:1px solid var(--line)}
 @media (max-width:480px){.evento{grid-template-columns:56px 1fr;gap:12px}.fecha b{font-size:1.5rem}}
 .ev-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.modo-edicion nav.tabbar,.modo-edicion header.top nav.main,.modo-edicion header.top .zsel{display:none!important}
+.modo-edicion main,.modo-edicion #app{padding-bottom:24px}
+.ep-dia{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;padding:4px 0}
+.ep-dia label.dn{display:flex;gap:6px;align-items:center;flex:0 0 104px;font-weight:600}
+.ep-dia input[type=time]{flex:1 1 0;min-width:0;padding:8px 4px;font-size:.88rem;text-align:center}
+.ep-dia input[type=time]::-webkit-calendar-picker-indicator{display:none}
+.ep-dia.off input[type=time]{opacity:.35}
+.ep-ok{position:sticky;top:8px;z-index:5}
 .home-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:28px}
 .home-cols .evlado{gap:10px}
 .evlado .sec-head h2{font-size:1.25rem}
@@ -1156,7 +1164,7 @@ function bajarQr(id, nombre){
 document.addEventListener("click", e => { const q = e.target.closest("[data-qrficha]"); if(!q) return; const [id, nom] = [q.dataset.qrficha, q.dataset.qrnom]; bajarQr(id, nom); });
 
 /* ===== Enlace personal: el negocio edita su propia ficha ===== */
-const ED = {token:"", datos:null, error:"", cargando:false, fotos:[]};
+const ED = {token:"", datos:null, error:"", cargando:false, fotos:[], ok:false};
 const rpc = (fn, body) => sb("/rest/v1/rpc/" + fn, {method:"POST", body, auth:false, timeout:15000});
 async function cargarEdicion(token){
   if(ED.cargando) return; ED.cargando = true; ED.token = token;
@@ -1165,8 +1173,8 @@ async function cargarEdicion(token){
   ED.cargando = false; if((location.hash || "").startsWith("#editar-")) render();
 }
 function filasHorarioEd(h){
-  return DK.map(d => { const t = h && h[d]; return `<div class="ep-dia" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="display:flex;gap:6px;align-items:center;min-width:92px"><input type="checkbox" data-epd="${d}"${t ? " checked" : ""}> ${DL[d]}</label>
-    <input type="time" data-epa="${d}" value="${esc(t ? t[0] : "09:00")}" aria-label="Abre ${DL[d]}"> a <input type="time" data-epc="${d}" value="${esc(t ? t[1] : "18:00")}" aria-label="Cierra ${DL[d]}"></div>`; }).join("");
+  return DK.map(d => { const t = h && h[d]; return `<div class="ep-dia${t ? "" : " off"}"><label class="dn"><input type="checkbox" data-epd="${d}"${t ? " checked" : ""}> ${DL[d]}</label>
+    <input type="time" data-epa="${d}" value="${esc(t ? t[0] : "09:00")}" aria-label="Abre ${DL[d]}"><span aria-hidden="true">–</span><input type="time" data-epc="${d}" value="${esc(t ? t[1] : "18:00")}" aria-label="Cierra ${DL[d]}"></div>`; }).join("");
 }
 function vEditarProp(){
   const d = ED.datos;
@@ -1177,24 +1185,26 @@ function vEditarProp(){
   const resenas = d.resenas || [];
   return `<section style="max-width:680px">
     <div><p class="eyebrow">Solo para ti</p><h1 style="font-size:clamp(1.7rem,5vw,2.4rem)">${esc(d.nombre)}</h1>
-    <p class="muted" style="margin-top:6px">Aquí actualizas tu ficha. Los cambios se ven en ZonaQro al guardar. Este enlace es personal: no lo compartas.</p></div>
+    <p class="muted" style="margin-top:6px">Aquí cambias lo que quieras de tu ficha: horario, fotos, descripción… Al terminar toca <b>Guardar cambios</b> (hasta abajo). Este enlace es solo tuyo, no lo compartas.</p></div>
+    ${ED.ok ? `<div class="notice ep-ok" role="status">Listo, tu ficha ya quedó actualizada. <a href="#n-${esc(d.id)}" target="_blank">Ver cómo se ve</a></div>` : ""}
     ${d.estado === "pendiente" ? '<div class="notice">Tu ficha todavía está en revisión. Puedes completarla desde ahora.</div>' : ""}
     <form class="reg" id="fEdit" novalidate>
       <label class="fld" for="ep-desc">Descripción (qué vendes o qué servicio das)<textarea id="ep-desc" maxlength="300">${esc(d.descripcion)}</textarea></label>
       ${d.tipo === "local" ? `<label class="fld" for="ep-dir">Dirección del local<input id="ep-dir" type="text" maxlength="160" value="${esc(d.direccion)}"></label>` : ""}
       ${d.tipo === "emprendimiento" ? `<label class="fld" for="ep-ent">¿Cómo entregas?<input id="ep-ent" type="text" maxlength="200" value="${esc(d.entrega)}"></label>` : ""}
       <fieldset><legend>Días y horario</legend>
+        <p class="muted" style="font-size:.88rem;margin:0 0 8px">Marca los días que abres y pon la hora en que abres y cierras. Los días sin marcar salen como cerrado.</p>
         <div class="chips" style="margin-bottom:8px"><button type="button" class="chip" data-eph="lv">Lun a vie</button><button type="button" class="chip" data-eph="ls">Lun a sáb</button><button type="button" class="chip" data-eph="ld">Todos los días</button></div>
         ${filasHorarioEd(hs0)}
         <p class="muted" style="font-size:.85rem;margin-top:6px">Si cierras después de medianoche, pon la hora del día siguiente (por ejemplo 12:00 am).</p>
         <label class="fld" for="ep-hor" style="margin-top:8px">Otro horario, en texto (opcional)<input id="ep-hor" type="text" maxlength="160" value="${esc(d.horario)}" placeholder="Ej. Con cita, o los sábados de 10 a 2"></label>
       </fieldset>
-      <label class="fld" for="ep-redes">Redes sociales (Instagram, Facebook…)<input id="ep-redes" type="text" maxlength="80" value="${esc(d.redes)}" placeholder="@minegocio"></label>
+      <label class="fld" for="ep-redes">Redes sociales (Instagram, Facebook…)<input id="ep-redes" type="text" maxlength="80" value="${esc(d.redes)}" placeholder="@minegocio (tu usuario de Instagram)"></label>
       <label class="fld" for="ep-web">Página web (opcional)<input id="ep-web" type="url" maxlength="160" value="${esc(d.sitio_web)}" placeholder="https://"></label>
       <fieldset><legend>Fotos (hasta 3)</legend>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${fotos.map((u, i) => `<span style="display:inline-flex;align-items:center;gap:2px"><img src="${esc(u)}" alt="Foto ${i + 1}" style="width:84px;height:64px;object-fit:cover;border-radius:10px"><button type="button" class="btn sm ghost" data-epq="${i}" aria-label="Quitar foto ${i + 1}">×</button></span>`).join("")}
         ${fotos.length < 3 ? `<label class="btn sm ghost" style="cursor:pointer">Agregar foto<input type="file" accept="image/*" id="ep-foto" hidden></label>` : ""}</div>
-        <p class="muted small" id="ep-fmsg" style="font-size:.85rem;margin-top:6px">Foto de tu local, tu producto o tu trabajo. Las reducimos solas para que carguen rápido.</p>
+        <p class="muted small" id="ep-fmsg" style="font-size:.85rem;margin-top:6px">Foto de tu local, tu producto o tu trabajo. Después de agregar o quitar una foto, toca <b>Guardar cambios</b>.</p>
       </fieldset>
       <div id="ep-err" class="notice err" hidden></div>
       <div><button class="btn" type="submit">Guardar cambios</button></div>
@@ -1225,26 +1235,27 @@ function leerEdicion(){
 document.addEventListener("submit", async e => {
   if(e.target.id !== "fEdit") return; e.preventDefault();
   const er = document.getElementById("ep-err"), bt = e.target.querySelector('button[type="submit"]');
-  try{ const c = leerEdicion(); er.hidden = true; bt.disabled = true; const d = await rpc("editar_ficha", {p_token:ED.token, p_cambios:c}); if(d){ ED.datos = d; ED.fotos = Array.isArray(d.fotos) ? d.fotos.slice() : []; } toast("Listo, tu ficha quedó actualizada ✨"); render(); }
+  try{ const c = leerEdicion(); er.hidden = true; bt.disabled = true; const d = await rpc("editar_ficha", {p_token:ED.token, p_cambios:c}); if(d){ ED.datos = d; ED.fotos = Array.isArray(d.fotos) ? d.fotos.slice() : []; } ED.ok = true; render(); window.scrollTo({top:0, behavior:"smooth"}); }
   catch(err){ er.textContent = err.message || "No se pudo guardar"; er.hidden = false; }
   bt.disabled = false;
 });
 document.addEventListener("click", async e => {
   const h = e.target.closest("[data-eph]");
-  if(h){ const dias = {lv:DK.slice(0,5), ls:DK.slice(0,6), ld:DK}[h.dataset.eph]; const a = document.querySelector('[data-epa="' + dias[0] + '"]').value, c = document.querySelector('[data-epc="' + dias[0] + '"]').value; DK.forEach(d => { const on = document.querySelector('[data-epd="' + d + '"]'); on.checked = dias.includes(d); document.querySelector('[data-epa="' + d + '"]').value = a; document.querySelector('[data-epc="' + d + '"]').value = c; }); return; }
+  if(h){ const dias = {lv:DK.slice(0,5), ls:DK.slice(0,6), ld:DK}[h.dataset.eph]; const a = document.querySelector('[data-epa="' + dias[0] + '"]').value, c = document.querySelector('[data-epc="' + dias[0] + '"]').value; DK.forEach(d => { const on = document.querySelector('[data-epd="' + d + '"]'); on.checked = dias.includes(d); on.closest(".ep-dia").classList.toggle("off", !on.checked); document.querySelector('[data-epa="' + d + '"]').value = a; document.querySelector('[data-epc="' + d + '"]').value = c; }); return; }
   const q = e.target.closest("[data-epq]");
   if(q){ ED.fotos.splice(+q.dataset.epq, 1); const c = ED.datos; ED.datos = Object.assign({}, c, {fotos:ED.fotos.slice(), descripcion:(document.getElementById("ep-desc") || {value:c.descripcion}).value}); render(); return; }
   const r = e.target.closest("[data-eprs]");
   if(r){ const id = r.dataset.eprs; r.disabled = true; try{ await rpc("responder_resena", {p_token:ED.token, p_resena:id, p_texto:document.getElementById("rs-" + id).value}); toast("Respuesta guardada"); }catch(err){ toast("No se pudo: " + err.message); } r.disabled = false; }
 });
 document.addEventListener("change", async e => {
+  if(e.target.dataset && e.target.dataset.epd){ e.target.closest(".ep-dia").classList.toggle("off", !e.target.checked); return; }
   if(e.target.id !== "ep-foto" || !e.target.files || !e.target.files[0]) return;
   const f = e.target.files[0], msg = document.getElementById("ep-fmsg"); e.target.value = "";
   try{
     msg.textContent = "Subiendo foto…"; const blob = await comprimir(f), path = ED.datos.id + "/" + (ED.fotos.length + 1) + "-" + Math.random().toString(36).slice(2, 8) + ".jpg";
     const r = await fetch(SB_URL + "/storage/v1/object/fotos/" + path, {method:"POST", headers:{apikey:SB_KEY, Authorization:"Bearer " + SB_KEY, "Content-Type":"image/jpeg"}, body:blob});
     if(!r.ok) throw new Error("No se pudo subir la foto");
-    ED.fotos.push(FOTO_BASE + path); const c = ED.datos; ED.datos = Object.assign({}, c, {fotos:ED.fotos.slice(), descripcion:(document.getElementById("ep-desc") || {value:c.descripcion}).value}); render(); toast("Foto agregada: recuerda guardar los cambios");
+    ED.fotos.push(FOTO_BASE + path); const c = ED.datos; ED.datos = Object.assign({}, c, {fotos:ED.fotos.slice(), descripcion:(document.getElementById("ep-desc") || {value:c.descripcion}).value}); render(); toast("Foto agregada. Toca Guardar cambios para publicarla");
   }catch(err){ msg.textContent = err.message === "grande" || err.message === "img" ? "Esa imagen no sirve, prueba con otra." : err.message; }
 });
 
@@ -1255,7 +1266,7 @@ function pideDe(b){ return faltasDe(b).filter(k => k !== "mayus").map(k => ({hor
 const enlaceDe = b => b && b.token_edicion ? BASE_URL + "#editar-" + b.token_edicion : "";
 function msgPedir(b, recordatorio){
   const lk = enlaceDe(b);
-  if(lk) return (recordatorio ? "Hola, buen día 👋. Te recuerdo lo de tu ficha de " : "Hola, buen día 👋. Ya puedes completar y actualizar tú mismo la ficha de ") + b.nombre + " en ZonaQro (horario, fotos, descripción y responder opiniones). Este es tu enlace personal, no lo compartas:\n\n" + lk + "\n\nSi tienes dudas, aquí estoy 🙌";
+  if(lk) return (recordatorio ? "Hola, buen día 👋. Te recuerdo lo de tu ficha de " : "Hola, buen día 👋. Ya puedes completar y actualizar tú mismo la ficha de ") + b.nombre + " en ZonaQro (horario, fotos, descripción y responder opiniones). Te toma 2 minutos. Este es tu enlace personal, no lo compartas:\n\n" + lk + "\n\nSi tienes dudas, aquí estoy 🙌";
   const p = pideDe(b), l = p.map(x => "• " + x).join("\n"), lo = p.length > 1 ? "los" : "lo";
   return recordatorio
     ? "Hola, buen día 👋. Te recuerdo lo de la ficha de " + b.nombre + " en ZonaQro, solo me falta:\n\n" + l + "\n\n¿Me " + lo + " mandas cuando puedas? 🙌"
@@ -2046,6 +2057,7 @@ function render(){
   try{
     const TT = {directorio:"Directorio de negocios y servicios", vecinos:"Hecho por tus vecinos", cupones:"Cupones y promociones", eventos:"Eventos y qué hacer", "publicar-evento":"Publica tu evento", registrar:"Registra tu negocio gratis", ayuda:"Preguntas frecuentes", recomendar:"Recomienda un negocio", negocios:"Para negocios", terminos:"Términos de uso", privacidad:"Aviso de privacidad", admin:"Administración"};
     const nb = h.startsWith("n-") ? negocios().find(x => x.id === h.slice(2)) : null;
+    document.body.classList.toggle("modo-edicion", h.startsWith("editar-"));
     let rb = document.querySelector('meta[name="robots"]'); if(!rb){ rb = document.createElement("meta"); rb.name = "robots"; document.head.appendChild(rb); } rb.content = h.startsWith("editar-") || h === "admin" ? "noindex, nofollow" : "index, follow";
     if(h.startsWith("editar-")){ document.title = "Editar tu ficha | ZonaQro"; if(ED.token !== h.slice(7) && !ED.cargando){ ED.datos = null; ED.error = ""; cargarEdicion(h.slice(7)); } } else
     document.title = nb ? nb.nombre + " en " + nb.zonas.join(", ") + " | ZonaQro" : TT[h] ? TT[h] + " | ZonaQro" : "ZonaQro: negocios, servicios y cupones en tu zona";
