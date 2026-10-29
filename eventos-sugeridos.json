@@ -54,5 +54,47 @@
   "descripcion": "Show de Halloween en el centro comercial, el mismo día que Dulce o truco. Conviene confirmar costo y acceso.",
   "fuente": "https://funocomercial.com/uptown-juriquilla/proximos-eventos/",
   "nota": "Confirmar precio por teléfono: 442 325 8937"
+ },
+ {
+  "id": "s-feria-queretaro-2026",
+  "titulo": "Feria de Querétaro 2026: Teatro del Pueblo y Palenque",
+  "tipo": "feria",
+  "zona": "Ciudad de Querétaro",
+  "lugar": "Feria de Querétaro (Teatro del Pueblo y Palenque)",
+  "fecha": "2026-11-12",
+  "hora": "Consultar programa",
+  "precio": "Entrada general $100; Teatro del Pueblo gratis; Palenque varía",
+  "organizador": "Feria de Querétaro",
+  "descripcion": "Feria del 12 al 30 de noviembre con conciertos gratuitos en el Teatro del Pueblo (Bronco, Gloria Trevi, Ha*Ash) y shows de pago en el Palenque (Alejandro Fernández, Carlos Rivera).",
+  "fuente": "https://www.excelsior.com.mx/espectaculos/feria-queretaro-2026-artistas-y-fechas-teatro-pueblo",
+  "nota": "Confirmar sede y horarios; boletos del Palenque en boletcenter.com"
+ },
+ {
+  "id": "s-nacho-vegas-arpa-2026",
+  "titulo": "Nacho Vegas en Foro Arpa",
+  "tipo": "concierto",
+  "zona": "Ciudad de Querétaro",
+  "lugar": "Foro Arpa, Prol. Bernardo Quintana 173, Loma Dorada",
+  "fecha": "2026-12-03",
+  "hora": "Apertura 19:00",
+  "precio": "Desde $800",
+  "organizador": "Arema",
+  "descripcion": "Concierto del cantautor español Nacho Vegas en Foro Arpa. Boletos a la venta mediante Arema.",
+  "fuente": "https://www.songkick.com/es/concerts/43347856-nacho-vegas-at-foro-arpa",
+  "nota": "Fuente es agregador; confirmar con la boletera"
+ },
+ {
+  "id": "s-rubytates-sala-arpa-2026",
+  "titulo": "Rubytates en Sala Arpa",
+  "tipo": "concierto",
+  "zona": "Ciudad de Querétaro",
+  "lugar": "Sala Arpa, 5 de Mayo 58, Centro",
+  "fecha": "2026-10-31",
+  "hora": "Apertura 19:00",
+  "precio": "Desde $600",
+  "organizador": "Arema",
+  "descripcion": "Presentación de Rubytates en Sala Arpa, en el Centro de Querétaro, con boletos a la venta mediante Arema.",
+  "fuente": "https://www.songkick.com/es/concerts/43347950-rubytates-at-sala-arpa",
+  "nota": "Fuente es agregador; confirmar con la boletera"
  }
 ]
