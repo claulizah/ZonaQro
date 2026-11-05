@@ -1165,21 +1165,21 @@ document.addEventListener("click", async e => {
 
 
 /* ===== QR de la ficha (para imprimir) ===== */
-function qrFichaPng(id, nombre){
-  const qr = qrcode(0, "M"); qr.addData(BASE_URL + "?o=qr#n-" + id); qr.make();
+function qrFichaPng(id, nombre, opinar){
+  const qr = qrcode(0, "M"); qr.addData(opinar ? BASE_URL + "?o=qr-op#opinar-" + id : BASE_URL + "?o=qr#n-" + id); qr.make();
   const n = qr.getModuleCount(), cell = 14, m = 4 * cell, W = n * cell + 2 * m, H = W + 150;
   const c = document.createElement("canvas"); c.width = W; c.height = H; const g = c.getContext("2d");
   g.fillStyle = "#fff"; g.fillRect(0, 0, W, H); g.fillStyle = "#1b2a22";
   for(let y = 0; y < n; y++) for(let x = 0; x < n; x++) if(qr.isDark(y, x)) g.fillRect(m + x * cell, m + y * cell, cell, cell);
   g.textAlign = "center"; g.font = "bold 34px Arial"; g.fillText(nombre.slice(0, 34), W / 2, W + 38);
-  g.font = "26px Arial"; g.fillText("Escanéanos en ZonaQro", W / 2, W + 80); g.fillStyle = "#2a6a4b"; g.font = "bold 28px Arial"; g.fillText("zonaqro.com", W / 2, W + 118);
+  g.font = "26px Arial"; g.fillText(opinar ? "Déjanos tu opinión en ZonaQro" : "Escanéanos en ZonaQro", W / 2, W + 80); g.fillStyle = "#2a6a4b"; g.font = "bold 28px Arial"; g.fillText("zonaqro.com", W / 2, W + 118);
   return c.toDataURL("image/png");
 }
-function bajarQr(id, nombre){
-  try{ const a = document.createElement("a"); a.href = qrFichaPng(id, nombre); a.download = "qr-" + id + ".png"; document.body.appendChild(a); a.click(); a.remove(); }
+function bajarQr(id, nombre, opinar){
+  try{ const a = document.createElement("a"); a.href = qrFichaPng(id, nombre, opinar); a.download = (opinar ? "qr-opinion-" : "qr-") + id + ".png"; document.body.appendChild(a); a.click(); a.remove(); }
   catch(err){ toast("No se pudo crear el QR: " + err.message); }
 }
-document.addEventListener("click", e => { const q = e.target.closest("[data-qrficha]"); if(!q) return; const [id, nom] = [q.dataset.qrficha, q.dataset.qrnom]; bajarQr(id, nom); });
+document.addEventListener("click", e => { const q = e.target.closest("[data-qrficha]"); if(!q) return; const [id, nom] = [q.dataset.qrficha, q.dataset.qrnom]; bajarQr(id, nom, q.dataset.op === "1"); });
 
 /* ===== Enlace personal: el negocio edita su propia ficha ===== */
 const ED = {token:"", datos:null, error:"", cargando:false, fotos:[], ok:false};
@@ -1228,7 +1228,7 @@ function vEditarProp(){
       <div id="ep-err" class="notice err" hidden></div>
       <div><button class="btn" type="submit">Guardar cambios</button></div>
     </form>
-    <div class="panel"><h2 style="font-size:1.15rem">QR de tu ficha</h2><p class="muted" style="margin:6px 0 10px">Descárgalo e imprímelo para tu local, tu mostrador o tus empaques: quien lo escanee llega directo a tu ficha.</p><button type="button" class="btn ghost" data-qrficha="${esc(d.id)}" data-qrnom="${esc(d.nombre)}">Descargar mi QR</button></div>
+    <div class="panel"><h2 style="font-size:1.15rem">QR de tu ficha</h2><p class="muted" style="margin:6px 0 10px">Descárgalo e imprímelo para tu local, tu mostrador o tus empaques: quien lo escanee llega directo a tu ficha.</p><button type="button" class="btn ghost" data-qrficha="${esc(d.id)}" data-qrnom="${esc(d.nombre)}">Descargar mi QR</button> <button type="button" class="btn ghost" data-qrficha="${esc(d.id)}" data-qrnom="${esc(d.nombre)}" data-op="1">QR para pedir opiniones</button></div>
     <h2 style="font-size:1.25rem;margin-top:12px">Opiniones de tus clientes (${resenas.length})</h2>
     ${resenas.length ? resenas.map(r => `<div class="req"><div style="display:flex;justify-content:space-between;gap:8px"><strong>${esc(r.nombre)}</strong><span class="rate">${estrellasTxt(r.estrellas)}</span></div><p>${esc(r.texto)}</p>
       <label class="fld" for="rs-${esc(r.id)}">Tu respuesta (se ve en tu ficha)<textarea id="rs-${esc(r.id)}" maxlength="300">${esc(r.respuesta)}</textarea></label>
@@ -1434,6 +1434,7 @@ function adminEditar(A){
         ${pedir.length && b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), msg)}">Pedir lo que falta</a>` : ""}
         ${"token_edicion" in b ? `<span class="meta" style="align-self:center">${esc(aperturaTxt(b))}</span><button type="button" class="btn sm ghost" data-tk="copiar:${esc(b.id)}">Copiar enlace de edición</button>${b.whatsapp && !pedir.length ? `<a class="btn sm wa" target="_blank" rel="noopener" data-tk="enviado:${esc(b.id)}" href="${waTexto(esc(b.whatsapp), msgPedir(b, false))}">Enviar enlace</a>` : ""}<button type="button" class="btn sm danger" data-tk="nuevo:${esc(b.id)}">Cambiar enlace</button>` : ""}
         <button type="button" class="btn sm ghost" data-qrficha="${esc(b.id)}" data-qrnom="${esc(b.nombre)}">Descargar QR</button>
+        <button type="button" class="btn sm ghost" data-qrficha="${esc(b.id)}" data-qrnom="${esc(b.nombre)}" data-op="1">QR opiniones</button>
         </div></div>`;
   };
   const comp = lista.filter(b => !faltasDe(b).length).length, crm = hayCrm(A), dups = duplicadosDe(A);
@@ -2088,7 +2089,7 @@ let adminMet = "visita";
 function render(){
   const h = (location.hash || "#inicio").slice(1);
   let html, nav = h;
-  if(h.startsWith("n-")){ html = vNegocio(h.slice(2)); nav = "directorio"; }
+  if(h.startsWith("n-") || h.startsWith("opinar-")){ html = vNegocio(h.slice(h.indexOf("-")+1)); nav = "directorio"; }
   else if(h === "directorio") html = vDirectorio(false);
   else if(h === "vecinos") html = vDirectorio(true);
   else if(h === "cupones") html = vCupones();
@@ -2107,16 +2108,17 @@ function render(){
   if(h.startsWith("editar-")) try{ avanceEd(); }catch(err){}
   try{
     const TT = {directorio:"Directorio de negocios y servicios", vecinos:"Hecho por tus vecinos", cupones:"Cupones y promociones", eventos:"Eventos y qué hacer", "publicar-evento":"Publica tu evento", registrar:"Registra tu negocio gratis", ayuda:"Preguntas frecuentes", recomendar:"Recomienda un negocio", negocios:"Para negocios", terminos:"Términos de uso", privacidad:"Aviso de privacidad", admin:"Administración"};
-    const nb = h.startsWith("n-") ? negocios().find(x => x.id === h.slice(2)) : null;
+    const nb = (h.startsWith("n-") || h.startsWith("opinar-")) ? negocios().find(x => x.id === h.slice(h.indexOf("-")+1)) : null;
     document.body.classList.toggle("modo-edicion", h.startsWith("editar-"));
-    let rb = document.querySelector('meta[name="robots"]'); if(!rb){ rb = document.createElement("meta"); rb.name = "robots"; document.head.appendChild(rb); } rb.content = h.startsWith("editar-") || h === "admin" ? "noindex, nofollow" : "index, follow";
+    let rb = document.querySelector('meta[name="robots"]'); if(!rb){ rb = document.createElement("meta"); rb.name = "robots"; document.head.appendChild(rb); } rb.content = h.startsWith("editar-") || h.startsWith("opinar-") || h === "admin" ? "noindex, nofollow" : "index, follow";
     if(h.startsWith("editar-")){ document.title = "Editar tu ficha | ZonaQro"; if(ED.token !== h.slice(7) && !ED.cargando){ ED.datos = null; ED.error = ""; cargarEdicion(h.slice(7)); } } else
     document.title = nb ? nb.nombre + " en " + nb.zonas.join(", ") + " | ZonaQro" : TT[h] ? TT[h] + " | ZonaQro" : "ZonaQro: negocios, servicios y cupones en tu zona";
   }catch(err){}
-  if(h !== "admin" && !h.startsWith("editar-") && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", refOrigen() || "sitio"); if(h.startsWith("n-") && unaVez("v" + h)) metrica("vista", h.slice(2)); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
+  if(h !== "admin" && !h.startsWith("editar-") && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", refOrigen() || "sitio"); if((h.startsWith("n-") || h.startsWith("opinar-")) && unaVez("v" + h)) metrica("vista", h.slice(h.indexOf("-")+1)); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
   if(h === "admin" && SB.ok && SB.token && !estado.admin.cargado && !estado.admin.cargando){ estado.admin.cargando = true; cargarAdmin().finally(() => { estado.admin.cargando = false; }); }
   document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   pintarZona(); pintarContacto();
+  if(h.startsWith("opinar-")) setTimeout(() => { try{ const d = document.querySelector("#opiniones .rev-form"); if(d){ d.open = true; document.getElementById("opiniones").scrollIntoView({block:"start"}); } }catch(err){} }, 60);
   try{ document.querySelectorAll('.chips.scrollrow .chip[aria-pressed="true"]').forEach(c => c.scrollIntoView({block:"nearest", inline:"center"})); }catch(err){}
   if(h === "registrar" || (h === "admin" && document.getElementById("fReg"))) prepararRegistro();
   else if(FOTOS.length){ FOTOS.forEach(f => URL.revokeObjectURL(f.url)); FOTOS = []; }
