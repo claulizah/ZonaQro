@@ -1388,7 +1388,7 @@ function adminEditar(A){
   const card = b => {
     const p = presetDe(b), fl = faltasDe(b);
     const pedir = fl.filter(k => k !== "mayus").map(k => ({horario:"tu horario", foto:"una foto (de tu local, tu trabajo o tu logo)", desc:"una descripción corta de lo que ofreces"}[k]));
-    const msg = "Hola 👋 Ando completando las fichas de ZonaQro y la de " + b.nombre + " ya casi queda lista ✨ Nada más me faltaría: " + pedir.join(", ") + ". ¿Me los mandas por aquí? Así sales más completo cuando la gente busque 😊";
+    const msg = msgPedir(b, false);
     return `<div class="edit-card" data-eid="${esc(b.id)}" data-flags="${fl.join(" ")}" data-nom="${esc(b.nombre.toLowerCase())}">
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><strong>${esc(b.nombre)}</strong><div class="badges">${fl.map(k => `<span class="badge b-promo">${FALTA_TXT[k]}</span>`).join("")}</div></div>
       <div class="edit-grid">
@@ -1414,7 +1414,7 @@ function adminEditar(A){
       <div class="req-actions"><button class="btn sm" data-ed="guardar:${esc(b.id)}">Guardar</button>
         <a class="btn sm ghost" href="#n-${esc(b.id)}" target="_blank">Ver ficha</a>
         ${pedir.length && b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), msg)}">Pedir lo que falta</a>` : ""}
-        ${"token_edicion" in b ? `<span class="meta" style="align-self:center">${esc(aperturaTxt(b))}</span><button type="button" class="btn sm ghost" data-tk="copiar:${esc(b.id)}">Copiar enlace de edición</button>${b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" data-tk="enviado:${esc(b.id)}" href="${waTexto(esc(b.whatsapp), msgPedir(b, false))}">Enviar enlace</a>` : ""}<button type="button" class="btn sm danger" data-tk="nuevo:${esc(b.id)}">Cambiar enlace</button>` : ""}
+        ${"token_edicion" in b ? `<span class="meta" style="align-self:center">${esc(aperturaTxt(b))}</span><button type="button" class="btn sm ghost" data-tk="copiar:${esc(b.id)}">Copiar enlace de edición</button>${b.whatsapp && !pedir.length ? `<a class="btn sm wa" target="_blank" rel="noopener" data-tk="enviado:${esc(b.id)}" href="${waTexto(esc(b.whatsapp), msgPedir(b, false))}">Enviar enlace</a>` : ""}<button type="button" class="btn sm danger" data-tk="nuevo:${esc(b.id)}">Cambiar enlace</button>` : ""}
         <button type="button" class="btn sm ghost" data-qrficha="${esc(b.id)}" data-qrnom="${esc(b.nombre)}">Descargar QR</button>
         </div></div>`;
   };
