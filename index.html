@@ -1122,7 +1122,7 @@ function reportesDe(A){
 }
 function duplicadosDe(A){
   const norm = t => String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
-  const grupos = [], vis = A.neg.filter(b => b.estado !== "rechazado");
+  const grupos = [], vis = A.neg.filter(b => b.estado !== "rechazado" && b.estado !== "oculto");
   const por = (clave, etiqueta) => { const m = {}; vis.forEach(b => { const k = clave(b); if(k) (m[k] = m[k] || []).push(b); }); Object.values(m).filter(g => g.length > 1).forEach(g => grupos.push({etiqueta, g})); };
   por(b => b.whatsapp, "mismo WhatsApp"); por(b => norm(b.nombre), "mismo nombre");
   return grupos;
