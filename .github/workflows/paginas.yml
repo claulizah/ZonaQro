@@ -2,7 +2,10 @@ name: Actualizar páginas para Google
 on:
   schedule:
     - cron: "17 11 * * *"   # todos los días (hora UTC)
-  workflow_dispatch: {}
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scripts/generar-paginas.js", ".github/workflows/paginas.yml"]
 permissions:
   contents: write
 jobs:
