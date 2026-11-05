@@ -2,14 +2,14 @@
 <html lang="es">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ZonaQro · Negocios y servicios en Zibatá, Zakia, Juriquilla y El Refugio</title>
-<meta name="description" content="Directorio de negocios, servicios, cupones y promociones en Zibatá, Zakia, Juriquilla y El Refugio, Querétaro.">
+<title>ZonaQro · Negocios y servicios en Zibatá, Juriquilla y más</title>
+<meta name="description" content="Directorio de negocios, servicios, cupones y promociones en Zibatá, Zakia, Juriquilla, El Refugio, La Pradera y La Vista, Querétaro.">
 <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ZonaQro">
 <meta property="og:title" content="ZonaQro: negocios, eventos y cupones de tu zona">
-<meta property="og:description" content="Zibatá, Zakia, Juriquilla y El Refugio. Encuentra negocios de tus vecinos, eventos y cupones.">
+<meta property="og:description" content="Zibatá, Zakia, Juriquilla, El Refugio, La Pradera y La Vista. Encuentra negocios de tus vecinos, eventos y cupones.">
 <meta property="og:url" content="https://zonaqro.com/">
 <meta property="og:image" content="https://zonaqro.com/og.png">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
@@ -395,7 +395,7 @@ footer a{color:var(--muted)}
 <main class="wrap" id="app" tabindex="-1"></main>
 
 <footer><div class="wrap">
-  <span>ZonaQro · Zibatá, Zakia, Juriquilla y El Refugio, Querétaro</span>
+  <span>ZonaQro · Zibatá, Zakia, Juriquilla, El Refugio, La Pradera y La Vista, Querétaro</span>
   <span class="flinks"><a href="#ayuda">Preguntas frecuentes</a><a href="#recomendar">Recomienda un negocio</a><a href="#negocios">Para negocios</a><a href="#terminos">Términos de uso</a><a href="#privacidad">Aviso de privacidad</a><span id="fContacto" style="display:contents"></span></span>
 
 </div></footer>
@@ -405,7 +405,7 @@ footer a{color:var(--muted)}
 
 <script>
 /* ===== Configuración ===== */
-const ZONAS = ["Zibatá","Zakia","Juriquilla","El Refugio"];
+const ZONAS = ["Zibatá","Zakia","Juriquilla","El Refugio","La Pradera","La Vista"];
 const ZONAS_EV = ZONAS.concat(["Ciudad de Querétaro","Tequisquiapan"]); // los eventos también cubren estas dos
 const DIAS_NUEVO = 14;
 const MIN_CLICS_FAVORITO = 20;
@@ -699,7 +699,7 @@ function fechaCorta(s){ const d = new Date(String(s).length === 10 ? s + "T12:00
 const MOTIVOS = {
   incompleto:["Faltan datos","faltan algunos datos (descripción, horario o dirección)"],
   wa:["WhatsApp no válido","no me llegó el mensaje al WhatsApp que pusiste"],
-  zona:["Fuera de zona","por ahora solo estamos en Zibatá, Zakia, Juriquilla y El Refugio"],
+  zona:["Fuera de zona","por ahora solo estamos en Zibatá, Zakia, Juriquilla, El Refugio, La Pradera y La Vista"],
   dup:["Ya está registrado","ya tenemos registrado tu negocio"],
   contenido:["Contenido no permitido","el contenido no cumple con lo que publicamos"],
   otro:["Otro motivo","hay un detalle que te explico por aquí"]
@@ -777,7 +777,7 @@ function tarjeta(b, fav){
     ${badgesDe(b, fav, 3) ? `<div class="badges">${badgesDe(b, fav, 3)}</div>` : ""}
     <p class="desc">${esc(b.descripcion)}</p>
     ${envio ? `<div class="badges"><span class="badge b-tipo">${esc(envio)}</span></div>` : ""}
-    <div class="card-foot"><span class="meta">${b.zonas.length >= ZONAS.length ? "Las 4 zonas" : esc(b.zonas.join(", "))}</span>
+    <div class="card-foot"><span class="meta">${b.zonas.length >= ZONAS.length ? "Todas las zonas" : esc(b.zonas.join(", "))}</span>
       <span class="acts">
         ${cup ? `<button type="button" class="badge b-cupon act" data-cupon="${esc(b.id)}" aria-label="Ver ${cup === 1 ? "el cupón" : "los " + cup + " cupones"} de ${esc(b.nombre)}">${cup} ${cup === 1 ? "cupón" : "cupones"}</button>` : ""}
         ${b.referencia ? `<a class="btn sm ghost act" href="#n-${esc(b.id)}">Ver lugar</a>` : `<a class="btn sm wa act" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${esc(b.id)}" aria-label="Escribir por WhatsApp a ${esc(b.nombre)}">WhatsApp</a>`}
@@ -810,7 +810,7 @@ function vInicio(){
     <div>
       <p class="eyebrow">Norte de Querétaro</p>
       <h1>Encuentra negocios, servicios y promos en tu misma zona.</h1>
-      <p class="lead">Plomeros, comida a domicilio y emprendedores de Zibatá, Zakia, Juriquilla y El Refugio. Escríbeles directo por WhatsApp, sin intermediarios.</p>
+      <p class="lead">Plomeros, comida a domicilio y emprendedores de Zibatá, Zakia, Juriquilla, El Refugio, La Pradera y La Vista. Escríbeles directo por WhatsApp, sin intermediarios.</p>
       <p class="muted" style="font-weight:600">Contacto directo · Sin comisiones · La palomita marca los verificados</p>
       <form class="search" id="fBuscar" role="search">
         <input id="q" type="search" placeholder="Ej. plomero, pasteles…" aria-label="¿Qué necesitas hoy? Buscar negocios">
@@ -1062,7 +1062,7 @@ function vRegistrar(enviado, adm){
       </div>
       <fieldset><legend id="lg-zonas">Zona</legend><div class="inline-opts">
         ${ZONAS.map(z => `<label class="opt"><input type="checkbox" name="zonas" id="z-${z.replace(/\s/g,"")}" value="${z}"><span>${z}</span></label>`).join("")}
-      </div><p class="muted" style="font-size:.85rem;margin-top:6px">¿Estás en otra zona, como Campanario, Jurica, La Vista o Centro Sur? Si atiendes clientes en alguna de estas 4, elígela. Si no, <a href="#recomendar">avísanos tu zona</a> y te tomamos en cuenta.</p></fieldset>
+      </div><p class="muted" style="font-size:.85rem;margin-top:6px">¿Estás en otra zona, como Campanario, Jurica o Centro Sur? Si atiendes clientes en alguna de estas zonas, elígela. Si no, <a href="#recomendar">avísanos tu zona</a> y te tomamos en cuenta.</p></fieldset>
       <label class="fld" for="r-desc">Describe tu negocio<textarea id="r-desc" maxlength="240" placeholder="Qué vendes o qué servicio das, en una o dos frases."></textarea></label>
       <div id="campos-local"><label class="fld" for="r-dir">Dirección del local<input id="r-dir" type="text" placeholder="Plaza, calle y número"></label></div>
       <fieldset id="campos-hor"><legend id="lg-hor">Días y horario</legend>
@@ -1592,7 +1592,7 @@ function vAdminLive(tab){
       <p class="meta">${esc(s.fecha)} · ${esc(s.hora)} · ${esc(s.lugar)} · ${esc(s.precio)} · WhatsApp ${telFmt(esc(s.whatsapp))}</p>
       ${/^https?:\/\//i.test(s.fuente || "") ? `<p class="meta">Enlace: <a href="${esc(s.fuente)}" target="_blank" rel="noopener nofollow">${esc(s.fuente)}</a></p>` : ""}
       <div class="req-actions">${btn("aprobar","eventos",s.id,"","Aprobar y publicar")}${btn("rechazar","eventos",s.id,"","Rechazar","danger")}</div></div>`).join("") : '<div class="empty">No hay eventos pendientes.</div>';
-  if(tab === "sugeridos") cuerpo = `<p class="muted" style="max-width:62ch">Eventos que se encontraron solos en fuentes públicas. Nada se publica hasta que tú lo apruebes. Si el evento es de fuera de tus 4 zonas, mejor descártalo.</p>` + (sug.length ? sug.map(x => `<div class="req">
+  if(tab === "sugeridos") cuerpo = `<p class="muted" style="max-width:62ch">Eventos que se encontraron solos en fuentes públicas. Nada se publica hasta que tú lo apruebes. Si el evento es de fuera de tus zonas, mejor descártalo.</p>` + (sug.length ? sug.map(x => `<div class="req">
       <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(x.titulo)}</h3><span class="meta">${esc(TIPOS_EV[x.tipo] || x.tipo)}</span></div>
       <p class="muted">${esc(x.descripcion || "")}</p>
       <p class="meta">${esc(x.fecha)} · ${esc(x.hora)} · ${esc(x.lugar)} · ${esc(x.precio || "Por confirmar")}${x.organizador ? " · " + esc(x.organizador) : ""}</p>
@@ -1739,7 +1739,7 @@ function vAyuda(){
     ["¿Quién está detrás de ZonaQro?", "Es un proyecto independiente hecho por vecinos de la zona, sin relación con ninguna administración de fraccionamiento. La idea es que todos tengamos a dónde acudir cuando necesitamos un servicio."],
     ["¿Qué hago si tuve un mal servicio?", "Puedes dejar tu opinión en la ficha del negocio; la revisamos antes de publicarla. Si es algo serio o un dato falso, escríbenos por WhatsApp y lo atendemos."],
     ["¿Por qué no veo el negocio que busco?", "Seguimos sumando negocios cada semana. Si conoces uno de confianza, recomiéndalo y le escribimos para invitarlo."],
-    ["¿Habrá más zonas?", "Sí. Empezamos con Zibatá, Zakia, Juriquilla y El Refugio para hacerlo bien y queremos llegar a más. Si vives en otra zona (Campanario, Jurica, La Vista, Centro Sur…), cuéntanos en \"Recomienda un negocio\" y la tomamos en cuenta."],
+    ["¿Habrá más zonas?", "Sí. Empezamos con Zibatá, Zakia, Juriquilla, El Refugio, La Pradera y La Vista para hacerlo bien y queremos llegar a más. Si vives en otra zona (Campanario, Jurica, Centro Sur…), cuéntanos en \"Recomienda un negocio\" y la tomamos en cuenta."],
     ["¿Guardan mis datos?", "Solo contamos visitas de forma anónima. No pedimos cuenta para buscar ni guardamos tu teléfono. Más detalle en el aviso de privacidad."]
   ];
   return `<section class="faq" style="max-width:720px">
@@ -1755,7 +1755,7 @@ function vRecomendar(){
     <form class="reg" id="fRec" novalidate>
       <label class="fld" for="rc-n">Nombre del negocio o servicio<input id="rc-n" type="text" maxlength="80" autocomplete="off"></label>
       <label class="fld" for="rc-t">Su WhatsApp o teléfono (si lo tienes)<input id="rc-t" type="tel" inputmode="tel" maxlength="20"></label>
-      <label class="fld" for="rc-z">Zona<select id="rc-z"><option value="">Elige…</option>${ZONAS.map(z => `<option>${z}</option>`).join("")}<option value="otra">Otra zona (Campanario, Jurica, La Vista…)</option></select></label>
+      <label class="fld" for="rc-z">Zona<select id="rc-z"><option value="">Elige…</option>${ZONAS.map(z => `<option>${z}</option>`).join("")}<option value="otra">Otra zona (Campanario, Jurica, Centro Sur…)</option></select></label>
       <label class="fld" for="rc-o" id="rc-ol" hidden>¿Cuál zona?<input id="rc-o" type="text" maxlength="40" placeholder="Ej. Campanario"></label>
       <label class="fld" for="rc-d">¿Qué hace y por qué lo recomiendas? (opcional)<textarea id="rc-d" maxlength="200"></textarea></label>
       <div id="rc-err" class="notice err" hidden></div>
@@ -1770,7 +1770,7 @@ function vParaNegocios(){
   return `<section style="max-width:900px">
     <p class="eyebrow">Para negocios de tu zona</p>
     <h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Que tus vecinos te encuentren y te escriban directo</h1>
-    <p class="muted" style="font-size:1.05rem">ZonaQro es el directorio de Zibatá, Zakia, Juriquilla y El Refugio. Registrarte es gratis, y en un par de minutos ya apareces.</p>
+    <p class="muted" style="font-size:1.05rem">ZonaQro es el directorio de Zibatá, Zakia, Juriquilla, El Refugio, La Pradera y La Vista. Registrarte es gratis, y en un par de minutos ya apareces.</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 22px"><a class="btn" href="#registrar">Regístrate gratis</a>${hola ? `<a class="btn ghost" href="${esc(hola)}" target="_blank" rel="noopener">Tengo una duda</a>` : ""}</div>
     <h2>Qué te llevas</h2>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
@@ -1801,7 +1801,7 @@ function vTerminos(){
   const via = [cont, mail].filter(Boolean).join(" o ") || "por los medios de contacto publicados en este sitio";
   const h = t => `<h2 style="font-size:1.15rem;margin-top:14px">${t}</h2>`;
   return `<section style="max-width:70ch"><p class="eyebrow">Última actualización: 26 de octubre de 2026</p><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Términos de uso</h1>
-  <p>ZonaQro es un directorio de negocios, servicios, eventos y promociones de Zibatá, Zakia, Juriquilla y El Refugio, Querétaro, operado por ${esc(RESP.nombre)}. Al usar el sitio o publicar en él aceptas estos términos y el <a href="#privacidad">aviso de privacidad</a>.</p>
+  <p>ZonaQro es un directorio de negocios, servicios, eventos y promociones de Zibatá, Zakia, Juriquilla, El Refugio, La Pradera y La Vista, Querétaro, operado por ${esc(RESP.nombre)}. Al usar el sitio o publicar en él aceptas estos términos y el <a href="#privacidad">aviso de privacidad</a>.</p>
   ${h("Qué es ZonaQro y qué no es")}
   <p>ZonaQro solo conecta a vecinos con negocios. No vende los productos o servicios publicados, no cobra comisiones por ellos y no interviene en el trato, pago, entrega o garantía entre el cliente y el negocio. Cada negocio es responsable de lo que ofrece, de sus precios y de cumplir lo que publica.</p>
   ${h("Si publicas un negocio, evento o cupón")}
@@ -1908,7 +1908,7 @@ function vRegEvento(enviado){
   if(enviado) return `<section style="max-width:680px"><div class="notice">Recibimos tu evento. Lo revisamos y te avisamos por WhatsApp cuando esté publicado.</div><a class="btn ghost" href="#eventos">Ver la agenda</a></section>`;
   return `<section>
     <div><p class="eyebrow">Gratis</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Publica tu evento</h1>
-    <p class="muted" style="margin-top:8px;max-width:60ch">Conciertos, bazares, ferias, clases abiertas o actividades de comunidad en Zibatá, Zakia, Juriquilla, El Refugio, la Ciudad de Querétaro o Tequisquiapan.</p></div>
+    <p class="muted" style="margin-top:8px;max-width:60ch">Conciertos, bazares, ferias, clases abiertas o actividades de comunidad en Zibatá, Zakia, Juriquilla, El Refugio, La Pradera, La Vista, la Ciudad de Querétaro o Tequisquiapan.</p></div>
     <form class="reg" id="fEv" novalidate>
       <label class="fld" for="e-titulo">Nombre del evento<input id="e-titulo" type="text" required></label>
       <div class="two">

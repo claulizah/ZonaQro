@@ -384,3 +384,17 @@ begin
 end $$;
 revoke all on function public.ficha_por_token(text) from public;
 grant execute on function public.ficha_por_token(text) to anon, authenticated;
+
+-- ===== 21. Nuevas zonas: La Pradera y La Vista =====
+do $$ declare r record; begin
+  for r in select conname from pg_constraint
+           where conrelid = 'public.negocios'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%zonas%'
+  loop execute format('alter table public.negocios drop constraint %I', r.conname); end loop;
+  for r in select conname from pg_constraint
+           where conrelid = 'public.eventos'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%zona%'
+  loop execute format('alter table public.eventos drop constraint %I', r.conname); end loop;
+end $$;
+alter table public.negocios add constraint negocios_zonas_check
+  check (cardinality(zonas) between 1 and 6 and zonas <@ array['Zibatá','Zakia','Juriquilla','El Refugio','La Pradera','La Vista']);
+alter table public.eventos add constraint eventos_zona_check
+  check (zona in ('Zibatá','Zakia','Juriquilla','El Refugio','La Pradera','La Vista','Ciudad de Querétaro','Tequisquiapan'));
