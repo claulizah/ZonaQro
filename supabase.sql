@@ -398,3 +398,17 @@ alter table public.negocios add constraint negocios_zonas_check
   check (cardinality(zonas) between 1 and 6 and zonas <@ array['Zibatá','Zakia','Juriquilla','El Refugio','La Pradera','La Vista']);
 alter table public.eventos add constraint eventos_zona_check
   check (zona in ('Zibatá','Zakia','Juriquilla','El Refugio','La Pradera','La Vista','Ciudad de Querétaro','Tequisquiapan'));
+
+-- ===== 22. Contar los registros que fallan al enviar =====
+alter table public.metricas drop constraint if exists metricas_tipo_check;
+alter table public.metricas add constraint metricas_tipo_check
+  check (tipo in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir','registro_vista','registro_inicio','registro_envio','registro_error','evento_vista','evento_inicio','evento_envio','otro_envio'));
+create or replace function public.registrar_evento(p_tipo text, p_ref text default '')
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if p_tipo not in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir','registro_vista','registro_inicio','registro_envio','registro_error','evento_vista','evento_inicio','evento_envio','otro_envio') then return; end if;
+  insert into public.metricas (dia, tipo, ref, n) values (current_date, p_tipo, left(coalesce(p_ref, ''), 60), 1)
+  on conflict (dia, tipo, ref) do update set n = public.metricas.n + 1;
+end $$;
+revoke all on function public.registrar_evento(text, text) from public;
+grant execute on function public.registrar_evento(text, text) to anon, authenticated;

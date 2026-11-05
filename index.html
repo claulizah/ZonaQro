@@ -256,7 +256,7 @@ textarea{min-height:90px;resize:vertical}
 .biz-grid{display:grid;grid-template-columns:1.3fr .7fr;gap:20px;align-items:start}
 @media (max-width:820px){.biz-grid{grid-template-columns:1fr}}
 .wa-movil{display:none}
-@media (max-width:820px){.wa-movil{display:inline-flex}}
+@media (max-width:820px){.wa-movil{display:inline-flex;padding:15px 18px;font-size:1.05rem;justify-content:center}}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
 dl.info{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0;font-size:.95rem}
 dl.info dt{font-weight:700;color:var(--muted)}
@@ -554,7 +554,13 @@ function enviar(tabla, fila, local, vista, box){
   post(fila)
     .catch(err => { if(fila.fuente && /fuente/i.test(err.message)){ const f = Object.assign({}, fila); delete f.fuente; return post(f); } throw err; })
     .then(() => { metrica(tabla === "negocios" ? "registro_envio" : tabla === "eventos" ? "evento_envio" : "otro_envio", refOrigen()); app.innerHTML = vista(true); window.scrollTo(0,0); })
-    .catch(() => { box.hidden = false; box.textContent = "No pudimos enviar tu solicitud. Revisa tu conexión e intenta de nuevo."; if(btn) btn.disabled = false; });
+    .catch(err => {
+      if(tabla === "negocios") metrica("registro_error", /zonas/i.test(String(err && err.message)) ? "zona" : /red|network|fetch|timeout/i.test(String(err && err.message)) ? "red" : "otro");
+      box.hidden = false;
+      const lk = contactoHref("Hola, no pude enviar mi registro en ZonaQro" + (fila.nombre ? " (" + fila.nombre + ")" : "") + ". ¿Me ayudas?");
+      box.innerHTML = "No pudimos enviar tu solicitud. Revisa tu conexión e intenta de nuevo." + (lk ? ' Si sigue fallando, <a href="' + esc(lk) + '" target="_blank" rel="noopener">escríbenos por WhatsApp</a> y te ayudamos.' : "");
+      if(btn) btn.disabled = false;
+    });
 }
 /* ===== Métricas: gráfica por día y embudo de registro ===== */
 const SERIES_MET = [["visita","Visitas"],["vista","Fichas vistas"],["wa","Clics a WhatsApp"],["registro_envio","Registros enviados"]];
@@ -586,7 +592,8 @@ function embudo(M){
     <p class="muted" style="font-size:.85rem;margin-bottom:8px">Cuenta personas que abrieron el formulario, empezaron a llenarlo y lo enviaron (en los últimos 30 días). Tus propias pruebas desde el admin no se cuentan.</p>
     <div class="tbl-wrap"><table><thead><tr><th>Formulario</th><th class="num">Abrieron</th><th class="num">Empezaron</th><th class="num">Enviaron</th><th class="num">% empezó</th><th class="num">% envió</th></tr></thead><tbody>
     ${fila("Registro de negocio", s("registro_vista"), s("registro_inicio"), s("registro_envio"))}
-    ${fila("Publicar evento", s("evento_vista"), s("evento_inicio"), s("evento_envio"))}</tbody></table></div></div>`;
+    ${fila("Publicar evento", s("evento_vista"), s("evento_inicio"), s("evento_envio"))}</tbody></table></div>
+    ${s("registro_error") ? `<div class="notice err" style="margin-top:8px">Hubo <b>${s("registro_error")}</b> registro${s("registro_error") === 1 ? "" : "s"} que no se pudo${s("registro_error") === 1 ? "" : "ron"} enviar en los últimos 30 días. Si ves muchos, revisa que corriste el último SQL.</div>` : ""}</div>`;
 }
 async function cargarAdmin(){
   const A = estado.admin;
@@ -857,6 +864,17 @@ function vInicio(){
   </section>`;
 }
 
+/* Búsqueda tolerante: sin acentos, plurales y oficios (plomero = plomería), con algunos sinónimos */
+const normB = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9ñ ]/g, " ").replace(/\s+/g, " ").trim();
+const raizB = w => { const r = w.replace(/(erias|eria|eros|eras|ero|era|istas|ista|iones|ion|ias|ia|es|s)$/, ""); return r.length >= 3 ? r : w; };
+const SINB = [["plom","fontan","fuga","tuberia"],["taco","taqu"],["pastel","repost","postre","pan"],["uña","manicur","unas"],["pelo","cabell","peluqu","barber","estetic","corte"],["fiesta","evento","mesa dulces","pinata","salon"],["coche","auto","mecanic","carro"],["perro","mascota","veterin","canin","gato"],["comida","gastronom","restaurant","antojo","cocina"],["clase","educac","curso","maestr","tarea","regulariz"],["electric","luz","instalac"],["limpie","aseo","sanitiz","domestic"],["jardin","pasto","poda"],["foto","video","fotograf"],["doctor","medic","salud","dentist","psicolog","nutri"],["constru","remodel","albañil","pintur","herrer"]];
+function coincideB(b, q){
+  const hay = normB(b.nombre + " " + b.descripcion + " " + catNombre(b.categoria) + " " + b.categoria);
+  return normB(q).split(" ").filter(w => w && !["de","del","la","las","el","los","en","y","para","por","zibata","zakia","juriquilla","refugio","pradera","vista","queretaro"].includes(w)).every(w => {
+    const r = raizB(w), grupo = SINB.find(g => g.some(x => r.startsWith(x) || x.startsWith(r) && r.length >= 4));
+    return hay.includes(r) || (grupo ? grupo.some(x => hay.includes(x)) : false);
+  });
+}
 function vDirectorio(soloVecinos){
   const fav = favoritos();
   const f = estado.f;
@@ -869,7 +887,7 @@ function vDirectorio(soloVecinos){
     (soloVecinos || !f.tipo || b.tipo === f.tipo) &&
     (!hf || cumpleHorario(b, f)) &&
     (soloVecinos || !f.mostrar || (f.mostrar === "ver" ? b.verificado : f.mostrar === "cup" ? cupDe(b).length : f.mostrar === "nue" ? esNuevo(b) : fav.has(b.id))) &&
-    (!q || (b.nombre + " " + b.descripcion + " " + catNombre(b.categoria)).toLowerCase().includes(q)));
+    (!q || coincideB(b, q)));
   lista = ordenar(lista, fav);
   return `
   <section>
@@ -964,8 +982,8 @@ function vNegocio(id){
     </div>
     <div class="biz-grid">
       <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
-        <div class="panel">${galeria}<p>${esc(b.descripcion)}</p><dl class="info">${info}</dl></div>
         ${b.referencia ? "" : `<a class="btn wa wa-movil" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${b.id}">Escribir por WhatsApp</a>`}
+        <div class="panel">${galeria}<p>${esc(b.descripcion)}</p><dl class="info">${info}</dl></div>
         ${catalogo}${cupones}${b.referencia ? "" : panelOpiniones(b)}
       </div>
       <aside class="panel">
@@ -2310,12 +2328,24 @@ function prepararRegistro(){
   const cf = document.getElementById("campos-fotos"); if(cf) cf.hidden = !SB.ok;
   pintarFotos();
 }
+function nombreBonito(t){
+  t = String(t).replace(/\s+/g, " ").trim();
+  const letras = t.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
+  if(letras.length >= 3 && t === t.toUpperCase()){
+    const peq = ["de","del","la","las","el","los","y","e","en","a","con","para"];
+    t = t.toLowerCase().split(" ").map((w, i) => i && peq.includes(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  }
+  return t;
+}
 async function enviarRegistro(){
   const v = id => document.getElementById(id).value.trim();
   const tipo = tipoSel();
   const zonas = [...document.querySelectorAll('input[name="zonas"]:checked')].map(i => i.value);
   const errores = [];
+  const adm0 = !!document.getElementById("fReg").dataset.admin;
   if(!v("r-nombre")) errores.push("escribe el nombre del negocio");
+  else if(/@/.test(v("r-nombre")) || /^[\d\s().+-]{7,}$/.test(v("r-nombre"))) errores.push("en el nombre pon el nombre de tu negocio, no un correo ni un teléfono");
+  if(!adm0 && v("r-desc").length < 30) errores.push("cuéntanos en al menos 30 letras qué vendes o qué servicio das");
   if(!/^\d{10}$/.test(v("r-wa"))) errores.push("el WhatsApp debe tener 10 dígitos");
   if(!zonas.length) errores.push("elige al menos una zona");
   if(tipo === "local" && zonas.length > 1) errores.push("un local físico va en una sola zona");
@@ -2340,7 +2370,7 @@ async function enviarRegistro(){
   const box = document.getElementById("r-err");
   if(errores.length){ box.hidden = false; box.textContent = "Para enviar: " + errores.join(", ") + "."; box.scrollIntoView({block:"nearest"}); return; }
   box.hidden = true;
-  const nombre = v("r-nombre");
+  const nombre = nombreBonito(v("r-nombre"));
   const id = nombre.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") + "-" + Date.now().toString(36);
   let fotos = [];
   if(SB.ok && FOTOS.length){
