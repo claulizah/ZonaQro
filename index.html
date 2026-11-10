@@ -1068,7 +1068,10 @@ function botonesExtra(b){
 function botonSitio(b){
   if(!/^https?:\/\//i.test(b.sitio_web || "")) return "";
   let h = ""; try{ h = new URL(b.sitio_web).hostname.replace(/^www\./, "").toLowerCase(); }catch(e){ return ""; }
-  const t = /(^|\.)(facebook\.com|fb\.com|fb\.me)$/.test(h) ? "Ver su Facebook" : /(^|\.)instagram\.com$/.test(h) ? "Ver su Instagram" : "Ver su página web";
+  const esFb = /(^|\.)(facebook\.com|fb\.com|fb\.me)$/.test(h), esIg = /(^|\.)instagram\.com$/.test(h);
+  const r = redesDe(b); // si la red social ya sale en su propio botón, no repetirla como "sitio web"
+  if(r && ((esFb && /^Facebook/.test(r.txt)) || (esIg && /^Instagram/.test(r.txt)))) return "";
+  const t = esFb ? "Ver su Facebook" : esIg ? "Ver su Instagram" : "Ver su página web";
   return `<a class="btn ghost" href="${esc(b.sitio_web)}" target="_blank" rel="noopener nofollow" data-web="${esc(b.id)}">${t}</a>`;
 }
 
