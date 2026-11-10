@@ -147,6 +147,14 @@ section{display:flex;flex-direction:column;gap:16px}
 .cats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .cat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;text-decoration:none;display:flex;flex-direction:column;gap:2px;cursor:pointer;text-align:left}
 .cat:hover{border-color:var(--agave)}
+.ofrece{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:8px}
+.ofrece li{display:inline-flex;align-items:center;gap:8px;background:var(--soft-agave);color:var(--agave);border-radius:999px;padding:8px 14px;font-size:.9rem;font-weight:600}
+.ofrece i{font-style:normal}
+.ep-go{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ep-go button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer;font:inherit;color:var(--ink)}
+.ep-go button:hover{border-color:var(--agave)}
+.ep-go button:last-child:nth-child(odd){grid-column:1/-1}
+.ep-go b{font-size:1rem}.ep-go span{font-size:.84rem;color:var(--muted)}.ep-go i{font-style:normal;font-size:1.4rem}
 .cat-ico{font-style:normal;width:40px;height:40px;border-radius:12px;background:var(--cc,#EAF0E7);display:grid;place-items:center;font-size:1.3rem;margin-bottom:6px}
 .cat strong{font-weight:700}
 .promos-franja{background:var(--soft-sun);border:1px solid var(--sun-line);border-radius:18px;padding:18px 16px}
@@ -1006,6 +1014,7 @@ function vNegocio(id){
     <div class="biz-grid">
       <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
         ${b.referencia ? "" : `<a class="btn wa wa-movil" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${b.id}">Escribir por WhatsApp</a>`}
+        ${ofreceHtml(b)}
         <div class="panel">${galeria}<p>${esc(b.descripcion)}</p><dl class="info">${info}</dl></div>
         ${catalogo}${cupones}${b.referencia ? "" : panelOpiniones(b)}
       </div>
@@ -1027,6 +1036,18 @@ function vNegocio(id){
   </section>`;
 }
 
+function ofreceHtml(b){
+  if(b.referencia) return "";
+  const l = [["💬", "Escríbele directo por WhatsApp"]];
+  if(b.tipo === "local") l.push(["📍", b.direccion ? "Visítalo en su local" : "Tiene local"]);
+  if(b.tipo === "domicilio") l.push(["🏠", "Va a tu casa"]);
+  if(b.tipo === "emprendimiento") l.push(["🚚", (b.entrega || "").trim() ? "Entrega: " + b.entrega.split(/[;.]/)[0].trim().slice(0, 40) : "Entrega a domicilio"]);
+  const nc = cupDe(b).length, np = (b.catalogo || []).length, nr = (resenasDe(b.id) || []).length;
+  if(nc) l.push(["🎟️", nc + (nc === 1 ? " cupón disponible" : " cupones disponibles")]);
+  if(np) l.push(["🛒", "Catálogo: " + np + (np === 1 ? " producto" : " productos")]);
+  if(nr) l.push(["⭐", nr + (nr === 1 ? " opinión de vecinos" : " opiniones de vecinos")]);
+  return `<ul class="ofrece" aria-label="Lo que puedes hacer con este negocio">${l.map(([i, t]) => `<li><i aria-hidden="true">${i}</i>${esc(t)}</li>`).join("")}</ul>`;
+}
 function mapaHref(b){
   if(b.tipo !== "local" || !(b.direccion || "").trim()) return "";
   return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(b.nombre + ", " + b.direccion + ", Querétaro");
@@ -1203,6 +1224,8 @@ function bajarQr(id, nombre, opinar){
   catch(err){ toast("No se pudo crear el QR: " + err.message); }
 }
 document.addEventListener("click", e => { const q = e.target.closest("[data-qrficha]"); if(!q) return; const [id, nom] = [q.dataset.qrficha, q.dataset.qrnom]; bajarQr(id, nom, q.dataset.op === "1"); });
+document.addEventListener("click", e => { const sh = e.target.closest("[data-epshare]"); if(sh) compartir(sh.dataset.epshare + " en ZonaQro 👇", BASE_URL + "#n-" + sh.dataset.ref); });
+document.addEventListener("click", e => { const g = e.target.closest("[data-epgo]"); if(!g) return; const el = document.getElementById(g.dataset.epgo); if(el){ el.scrollIntoView({behavior:"smooth", block:"start"}); const f = el.querySelector("textarea,input,button"); if(f && g.dataset.epgo === "fEdit") setTimeout(() => { try{ f.focus({preventScroll:true}); }catch(err){} }, 400); } });
 
 /* ===== Enlace personal: el negocio edita su propia ficha ===== */
 const ED = {token:"", datos:null, error:"", cargando:false, fotos:[], ok:false};
@@ -1229,6 +1252,14 @@ function vEditarProp(){
     <p class="muted" style="margin-top:6px">Aquí cambias lo que quieras de tu ficha: horario, fotos, descripción… Al terminar toca <b>Guardar cambios</b> (hasta abajo). Este enlace es solo tuyo, no lo compartas.</p></div>
     ${ED.ok ? `<div class="notice ep-ok" role="status">Listo, tu ficha ya quedó actualizada. <a href="#n-${esc(d.id)}" target="_blank">Ver cómo se ve</a></div>` : ""}
     ${d.estado === "pendiente" ? '<div class="notice">Tu ficha todavía está en revisión. Puedes completarla desde ahora.</div>' : ""}
+    <div class="panel"><h2 style="font-size:1.15rem">Lo que puedes hacer aquí</h2><p class="muted" style="margin:4px 0 12px;font-size:.9rem">Toca una opción y te llevo directo.</p>
+      <div class="ep-go">
+        <button type="button" data-epgo="fEdit"><i>✏️</i><b>Actualiza tu información</b><span>Descripción, horario, redes y página web</span></button>
+        <button type="button" data-epgo="ep-fotos"><i>📷</i><b>Agrega tus fotos</b><span>Hasta 3: tu local, tu producto o tu trabajo</span></button>
+        <button type="button" data-epgo="ep-opin"><i>⭐</i><b>Responde opiniones</b><span>${resenas.length ? resenas.length + (resenas.length === 1 ? " opinión" : " opiniones") + " de tus clientes" : "Cuando lleguen, las respondes aquí"}</span></button>
+        <button type="button" data-epgo="ep-qr"><i>🔳</i><b>Descarga tu QR</b><span>Para tu mostrador, y otro para pedir opiniones</span></button>
+        <button type="button" data-epshare="${esc(d.nombre)}" data-ref="${esc((negocios().find(x => x.id === d.id) ? enlaceNeg(negocios().find(x => x.id === d.id)) : d.id))}"><i>📲</i><b>Comparte tu ficha</b><span>Mándala por WhatsApp a tus clientes</span></button>
+      </div></div>
     <div class="panel ep-prog" id="epProg" aria-live="polite"></div>
     <form class="reg" id="fEdit" novalidate>
       <label class="fld" for="ep-desc">Descripción (qué vendes o qué servicio das)<textarea id="ep-desc" maxlength="300">${esc(d.descripcion)}</textarea></label>
@@ -1243,7 +1274,7 @@ function vEditarProp(){
       </fieldset>
       <label class="fld" for="ep-redes">Redes sociales (Instagram, Facebook…)<input id="ep-redes" type="text" maxlength="80" value="${esc(d.redes)}" placeholder="@minegocio (tu usuario de Instagram)"></label>
       <label class="fld" for="ep-web">Página web (opcional)<input id="ep-web" type="url" maxlength="160" value="${esc(d.sitio_web)}" placeholder="https://"></label>
-      <fieldset><legend>Fotos (hasta 3)</legend>
+      <fieldset id="ep-fotos"><legend>Fotos (hasta 3)</legend>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${fotos.map((u, i) => `<span style="display:inline-flex;align-items:center;gap:2px"><img src="${esc(u)}" alt="Foto ${i + 1}" style="width:84px;height:64px;object-fit:cover;border-radius:10px"><button type="button" class="btn sm ghost" data-epq="${i}" aria-label="Quitar foto ${i + 1}">×</button></span>`).join("")}
         ${fotos.length < 3 ? `<label class="btn sm ghost" style="cursor:pointer">Agregar foto<input type="file" accept="image/*" id="ep-foto" hidden></label>` : ""}</div>
         <p class="muted small" id="ep-fmsg" style="font-size:.85rem;margin-top:6px">Foto de tu local, tu producto o tu trabajo. Después de agregar o quitar una foto, toca <b>Guardar cambios</b>.</p>
@@ -1251,8 +1282,8 @@ function vEditarProp(){
       <div id="ep-err" class="notice err" hidden></div>
       <div><button class="btn" type="submit">Guardar cambios</button></div>
     </form>
-    <div class="panel"><h2 style="font-size:1.15rem">QR de tu ficha</h2><p class="muted" style="margin:6px 0 10px">Descárgalo e imprímelo para tu local, tu mostrador o tus empaques: quien lo escanee llega directo a tu ficha.</p><button type="button" class="btn ghost" data-qrficha="${esc(d.id)}" data-qrnom="${esc(d.nombre)}">Descargar mi QR</button> <button type="button" class="btn ghost" data-qrficha="${esc(d.id)}" data-qrnom="${esc(d.nombre)}" data-op="1">QR para pedir opiniones</button></div>
-    <h2 style="font-size:1.25rem;margin-top:12px">Opiniones de tus clientes (${resenas.length})</h2>
+    <div class="panel" id="ep-qr"><h2 style="font-size:1.15rem">QR de tu ficha</h2><p class="muted" style="margin:6px 0 10px">Descárgalo e imprímelo para tu local, tu mostrador o tus empaques: quien lo escanee llega directo a tu ficha.</p><button type="button" class="btn ghost" data-qrficha="${esc(d.id)}" data-qrnom="${esc(d.nombre)}">Descargar mi QR</button> <button type="button" class="btn ghost" data-qrficha="${esc(d.id)}" data-qrnom="${esc(d.nombre)}" data-op="1">QR para pedir opiniones</button></div>
+    <h2 id="ep-opin" style="font-size:1.25rem;margin-top:12px">Opiniones de tus clientes (${resenas.length})</h2>
     ${resenas.length ? resenas.map(r => `<div class="req"><div style="display:flex;justify-content:space-between;gap:8px"><strong>${esc(r.nombre)}</strong><span class="rate">${estrellasTxt(r.estrellas)}</span></div><p>${esc(r.texto)}</p>
       <label class="fld" for="rs-${esc(r.id)}">Tu respuesta (se ve en tu ficha)<textarea id="rs-${esc(r.id)}" maxlength="300">${esc(r.respuesta)}</textarea></label>
       <div class="req-actions"><button class="btn sm" data-eprs="${esc(r.id)}">Guardar respuesta</button></div></div>`).join("") : '<div class="empty">Todavía no tienes opiniones. Cuando lleguen, aquí podrás responderlas.</div>'}
