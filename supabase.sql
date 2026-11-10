@@ -412,3 +412,14 @@ begin
 end $$;
 revoke all on function public.registrar_evento(text, text) from public;
 grant execute on function public.registrar_evento(text, text) to anon, authenticated;
+
+-- ===== 23. Agenda: fecha de fin para eventos de varios días y nuevos tipos =====
+alter table public.eventos add column if not exists fecha_fin date;
+grant select (fecha_fin) on public.eventos to anon, authenticated;
+do $$ declare r record; begin
+  for r in select conname from pg_constraint
+           where conrelid = 'public.eventos'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%concierto%'
+  loop execute format('alter table public.eventos drop constraint %I', r.conname); end loop;
+end $$;
+alter table public.eventos add constraint eventos_tipo_check
+  check (tipo in ('concierto','teatro','familia','deporte','bazar','feria','clase','comunidad'));

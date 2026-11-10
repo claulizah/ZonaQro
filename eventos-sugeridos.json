@@ -25,7 +25,8 @@
   "organizador": "Feria de Querétaro",
   "descripcion": "Feria del 12 al 30 de noviembre con conciertos gratuitos en el Teatro del Pueblo (Bronco, Gloria Trevi, Ha*Ash) y shows de pago en el Palenque (Alejandro Fernández, Carlos Rivera).",
   "fuente": "https://www.excelsior.com.mx/espectaculos/feria-queretaro-2026-artistas-y-fechas-teatro-pueblo",
-  "nota": "Confirmar sede y horarios; boletos del Palenque en boletcenter.com"
+  "nota": "Confirmar sede y horarios; boletos del Palenque en boletcenter.com",
+  "fecha_fin": "2026-11-30"
  },
  {
   "id": "s-nacho-vegas-arpa-2026",

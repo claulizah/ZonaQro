@@ -323,6 +323,10 @@ input[type=file]{max-width:100%}
 .fecha{display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--soft-jaca);color:var(--jaca);border-radius:12px;padding:8px 4px;align-self:start}
 .fecha b{font-family:var(--f-display);font-size:1.9rem;line-height:1;font-variant-numeric:tabular-nums}
 .fecha span{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.fecha i{font-style:normal;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.fecha small{font-size:.68rem;font-weight:600;margin-top:2px;text-align:center;line-height:1.15}
+.b-gratis{background:var(--soft-mint);color:var(--mint)}
+.ev-grupo{font-size:1.1rem;margin:22px 0 10px;color:var(--ink-soft)}
 .ev-body{display:flex;flex-direction:column;gap:6px;min-width:0}
 .ev-body h3{font-size:1.2rem}
 .ev-meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.88rem;color:var(--muted)}
@@ -464,7 +468,7 @@ const EJEMPLOS = [
 ];
 
 /* ===== Eventos de ejemplo ===== */
-const TIPOS_EV = {concierto:"Concierto", bazar:"Bazar", feria:"Feria y mercadito", clase:"Clase abierta", comunidad:"Comunidad"};
+const TIPOS_EV = {concierto:"Concierto", teatro:"Teatro", familia:"Familia y niños", deporte:"Deportes", bazar:"Bazar", feria:"Feria y mercadito", clase:"Clase abierta", comunidad:"Comunidad"};
 const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 const EVENTOS = [
  {id:"ev-jazz-lago",titulo:"Jazz bajo las estrellas",tipo:"concierto",zona:"Juriquilla",lugar:"Terraza de Trattoria del Lago",fecha:"2026-11-14",hora:"8:00 pm",precio:"$350 por persona",organizador:"Trattoria del Lago",whatsapp:"4420000301",destacado:true,descripcion:"Cuarteto de jazz en vivo con menú de tres tiempos. Cupo limitado, reserva por WhatsApp."},
@@ -538,7 +542,7 @@ async function cargarPublico(){
     const [n, ev, rs] = await Promise.all([
       sb("/rest/v1/negocios?estado=eq.aprobado&select=id,nombre,categoria,tipo,zonas,descripcion,whatsapp,direccion,horario,horarios,entrega,redes,envio,promocionado,alta,clics,cupones,catalogo,fotos,sitio_web,origen,verificado,referencia&order=nombre", {auth:false})
         .catch(() => sb("/rest/v1/negocios?estado=eq.aprobado&select=id,nombre,categoria,tipo,zonas,descripcion,whatsapp,direccion,horario,horarios,entrega,redes,envio,promocionado,alta,clics,cupones,catalogo,fotos,sitio_web,origen,verificado&order=nombre", {auth:false})),
-      sb("/rest/v1/eventos?estado=eq.aprobado&select=id,titulo,tipo,zona,lugar,fecha,hora,precio,organizador,whatsapp,destacado,descripcion,fuente&order=fecha", {auth:false}).catch(() => sb("/rest/v1/eventos?estado=eq.aprobado&select=id,titulo,tipo,zona,lugar,fecha,hora,precio,organizador,whatsapp,destacado,descripcion&order=fecha", {auth:false})),
+      sb("/rest/v1/eventos?estado=eq.aprobado&select=id,titulo,tipo,zona,lugar,fecha,fecha_fin,hora,precio,organizador,whatsapp,destacado,descripcion,fuente&order=fecha", {auth:false}).catch(() => sb("/rest/v1/eventos?estado=eq.aprobado&select=id,titulo,tipo,zona,lugar,fecha,hora,precio,organizador,whatsapp,destacado,descripcion,fuente&order=fecha", {auth:false})).catch(() => sb("/rest/v1/eventos?estado=eq.aprobado&select=id,titulo,tipo,zona,lugar,fecha,hora,precio,organizador,whatsapp,destacado,descripcion&order=fecha", {auth:false})),
       sb("/rest/v1/resenas?estado=eq.aprobado&select=id,negocio_id,nombre,estrellas,texto,respuesta,created_at&order=created_at.desc", {auth:false}).catch(() => [])
     ]);
     SB.ok = true;
@@ -810,9 +814,9 @@ function vInicio(){
   const sinNada = DATA.live && negocios().length === 0;
   const vecinos = negocios().filter(b => b.tipo === "emprendimiento" && enZona(b)).slice(0,3);
   const cupones = negocios().filter(enZona).flatMap(b => cupDe(b).map(c => ({b, c}))).slice(0,4);
-  let proxEv = eventos().filter(e => !estado.f.zona || e.zona === estado.f.zona).slice(0,5);
+  let proxEv = eventos().filter(e => !estado.f.zona || e.zona === estado.f.zona).slice(0,4);
   const evCerca = !proxEv.length && !!estado.f.zona;
-  if(evCerca) proxEv = eventos().slice(0,5);
+  if(evCerca) proxEv = eventos().slice(0,4);
   const vacio = t => `<div class="empty">${t}</div>`;
   return `
   <section class="hero">
@@ -844,7 +848,7 @@ function vInicio(){
   </section>
 
   ${proxEv.length ? `<section class="evlado">
-    <div class="sec-head"><div><h2>Próximos eventos</h2>${evCerca ? `<p class="muted">Aún no hay en ${esc(estado.f.zona)}; mira estos cerca de ti.</p>` : ""}</div><a href="#eventos">Agenda</a></div>
+    <div class="sec-head"><div><h2>Qué hacer en Querétaro</h2>${evCerca ? `<p class="muted">Aún no hay en ${esc(estado.f.zona)}; mira estos cerca de ti.</p>` : ""}</div><a href="#eventos">Agenda</a></div>
     ${proxEv.map(eventoMini).join("")}
   </section>` : ""}
 
@@ -1550,7 +1554,7 @@ function vAdminLive(tab){
   const RS = A.res || [];
   const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente"), pr = RS.filter(x => x.estado === "pendiente");
   const descartados = (() => { try{ return JSON.parse(localStorage.getItem("zq_desc") || "[]"); }catch(e){ return []; } })();
-  const sug = (Array.isArray(A.sug) ? A.sug : []).filter(x => x && x.id && x.fecha >= hoyISO() && !descartados.includes(x.id) && !A.ev.some(v => v.titulo === x.titulo && v.fecha === x.fecha)).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const sug = (Array.isArray(A.sug) ? A.sug : []).filter(x => x && x.id && (x.fecha_fin || x.fecha) >= hoyISO() && !descartados.includes(x.id) && !A.ev.some(v => v.titulo === x.titulo && v.fecha === x.fecha)).sort((a, b) => a.fecha.localeCompare(b.fecha));
   const prosp = A.neg.filter(x => (x.tiene_web === "no" || x.tiene_web === "redes") && x.estado !== "rechazado");
   const prospSi = prosp.filter(x => x.interes_mimx);
   const todos = negocios();
@@ -1880,49 +1884,87 @@ function vPrivacidad(){
 
 /* ===== Eventos ===== */
 function hoyISO(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
-function eventos(){ return (DATA.live ? DATA.eventos : EVENTOS.concat(estado.evAprobados)).filter(e => e.fecha >= hoyISO()).sort((a,b) => a.fecha.localeCompare(b.fecha)); }
+function eventos(){ return (DATA.live ? DATA.eventos : EVENTOS.concat(estado.evAprobados)).filter(e => (e.fecha_fin || e.fecha) >= hoyISO()).sort((a,b) => inicioEv(a).localeCompare(inicioEv(b))); }
+const inicioEv = e => e.fecha < hoyISO() ? hoyISO() : e.fecha; // un evento de varios días ya empezado cuenta desde hoy
 function eventoMini(e){
   const dia = +e.fecha.slice(8), mes = MESES.at(+e.fecha.slice(5,7) - 1);
   const sem = new Date(e.fecha + "T12:00:00").toLocaleDateString("es-MX", {weekday:"short"});
   return `<a class="ev-row" href="#eventos"><div class="f" aria-label="${dia} de ${mes}"><b>${dia}</b><span>${mes}</span></div><div><strong>${esc(e.titulo)}</strong><small>${esc(sem)}, ${esc(e.hora)} · ${esc(e.zona)}</small></div></a>`;
 }
+const DIA_S = ["dom","lun","mar","mié","jue","vie","sáb"];
+const fechaD = iso => new Date(iso + "T12:00:00");
+const sumaDias = (iso, n) => { const d = fechaD(iso); d.setDate(d.getDate() + n); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); };
+const evGratis = e => /gratis|libre|sin costo|entrada libre/i.test(e.precio || "");
+const evPorConf = t => /^\s*por confirmar\s*$/i.test(t || "") || !String(t || "").trim();
+function rangoEv(e){
+  const a = e.fecha, z = e.fecha_fin && e.fecha_fin > e.fecha ? e.fecha_fin : "";
+  const f = i => +i.slice(8) + " " + MESES[+i.slice(5,7) - 1];
+  return z ? "Del " + f(a) + " al " + f(z) : f(a);
+}
+function grupoEv(e){
+  const hoy = hoyISO(), d = inicioEv(e), dow = fechaD(hoy).getDay(); // 0 dom
+  if(d === hoy) return "Hoy";
+  const aDom = dow === 0 ? 0 : 7 - dow, domEsta = sumaDias(hoy, aDom);        // domingo de esta semana
+  const sab = sumaDias(domEsta, -1), domProx = sumaDias(domEsta, 7);
+  if(d >= sab && d <= domEsta) return "Este fin de semana";
+  if(d < sab) return "Esta semana";
+  if(d <= domProx) return "Próxima semana";
+  return "Más adelante";
+}
+const GRUPOS_EV = ["Hoy", "Esta semana", "Este fin de semana", "Próxima semana", "Más adelante"];
+function calLink(e){
+  const fin = sumaDias(e.fecha_fin && e.fecha_fin > e.fecha ? e.fecha_fin : e.fecha, 1), q = s => s.replace(/-/g, "");
+  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(e.titulo) + "&dates=" + q(e.fecha) + "/" + q(fin) + "&location=" + encodeURIComponent(e.lugar + ", " + e.zona) + "&details=" + encodeURIComponent((e.hora ? "Horario: " + e.hora + ". " : "") + "Más eventos en " + BASE_URL + "#eventos");
+}
 function eventoCard(e){
   const dia = +e.fecha.slice(8), mes = MESES.at(+e.fecha.slice(5,7) - 1);
-  const sem = new Date(e.fecha + "T12:00:00").toLocaleDateString("es-MX", {weekday:"long"});
+  const rango = e.fecha_fin && e.fecha_fin > e.fecha;
+  const sem = DIA_S[fechaD(e.fecha).getDay()];
   const txt = "Hola, vi el evento " + e.titulo + " en ZonaQro y quiero más información.";
+  const link = /^https?:\/\//i.test(e.fuente || "") ? e.fuente : "";
+  const grande = !!link && e.whatsapp === RESP.wa; // evento tomado de una fuente pública: el WhatsApp sería el nuestro, mejor ir a la fuente
+  const org = evPorConf(e.organizador) ? "" : `<span class="meta">Organiza: ${esc(e.organizador)}</span>`;
+  const hora = evPorConf(e.hora) ? "" : ", " + esc(e.hora);
+  const precio = evGratis(e) ? '<span class="badge b-gratis">Gratis</span>' : evPorConf(e.precio) ? "" : `<span class="precio">${esc(e.precio)}</span>`;
   return `<article class="evento${e.destacado ? " dest" : ""}">
-    <div class="fecha" aria-label="${dia} de ${mes}"><b>${dia}</b><span>${mes}</span></div>
+    <div class="fecha" aria-label="${rango ? esc(rangoEv(e)) : dia + " de " + mes}"><i>${sem}</i><b>${dia}</b><span>${mes}</span>${rango ? `<small>al ${+e.fecha_fin.slice(8)} ${MESES[+e.fecha_fin.slice(5,7) - 1]}</small>` : ""}</div>
     <div class="ev-body">
-      <div class="badges"><span class="badge b-tipo">${TIPOS_EV[e.tipo]}</span>${e.destacado ? '<span class="badge b-promo">Evento destacado</span>' : ""}</div>
+      <div class="badges"><span class="badge b-tipo">${TIPOS_EV[e.tipo] || "Evento"}</span>${precio}${e.destacado ? '<span class="badge b-promo">Evento destacado</span>' : ""}</div>
       <h3>${esc(e.titulo)}</h3>
-      <div class="ev-meta"><span>${esc(sem)}, ${esc(e.hora)}</span><span>${esc(e.lugar)} · ${esc(e.zona)}</span></div>
-      <p style="font-size:.93rem;color:var(--ink-soft)">${esc(e.descripcion)}</p>
-      <div class="ev-foot"><span class="precio">${esc(e.precio)}</span><span class="meta">Organiza: ${esc(e.organizador)}</span>${/^https?:\/\//i.test(e.fuente || "") ? `<a class="meta" href="${esc(e.fuente)}" target="_blank" rel="noopener nofollow" data-evlink="${esc(e.id || "")}">Más información</a>` : ""}
+      <div class="ev-meta"><span>${esc(rango ? rangoEv(e) : sem.charAt(0).toUpperCase() + sem.slice(1) + " " + dia)}${hora}</span><span>${esc(e.lugar)} · ${esc(e.zona)}</span></div>
+      ${e.descripcion ? `<p style="font-size:.93rem;color:var(--ink-soft)">${esc(e.descripcion)}</p>` : ""}
+      <div class="ev-foot">${org}
+        <a class="meta" href="${esc(calLink(e))}" target="_blank" rel="noopener">Agregar a mi calendario</a>
         <button type="button" class="btn sm ghost" data-compartir="e:${esc(e.id || "")}">Compartir</button>
-        <a class="btn sm wa" href="https://wa.me/52${esc(e.whatsapp)}?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener" data-evwa="${esc(e.id || "")}">${e.tipo === "concierto" && /\$/.test(e.precio) ? "Reservar o pedir boletos" : "Preguntar por WhatsApp"}</a></div>
+        ${grande ? `<a class="btn sm" href="${esc(link)}" target="_blank" rel="noopener nofollow" data-evlink="${esc(e.id || "")}">${e.tipo === "concierto" || e.tipo === "teatro" ? "Ver boletos" : "Más información"}</a>`
+          : `${link ? `<a class="meta" href="${esc(link)}" target="_blank" rel="noopener nofollow" data-evlink="${esc(e.id || "")}">Más información</a>` : ""}<a class="btn sm wa" href="https://wa.me/52${esc(e.whatsapp)}?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener" data-evwa="${esc(e.id || "")}">${e.tipo === "concierto" && /\$/.test(e.precio) ? "Reservar o pedir boletos" : "Preguntar por WhatsApp"}</a>`}</div>
     </div>
   </article>`;
 }
 function vEventos(){
   const f = estado.f;
-  const zev = f.zev !== undefined ? f.zev : f.zona;
-  const lista = eventos().filter(e => (!zev || e.zona === zev) && (!f.ev || e.tipo === f.ev))
-    .sort((a,b) => (b.destacado?1:0) - (a.destacado?1:0) || a.fecha.localeCompare(b.fecha));
+  const zev = f.zev !== undefined ? f.zev : ""; // la agenda abre en todo Querétaro: casi ningún evento es de un solo fraccionamiento
+  const base = eventos().filter(e => (!f.ev || e.tipo === f.ev) && (!f.finde || grupoEv(e) === "Este fin de semana" || grupoEv(e) === "Hoy"));
+  const orden = (a,b) => (b.destacado?1:0) - (a.destacado?1:0) || inicioEv(a).localeCompare(inicioEv(b));
+  let lista = base.filter(e => !zev || e.zona === zev).sort(orden), cerca = false;
+  if(!lista.length && zev && base.length){ lista = base.slice().sort(orden); cerca = true; } // la agenda nunca sale vacía
+  const grupos = GRUPOS_EV.map(g => [g, lista.filter(e => grupoEv(e) === g)]).filter(([, l]) => l.length);
   return `<section>
-    <div><p class="eyebrow">Agenda</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Qué hacer en tu zona</h1>
-    <p class="muted" style="margin-top:8px;max-width:60ch">Bazares, conciertos, ferias y clases en tu zona, en la Ciudad de Querétaro y en Tequisquiapan.</p></div>
+    <div><p class="eyebrow">Agenda</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Qué hacer en Querétaro</h1>
+    <p class="muted" style="margin-top:8px;max-width:60ch">Conciertos, teatro, ferias, bazares y clases en tu zona, en la ciudad y en Tequisquiapan.</p></div>
     <div class="filters">
       <div class="chips scrollrow" role="group" aria-label="Zona">
         <button class="chip" data-fzev="" aria-pressed="${!zev}">Todas las zonas</button>
         ${ZONAS_EV.map(z => `<button class="chip" data-fzev="${z}" aria-pressed="${zev === z}">${z}</button>`).join("")}
       </div>
       <div class="chips scrollrow" role="group" aria-label="Tipo de evento">
+        <button class="chip" data-ffinde="1" aria-pressed="${!!f.finde}">Este finde</button>
         <button class="chip" data-fev="" aria-pressed="${!f.ev}">Todos</button>
         ${Object.entries(TIPOS_EV).map(([k,n]) => `<button class="chip" data-fev="${k}" aria-pressed="${f.ev === k}">${n}</button>`).join("")}
       </div>
     </div>
-    <div class="sec-head"><p class="count">${lista.length} ${lista.length === 1 ? "evento próximo" : "eventos próximos"}</p><a class="btn sm" href="#publicar-evento">¿Organizas un bazar o clase? Publícalo gratis</a></div>
-    ${lista.length ? `<div class="evlist">${lista.map(eventoCard).join("")}</div>` : `<div class="empty">${zev ? `Aún no hay eventos con esos filtros en ${esc(zev)}. Mira también las otras zonas cercanas. <button type="button" class="btn sm" data-fzev="">Ver todas las zonas</button>` : "No hay eventos con esos filtros. Prueba con otro tipo o publica el tuyo."}</div>`}
+    <div class="sec-head"><div><p class="count">${lista.length} ${lista.length === 1 ? "evento próximo" : "eventos próximos"}</p>${cerca ? `<p class="muted">Todavía no hay eventos en ${esc(zev)}: mira los de otras zonas cercanas. ¿Organizas uno? Publícalo gratis.</p>` : ""}</div><a class="btn sm" href="#publicar-evento">¿Organizas un evento? Publícalo gratis</a></div>
+    ${grupos.length ? grupos.map(([g, l]) => `<h2 class="ev-grupo">${g}</h2><div class="evlist">${l.map(eventoCard).join("")}</div>`).join("") : `<div class="empty">No hay eventos con esos filtros. <button type="button" class="btn sm" data-fzev="" data-fev-reset="1">Ver toda la agenda</button></div>`}
   </section>`;
 }
 function vRegEvento(enviado){
@@ -1975,9 +2017,10 @@ function enviarEvento(){
   enviar("eventos", filaEv, () => { estado.evSolicitudes.push(filaEv); guardar("zq_ev_solicitudes", estado.evSolicitudes); }, vRegEvento, box);
 }
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-fev],[data-evap],[data-evrech]");
+  const t = e.target.closest("[data-fev],[data-ffinde],[data-evap],[data-evrech]");
   if(!t) return;
   if(t.dataset.fev !== undefined){ estado.f.ev = t.dataset.fev; render(); }
+  else if(t.dataset.ffinde !== undefined){ estado.f.finde = !estado.f.finde; render(); }
   else if(t.dataset.evap !== undefined){
     const s = estado.evSolicitudes.splice(+t.dataset.evap, 1)[0];
     estado.evAprobados.push(s); guardar("zq_ev_aprobados", estado.evAprobados); guardar("zq_ev_solicitudes", estado.evSolicitudes);
@@ -2057,8 +2100,9 @@ document.addEventListener("click", async e => {
     const fila = {id:"ev-" + Math.random().toString(36).slice(2, 10), titulo:String(x.titulo).slice(0, 100), tipo:x.tipo, zona, lugar:String(x.lugar).slice(0, 160), fecha:x.fecha, hora:String(x.hora).slice(0, 40), precio:String(x.precio || "Por confirmar").slice(0, 60), organizador:String(x.organizador || "").slice(0, 80), whatsapp:RESP.wa, descripcion:String(x.descripcion || "").slice(0, 300), estado:"aprobado", mimx:false, destacado:false};
     const fu = /^https?:\/\//i.test(x.fuente || "") ? String(x.fuente).slice(0, 200) : "";
     try{
-      try{ await sb("/rest/v1/eventos", {method:"POST", body:Object.assign({}, fila, fu ? {fuente:fu} : {}), prefer:"return=minimal"}); }
-      catch(err){ if(fu && /fuente/i.test(err.message)) await sb("/rest/v1/eventos", {method:"POST", body:fila, prefer:"return=minimal"}); else throw err; }
+      const ff = /^\d{4}-\d\d-\d\d$/.test(x.fecha_fin || "") && x.fecha_fin > x.fecha ? x.fecha_fin : "";
+      try{ await sb("/rest/v1/eventos", {method:"POST", body:Object.assign({}, fila, fu ? {fuente:fu} : {}, ff ? {fecha_fin:ff} : {}), prefer:"return=minimal"}); }
+      catch(err){ if((fu || ff) && /fuente|fecha_fin/i.test(err.message)) await sb("/rest/v1/eventos", {method:"POST", body:Object.assign({}, fila, fu && !/fuente/i.test(err.message) ? {fuente:fu} : {}), prefer:"return=minimal"}); else throw err; }
       toast("Evento publicado"); await cargarAdmin(); cargarPublico();
     }catch(err){ toast("No se pudo: " + err.message); sg.disabled = false; }
     return;
@@ -2144,7 +2188,7 @@ document.addEventListener("click", e => {
   if(t.dataset.evlink !== undefined){ metrica("evento_link", t.dataset.evlink); return; }
   if(t.dataset.zona !== undefined && t.matches("a")){ metrica("zona", t.dataset.zona); e.preventDefault(); estado.f = {q:"", zona:t.dataset.zona, cat:"", tipo:""}; guardar("zq_zona", t.dataset.zona); irA("#directorio"); }
   else if(t.dataset.cat !== undefined && t.matches("a")){ metrica("cat", t.dataset.cat); e.preventDefault(); estado.f = {q:"", zona:estado.f.zona, cat:t.dataset.cat, tipo:""}; irA("#directorio"); }
-  else if(t.dataset.fzev !== undefined){ estado.f.zev = t.dataset.fzev; if(t.dataset.fzev) metrica("zona", t.dataset.fzev); render(); }
+  else if(t.dataset.fzev !== undefined){ if(t.dataset.fevReset){ estado.f.ev = ""; estado.f.finde = false; } estado.f.zev = t.dataset.fzev; if(t.dataset.fzev) metrica("zona", t.dataset.fzev); render(); }
   else if(t.dataset.fz !== undefined){ estado.f.zev = undefined; if(t.dataset.fz) metrica("zona", t.dataset.fz); estado.f.zona = t.dataset.fz; guardar("zq_zona", estado.f.zona); render(); }
   else if(t.dataset.verqr){
     const box = t.parentElement.querySelector(".qr");
