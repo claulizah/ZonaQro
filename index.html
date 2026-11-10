@@ -147,7 +147,10 @@ section{display:flex;flex-direction:column;gap:16px}
 .cats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .cat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;text-decoration:none;display:flex;flex-direction:column;gap:2px;cursor:pointer;text-align:left}
 .cat:hover{border-color:var(--agave)}
+.cat-ico{font-style:normal;width:40px;height:40px;border-radius:12px;background:var(--cc,#EAF0E7);display:grid;place-items:center;font-size:1.3rem;margin-bottom:6px}
 .cat strong{font-weight:700}
+.promos-franja{background:var(--soft-sun);border:1px solid var(--sun-line);border-radius:18px;padding:18px 16px}
+.promos-franja .sec-head h2{color:#7A4E05}
 .cat span{font-size:.82rem;color:var(--muted)}
 @media (max-width:640px){.cats{grid-template-columns:repeat(2,minmax(0,1fr))}.cats .cat:last-child:nth-child(odd){grid-column:1/-1}}
 
@@ -725,6 +728,7 @@ const msgMimx = s => "Ando haciendo sitios web para negocios de la zona con mimx
 /* ===== Utilidades ===== */
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const app = document.getElementById("app");
+const CAT_ICO = {gastronomia:["🍽️","#FBE6D3"],hogar:["🔧","#DCEBF7"],salud:["🩺","#E1F2E8"],belleza:["💅","#F8E1EE"],mascotas:["🐶","#F5EBD2"],educacion:["📚","#E4E3F6"],autos:["🚗","#E7E9EC"],tienda:["🛍️","#FBE7E3"],fiestas:["🎉","#F6E6FA"],profesional:["💼","#DDE8F0"],tecnologia:["💻","#DFEAF7"],deporte:["🏋️","#E1F3E3"],transporte:["🚚","#EFE9DA"],cuidado:["🧸","#FBEAD9"],construccion:["🧱","#EEE4D8"],foto:["📷","#E7E3F3"]};
 const catNombre = id => (CATEGORIAS.find(c => c.id === id) || {}).nombre || id;
 const PALETA = ["#2C674B","#6A4DB6","#A25A17","#1F6F8B","#9B3D5A","#4F6B1F","#7A4E2D","#3D5A99"];
 function color(id){ let h = 0; for(const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PALETA[h % PALETA.length]; }
@@ -781,16 +785,23 @@ function envioCorto(b){
   const t = b.envio || (b.entrega || "").split(/[;.]/)[0].trim();
   return t.length > 44 ? t.slice(0,43) + "…" : t;
 }
+function nombreTarjeta(n){ n = String(n || ""); if(n === n.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{3}/.test(n)) n = nombreBonito(n); return n.length > 48 ? n.slice(0, 47) + "…" : n; }
+function zonasTxt(b){
+  if(b.zonas.length >= ZONAS.length) return "Todas las zonas";
+  const z = estado.f.zona;
+  if(z && b.zonas.includes(z)) return esc(z) + (b.zonas.length > 1 ? " +" + (b.zonas.length - 1) : "");
+  return b.zonas.length > 2 ? b.zonas.length + " zonas" : esc(b.zonas.join(", "));
+}
 function tarjeta(b, fav){
   const cup = cupDe(b).length;
   const envio = envioCorto(b);
   return `<article class="card${b.promocionado ? " promo" : ""}">
     <div class="card-top">${avatarHtml(b)}
-      <div><h3><a class="stretch" href="#n-${b.id}">${esc(b.nombre)}</a></h3><div class="meta">${esc(catNombre(b.categoria))} · ${TIPOS[b.tipo].corto}${resumen(b.id) ? ` · <span class="rate">★ ${resumen(b.id).p} <small>(${resumen(b.id).n})</small></span>` : ""}</div></div></div>
+      <div><h3><a class="stretch" href="#n-${b.id}">${esc(nombreTarjeta(b.nombre))}</a></h3><div class="meta">${esc(catNombre(b.categoria))} · ${TIPOS[b.tipo].corto}${resumen(b.id) ? ` · <span class="rate">★ ${resumen(b.id).p} <small>(${resumen(b.id).n})</small></span>` : ""}</div></div></div>
     ${badgesDe(b, fav, 3) ? `<div class="badges">${badgesDe(b, fav, 3)}</div>` : ""}
     <p class="desc">${esc(b.descripcion)}</p>
     ${envio ? `<div class="badges"><span class="badge b-tipo">${esc(envio)}</span></div>` : ""}
-    <div class="card-foot"><span class="meta">${b.zonas.length >= ZONAS.length ? "Todas las zonas" : esc(b.zonas.join(", "))}</span>
+    <div class="card-foot"><span class="meta">${zonasTxt(b)}</span>
       <span class="acts">
         ${cup ? `<button type="button" class="badge b-cupon act" data-cupon="${esc(b.id)}" aria-label="Ver ${cup === 1 ? "el cupón" : "los " + cup + " cupones"} de ${esc(b.nombre)}">${cup} ${cup === 1 ? "cupón" : "cupones"}</button>` : ""}
         ${b.referencia ? `<a class="btn sm ghost act" href="#n-${esc(b.id)}">Ver lugar</a>` : `<a class="btn sm wa act" href="${waLink(b)}" target="_blank" rel="noopener" data-wa="${esc(b.id)}" aria-label="Escribir por WhatsApp a ${esc(b.nombre)}">WhatsApp</a>`}
@@ -838,7 +849,7 @@ function vInicio(){
 
   <section>
     <div class="sec-head"><h2>Categorías</h2></div>
-    <div class="cats">${catsVisibles().map(c => `<a class="cat" href="#directorio" data-cat="${c.id}"><strong>${c.nombre}</strong><span>${c.sub}</span></a>`).join("")}</div>
+    <div class="cats">${catsVisibles().map(c => `<a class="cat" href="#directorio" data-cat="${c.id}" style="--cc:${(CAT_ICO[c.id] || ["", "#EAF0E7"])[1]}"><i class="cat-ico" aria-hidden="true">${(CAT_ICO[c.id] || ["📍"])[0]}</i><strong>${c.nombre}</strong><span>${c.sub}</span></a>`).join("")}</div>
   </section>
 
   <div class="home-cols">
@@ -852,7 +863,7 @@ function vInicio(){
     ${proxEv.map(eventoMini).join("")}
   </section>` : ""}
 
-  ${cupones.length ? `<section>
+  ${cupones.length ? `<section class="promos-franja">
     <div class="sec-head"><h2>Cupones y promociones</h2><a href="#cupones">Ver todos</a></div>
     <div class="tickets">${cupones.map(({b,c}) => boleto(b, c)).join("")}</div>
   </section>` : ""}
@@ -928,7 +939,7 @@ function boleto(b, c, conLink = true){
   const key = b.id + ":" + c.codigo;
   return `<div class="ticket">
     <div class="t-main">
-      ${conLink ? `<a class="t-biz" href="#n-${b.id}">${esc(b.nombre)} · ${esc(b.zonas[0])}</a>` : ""}
+      ${conLink ? `<a class="t-biz" href="#n-${b.id}">${esc(nombreTarjeta(b.nombre))} · ${esc(b.zonas[0])}</a>` : ""}
       <h3>${esc(c.titulo)}</h3>
       <p class="small">${esc(c.detalle)}</p>
       <p class="small">Vigente hasta el ${esc(c.vigencia)}</p>
