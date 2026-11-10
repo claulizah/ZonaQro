@@ -972,8 +972,14 @@ function vCupones(){
   </section>`;
 }
 
+const slugNeg = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+function refNegocio(ref){ // una liga puede traer el id o el nombre ("#n-cafe-real"): el id siempre funciona, aunque el negocio cambie de nombre
+  const l = negocios();
+  return l.find(x => x.id === ref) || l.find(x => slugNeg(x.nombre) === ref) || null;
+}
+function enlaceNeg(b){ const s = slugNeg(b.nombre); return s && negocios().filter(x => slugNeg(x.nombre) === s).length === 1 ? s : b.id; }
 function vNegocio(id){
-  const b = negocios().find(x => x.id === id);
+  const b = refNegocio(id);
   if(!b) return `<div class="empty">No encontramos este negocio. <a href="#directorio">Volver al directorio</a></div>`;
   const fav = favoritos();
   let info = "";
@@ -1448,6 +1454,7 @@ function adminEditar(A){
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b class="meta">Fotos:</b>${fotosDe(b).map((u, i) => `<span style="display:inline-flex;align-items:center;gap:2px"><img src="${esc(u)}" alt="" style="width:64px;height:48px;object-fit:cover;border-radius:8px"><button type="button" class="btn sm ghost" data-edquitar="${esc(b.id)}:${i}" aria-label="Quitar foto ${i + 1}">×</button></span>`).join("")}${fotosDe(b).length < 3 ? `<label class="btn sm ghost" style="cursor:pointer">Agregar foto<input type="file" accept="image/*" data-edfoto="${esc(b.id)}" hidden></label>` : ""}</div>
       <div class="req-actions"><button class="btn sm" data-ed="guardar:${esc(b.id)}">Guardar</button>
         <a class="btn sm ghost" href="#n-${esc(b.id)}" target="_blank">Ver ficha</a>
+        <button type="button" class="btn sm ghost" data-copy="${esc(BASE_URL + "#n-" + enlaceNeg(b))}">Copiar liga corta</button>
         ${pedir.length && b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(b.whatsapp), msg)}">Pedir lo que falta</a>` : ""}
         ${"token_edicion" in b ? `<span class="meta" style="align-self:center">${esc(aperturaTxt(b))}</span><button type="button" class="btn sm ghost" data-tk="copiar:${esc(b.id)}">Copiar enlace de edición</button>${b.whatsapp && !pedir.length ? `<a class="btn sm wa" target="_blank" rel="noopener" data-tk="enviado:${esc(b.id)}" href="${waTexto(esc(b.whatsapp), msgPedir(b, false))}">Enviar enlace</a>` : ""}<button type="button" class="btn sm danger" data-tk="nuevo:${esc(b.id)}">Cambiar enlace</button>` : ""}
         <button type="button" class="btn sm ghost" data-qrficha="${esc(b.id)}" data-qrnom="${esc(b.nombre)}">Descargar QR</button>
@@ -2165,13 +2172,13 @@ function render(){
   if(h.startsWith("editar-")) try{ avanceEd(); }catch(err){}
   try{
     const TT = {directorio:"Directorio de negocios y servicios", vecinos:"Hecho por tus vecinos", cupones:"Cupones y promociones", eventos:"Eventos y qué hacer", "publicar-evento":"Publica tu evento", registrar:"Registra tu negocio gratis", ayuda:"Preguntas frecuentes", recomendar:"Recomienda un negocio", negocios:"Para negocios", terminos:"Términos de uso", privacidad:"Aviso de privacidad", admin:"Administración"};
-    const nb = (h.startsWith("n-") || h.startsWith("opinar-")) ? negocios().find(x => x.id === h.slice(h.indexOf("-")+1)) : null;
+    const nb = (h.startsWith("n-") || h.startsWith("opinar-")) ? refNegocio(h.slice(h.indexOf("-")+1)) : null;
     document.body.classList.toggle("modo-edicion", h.startsWith("editar-"));
     let rb = document.querySelector('meta[name="robots"]'); if(!rb){ rb = document.createElement("meta"); rb.name = "robots"; document.head.appendChild(rb); } rb.content = h.startsWith("editar-") || h.startsWith("opinar-") || h === "admin" ? "noindex, nofollow" : "index, follow";
     if(h.startsWith("editar-")){ document.title = "Editar tu ficha | ZonaQro"; if(ED.token !== h.slice(7) && !ED.cargando){ ED.datos = null; ED.error = ""; cargarEdicion(h.slice(7)); } } else
     document.title = nb ? nb.nombre + " en " + nb.zonas.join(", ") + " | ZonaQro" : TT[h] ? TT[h] + " | ZonaQro" : "ZonaQro: negocios, servicios y cupones en tu zona";
   }catch(err){}
-  if(h !== "admin" && !h.startsWith("editar-") && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", refOrigen() || "sitio"); if((h.startsWith("n-") || h.startsWith("opinar-")) && unaVez("v" + h)) metrica("vista", h.slice(h.indexOf("-")+1)); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
+  if(h !== "admin" && !h.startsWith("editar-") && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", refOrigen() || "sitio"); if((h.startsWith("n-") || h.startsWith("opinar-")) && unaVez("v" + h)) metrica("vista", (refNegocio(h.slice(h.indexOf("-")+1)) || {id: h.slice(h.indexOf("-")+1)}).id); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
   if(h === "admin" && SB.ok && SB.token && !estado.admin.cargado && !estado.admin.cargando){ estado.admin.cargando = true; cargarAdmin().finally(() => { estado.admin.cargando = false; }); }
   document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   pintarZona(); pintarContacto();
@@ -2189,7 +2196,7 @@ document.addEventListener("click", e => {
   if(!t) return;
   if(t.dataset.compartir){
     const [k, id, cod] = t.dataset.compartir.split(":");
-    if(k === "n"){ const b = negocios().find(x => x.id === id); if(b) compartir(b.nombre + " en ZonaQro (" + b.zonas.join(", ") + ") 👇", BASE_URL + "#n-" + id); }
+    if(k === "n"){ const b = negocios().find(x => x.id === id); if(b) compartir(b.nombre + " en ZonaQro (" + b.zonas.join(", ") + ") 👇", BASE_URL + "#n-" + enlaceNeg(b)); }
     else if(k === "e"){ const ev = eventos().find(x => (x.id || "") === id); if(ev) compartir(ev.titulo + " · " + ev.fecha.slice(8) + " " + MESES[+ev.fecha.slice(5, 7) - 1] + " · " + ev.lugar + " 👇", BASE_URL + "#eventos"); }
     else if(k === "p"){ const b = negocios().find(x => x.id === id), c = b && cupDe(b).find(x => x.codigo === cod); if(c) compartir(c.titulo + " en " + b.nombre + " 🎟️ (hasta el " + c.vigencia + ")", BASE_URL + "#n-" + id); }
     metrica("compartir", k + ":" + id); return;
@@ -2218,7 +2225,7 @@ document.addEventListener("click", e => {
   }
   else if(t.dataset.copy){
     const n = t.dataset.copy;
-    try{ navigator.clipboard.writeText(n).then(() => toast("Número copiado"), () => toast("Selecciona el número para copiarlo")); }
+    try{ navigator.clipboard.writeText(n).then(() => toast(/^https?:/.test(n) ? "Liga copiada" : "Número copiado"), () => toast("Selecciona el número para copiarlo")); }
     catch(err){ toast("Selecciona el número para copiarlo"); }
   }
   else if(t.dataset.aprobar !== undefined){
