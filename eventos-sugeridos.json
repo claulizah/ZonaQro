@@ -1,19 +1,5 @@
 [
  {
-  "id": "s-novemberfest-2026",
-  "titulo": "Novemberfest 2026",
-  "tipo": "feria",
-  "zona": "",
-  "lugar": "Cervecería del Campo y Finca San Sebastián, Paseos del Marqués",
-  "fecha": "2026-11-15",
-  "hora": "13:00 a 21:00",
-  "precio": "Desde $300",
-  "organizador": "Cervecería del Campo",
-  "descripcion": "Festival de cerveza artesanal con tour y cata. Adulto regular $600 (3 cervezas y snack), full experience $800, junior $300.",
-  "fuente": "https://dondeir.com/viajes/novemberfest-2026-en-queretaro-la-fiesta-cervecera-artesanal/2026/10/",
-  "nota": "El Marqués, fuera de tus 4 zonas. Elige la zona más cercana o descártalo."
- },
- {
   "id": "s-feria-queretaro-2026",
   "titulo": "Feria de Querétaro 2026: Teatro del Pueblo y Palenque",
   "tipo": "feria",
@@ -41,34 +27,6 @@
   "descripcion": "Concierto del cantautor español Nacho Vegas en Foro Arpa. Boletos a la venta mediante Arema.",
   "fuente": "https://www.songkick.com/es/concerts/43347856-nacho-vegas-at-foro-arpa",
   "nota": "Fuente es agregador; confirmar con la boletera"
- },
- {
-  "id": "s-benny-ibarra-2026",
-  "titulo": "Benny Ibarra en Juriquilla",
-  "tipo": "concierto",
-  "zona": "Juriquilla",
-  "lugar": "Plaza de Toros Juriquilla",
-  "fecha": "2026-11-13",
-  "hora": "20:30",
-  "precio": "Por confirmar",
-  "organizador": "Eticket",
-  "descripcion": "Concierto de Benny Ibarra en la plaza de toros de Juriquilla.",
-  "fuente": "https://www.eticket.mx/eventos.aspx?idestado=22",
-  "nota": "Confirmar precio y horario"
- },
- {
-  "id": "s-mexico-motor-show-2026",
-  "titulo": "México Motor Show 2026",
-  "tipo": "feria",
-  "zona": "Ciudad de Querétaro",
-  "lugar": "Querétaro Centro de Congresos y Teatro Metropolitano",
-  "fecha": "2026-11-14",
-  "hora": "09:00 (también 15 nov)",
-  "precio": "Por confirmar",
-  "organizador": "Eticket",
-  "descripcion": "Exhibición automotriz de dos días con pase para sábado y domingo.",
-  "fuente": "https://www.eticket.mx/eventos.aspx?idestado=22",
-  "nota": "Confirmar horario"
  },
  {
   "id": "s-navidad-magica-gamini-2026",
@@ -169,20 +127,6 @@
   "fuente": "https://www.eticket.mx/eventos.aspx?idestado=22"
  },
  {
-  "id": "s-josefa-musical-2026",
-  "titulo": "Josefa, el Musical de México",
-  "tipo": "comunidad",
-  "zona": "Ciudad de Querétaro",
-  "lugar": "La Carreta de Tespys",
-  "fecha": "2026-11-13",
-  "hora": "20:00",
-  "precio": "Por confirmar",
-  "organizador": "Por confirmar",
-  "descripcion": "Musical sobre Josefa Ortiz de Domínguez con funciones los jueves a sábados de noviembre en La Carreta de Tespys.",
-  "nota": "Funciones también 14, 19, 20 y 21 de nov. Confirmar sede",
-  "fuente": "https://www.eticket.mx/eventos.aspx?idestado=22"
- },
- {
   "id": "s-jose-mora-sinergia-2026",
   "titulo": "José Mora: Sinergia",
   "tipo": "concierto",
@@ -195,5 +139,48 @@
   "descripcion": "Presentación de José Mora con su espectáculo Sinergia en Hacienda El Salitre.",
   "nota": "Confirmar sede y precio",
   "fuente": "https://www.eticket.mx/eventos.aspx?idestado=22"
+ },
+ {
+  "id": "s-tenorio-comico-detallon-2026",
+  "titulo": "Tenorio Cómico: Ahí está el Detallón",
+  "tipo": "comunidad",
+  "zona": "Ciudad de Querétaro",
+  "lugar": "Teatrito la Carcajada, 5 de Mayo 70, Centro",
+  "fecha": "2026-11-19",
+  "hora": "21:00",
+  "precio": "Desde $250",
+  "organizador": "Teatrito la Carcajada",
+  "descripcion": "Comedia teatral para adolescentes y adultos en el Centro de Querétaro. Hay funciones también el 20, 21, 26, 27 y 28 de noviembre.",
+  "fuente": "https://www.eticket.mx/masinformacion.aspx?idevento=36367",
+  "nota": "Confirmar horario de otras funciones; el precio varía en la página"
+ },
+ {
+  "id": "s-macq-aniversario-2026",
+  "titulo": "Exposiciones del 8.º aniversario del MACQ",
+  "tipo": "comunidad",
+  "zona": "Ciudad de Querétaro",
+  "lugar": "Museo de Arte Contemporáneo Querétaro (MACQ)",
+  "fecha": "2026-11-17",
+  "hora": "10:00 a 17:30 (martes a domingo)",
+  "precio": "Por confirmar",
+  "organizador": "MACQ",
+  "descripcion": "Dos exposiciones por el aniversario del museo: obras flotantes de Mónica Dower y pintura e instalación sobre el agua y la tierra de Taiji Terasaki.",
+  "fuente": "https://queretaro.travel/eventos/museo-de-arte-contemporaneo-queretaro/",
+  "nota": "Confirmar horario y fechas de cierre",
+  "fecha_fin": "2026-11-22"
+ },
+ {
+  "id": "s-nacimiento-zenea-2026",
+  "titulo": "Nacimiento monumental en Jardín Zenea",
+  "tipo": "comunidad",
+  "zona": "Ciudad de Querétaro",
+  "lugar": "Jardín Zenea, Centro Histórico",
+  "fecha": "2026-12-01",
+  "hora": "Por confirmar",
+  "precio": "Por confirmar",
+  "organizador": "Patronato de las Fiestas del Estado de Querétaro",
+  "descripcion": "El Patronato anunció que el nacimiento monumental abrirá el 1 de diciembre con piezas renovadas. También prepara carro de la posada, Reina de la Navidad y verbenas.",
+  "fuente": "https://atiempo.mx/entretenimiento/el-patronato-de-las-fiestas-de-queretaro-prepara-las-celebraciones-decembrinas/",
+  "nota": "Confirmar horario; programa decembrino por anunciar"
  }
 ]
