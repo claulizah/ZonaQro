@@ -177,6 +177,7 @@ button.badge{border:0;cursor:pointer;font-size:.8rem;padding:6px 12px;border-rad
 button.badge:hover{filter:brightness(.96)}
 .macro-tag{font-size:.74rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);align-self:center;flex:none;padding:0 4px 0 8px;margin:0}
 .zgrp{margin-top:8px}.zgrp .macro-tag{padding:0;margin:0 0 4px}
+.chips.nivel2{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)}
 .pronto{margin-top:10px;padding:12px 14px;border:1px dashed var(--line);border-radius:12px;background:var(--bg)}
 .pronto p{margin:4px 0}.pronto .eyebrow{margin:0}
 .zone-row .zinfo{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
@@ -428,14 +429,25 @@ footer a{color:var(--muted)}
 /* ===== Configuración ===== */
 /* Zonas agrupadas por macrozona. Una zona se muestra al público cuando tiene 3 negocios o más; las demás salen como "Próximamente". */
 const MACROS = [
-  {id:"norte", nombre:"Norte", zonas:["Zibatá","Zakia","Juriquilla","El Refugio","La Pradera","La Vista"]},
-  {id:"centro", nombre:"Centro", zonas:["Centro Histórico","Milenio III","Carretas"]},
+  {id:"norte", nombre:"Norte", zonas:["Zibatá","Zakia","Juriquilla","Jurica","El Refugio","La Pradera","La Vista"]},
+  {id:"centro", nombre:"Centro", zonas:["Centro Histórico","Cimatario","Milenio III","Carretas"]},
   {id:"sur", nombre:"Sur y Corregidora", zonas:["Centro Sur","El Pueblito","Candiles"]},
-  {id:"jurica", nombre:"Jurica y El Campanario", zonas:["Jurica","El Campanario"]}
+  {id:"otras", nombre:"Otras zonas", zonas:["El Campanario"]}
 ];
 const ZONA_OTRA = "Otra zona de Querétaro";
+const ZONA_TODO = "Todo Querétaro"; // negocios a domicilio o con entrega en toda la ciudad: salen en cualquier zona
 const ZONAS_NORTE = MACROS[0].zonas;
-const ZONAS = MACROS.reduce((a, m) => a.concat(m.zonas), []).concat([ZONA_OTRA]);
+const ZONAS = MACROS.reduce((a, m) => a.concat(m.zonas), []).concat([ZONA_OTRA, ZONA_TODO]);
+const MP = "macro:"; // filtro por macrozona: "macro:norte"
+const macroDe = z => MACROS.find(m => m.zonas.includes(z));
+const nombreFiltro = z => z && z.startsWith(MP) ? ((MACROS.find(m => m.id === z.slice(MP.length)) || {}).nombre || "esta zona") : z;
+const zonaSimple = z => z && !z.startsWith(MP) ? z : "";
+function coincideZona(b, z){
+  if(!z) return true;
+  if(b.zonas.includes(ZONA_TODO)) return true;
+  if(z.startsWith(MP)){ const m = MACROS.find(x => x.id === z.slice(MP.length)); return !!m && b.zonas.some(x => m.zonas.includes(x)); }
+  return b.zonas.includes(z);
+}
 const ZONAS_EV = ZONAS_NORTE.concat(["Ciudad de Querétaro","Tequisquiapan"]); // los eventos también cubren estas dos
 const DIAS_NUEVO = 14;
 const MIN_CLICS_FAVORITO = 20;
@@ -755,10 +767,11 @@ const PALETA = ["#2C674B","#6A4DB6","#A25A17","#1F6F8B","#9B3D5A","#4F6B1F","#7A
 function color(id){ let h = 0; for(const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PALETA[h % PALETA.length]; }
 function iniciales(n){ return n.split(/\s+/).filter(w => w.length > 2).slice(0,2).map(w => w[0]).join("").toUpperCase() || n[0]; }
 function negocios(){ return DATA.live ? DATA.negocios : EJEMPLOS.concat(estado.aprobados); }
-const enZona = b => !estado.f.zona || b.zonas.includes(estado.f.zona);
+const enZona = b => coincideZona(b, estado.f.zona);
 function pintarZona(){
   const sel = document.getElementById("miZona"); if(!sel) return;
-  sel.innerHTML = '<option value="">Todas</option>' + zonasVisibles().map(z => `<option value="${z}"${estado.f.zona === z ? " selected" : ""}>${z}</option>`).join("");
+  const v = zonasVisibles(), opt = z => `<option value="${z}"${estado.f.zona === z ? " selected" : ""}>${z}</option>`;
+  sel.innerHTML = '<option value="">Todas</option>' + MACROS.map(m => { const zs = m.zonas.filter(z => v.includes(z)); return zs.length ? `<optgroup label="${m.nombre}"><option value="${MP + m.id}"${estado.f.zona === MP + m.id ? " selected" : ""}>Todo ${m.nombre}</option>${zs.map(opt).join("")}</optgroup>` : ""; }).join("");
 }
 function totalClics(b){ return (b.clics || 0) + (DATA.live ? 0 : (estado.clics[b.id] || 0)); }
 const _nuevo = b => { if(b.referencia) return false; const d = (Date.now() - Date.parse(b.alta)) / 864e5; return d >= 0 && d <= DIAS_NUEVO; };
@@ -790,13 +803,19 @@ function zonasVisibles(){ return ZONAS.filter(z => z !== ZONA_OTRA && porZona(z)
 function zonasPronto(){ const v = zonasVisibles(); return MACROS.map(m => ({nombre:m.nombre, zonas:m.zonas.filter(z => !v.includes(z))})).filter(m => m.zonas.length); }
 /* Chips de zona agrupados por macrozona (si solo hay una macrozona activa salen sin título), más la línea de "Próximamente" */
 function chipsZona(attr, sel, conteo){
-  const v = zonasVisibles(), macs = MACROS.map(m => ({nombre:m.nombre, zonas:m.zonas.filter(z => v.includes(z))})).filter(m => m.zonas.length);
-  const chip = z => `<button class="chip" data-${attr}="${z}" aria-pressed="${sel === z}">${z}${conteo ? ` <small>${realesZona(z) || porZona(z)}</small>` : ""}</button>`;
-  return `<button class="chip" data-${attr}="" aria-pressed="${!sel}">Todas las zonas</button>` +
-    macs.map(m => (macs.length > 1 ? `<span class="macro-tag">${m.nombre}</span>` : "") + m.zonas.map(chip).join("")).join("");
+  const v = zonasVisibles(), macs = MACROS.map(m => ({id:m.id, nombre:m.nombre, zonas:m.zonas.filter(z => v.includes(z))})).filter(m => m.zonas.length);
+  const chip = (val, txt, on, n) => `<button class="chip" data-${attr}="${val}" aria-pressed="${on}">${txt}${n ? ` <small>${n}</small>` : ""}</button>`;
+  const zchip = z => chip(z, z, sel === z, conteo ? (realesZona(z) || porZona(z)) : "");
+  const todas = chip("", "Todas las zonas", !sel);
+  if(macs.length <= 1) return todas + (macs[0] ? macs[0].zonas.map(zchip).join("") : ""); // con una sola macrozona activa, las zonas van directas
+  const act = sel && sel.startsWith(MP) ? sel.slice(MP.length) : ((macroDe(sel) || {}).id || "");
+  const nivel1 = todas + macs.map(m => chip(MP + m.id, m.nombre, act === m.id, "")).join("");
+  const m2 = macs.find(m => m.id === act);
+  const nivel2 = m2 ? `</div><div class="chips scrollrow nivel2" role="group" aria-label="Zonas de ${m2.nombre}">` + chip(MP + m2.id, "Todo " + m2.nombre, sel === MP + m2.id, "") + m2.zonas.map(zchip).join("") : "";
+  return nivel1 + nivel2;
 }
 function prontoCorto(){
-  const p = zonasPronto().filter(m => m.zonas.length === (MACROS.find(x => x.nombre === m.nombre) || {zonas:[]}).zonas.length); if(!p.length) return "";
+  const p = zonasPronto().filter(m => m.nombre !== "Otras zonas" && m.zonas.length === (MACROS.find(x => x.nombre === m.nombre) || {zonas:[]}).zonas.length); if(!p.length) return "";
   return `<p class="muted" style="font-size:.85rem;margin:6px 0 0">Próximamente: ${p.map(m => m.nombre).join(", ")}. <a href="#registrar">Registra tu negocio</a> o <a href="#recomendar">recomienda uno</a>.</p>`;
 }
 function prontoHtml(){
@@ -805,8 +824,9 @@ function prontoHtml(){
 }
 /* Casillas de zona del registro, agrupadas por macrozona */
 function zonasChecks(){
-  return MACROS.map(m => `<div class="zgrp"><p class="macro-tag">${m.nombre}</p><div class="inline-opts">${m.zonas.map(z => `<label class="opt"><input type="checkbox" name="zonas" id="z-${z.replace(/\s/g,"")}" value="${z}"><span>${z}</span></label>`).join("")}</div></div>`).join("") +
-    `<div class="zgrp"><div class="inline-opts"><label class="opt"><input type="checkbox" name="zonas" id="z-${ZONA_OTRA.replace(/\s/g,"")}" value="${ZONA_OTRA}"><span>${ZONA_OTRA}</span></label></div></div>`;
+  const cb = z => `<label class="opt"><input type="checkbox" name="zonas" id="z-${z.replace(/\s/g,"")}" value="${z}"><span>${z}</span></label>`;
+  return MACROS.map(m => `<div class="zgrp"><p class="macro-tag">${m.nombre}</p><div class="inline-opts">${m.zonas.map(cb).join("")}${m.id === "otras" ? cb(ZONA_OTRA) : ""}</div></div>`).join("") +
+    `<div class="zgrp"><p class="macro-tag">Servicio a domicilio o con entrega</p><div class="inline-opts"><label class="opt"><input type="checkbox" name="zonas" id="z-todo" value="${ZONA_TODO}"><span>Atiendo en todo Querétaro<small>También aparezco en las otras zonas.</small></span></label></div></div>`;
 }
 /* Para mostrar: cuenta solo negocios reales (con WhatsApp); los lugares de referencia no se presumen como negocios */
 function realesZona(z){ return negocios().filter(b => !b.referencia && b.zonas.includes(z)).length; }
@@ -829,10 +849,11 @@ function envioCorto(b){
 }
 function nombreTarjeta(n){ n = String(n || ""); if(n === n.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{3}/.test(n)) n = nombreBonito(n); return n.length > 48 ? n.slice(0, 47) + "…" : n; }
 function zonasTxt(b){
-  if(b.zonas.length >= 6) return "Varias zonas";
-  const z = estado.f.zona;
-  if(z && b.zonas.includes(z)) return esc(z) + (b.zonas.length > 1 ? " +" + (b.zonas.length - 1) : "");
-  return b.zonas.length > 2 ? b.zonas.length + " zonas" : esc(b.zonas.join(", "));
+  const todo = b.zonas.includes(ZONA_TODO), zs = b.zonas.filter(x => x !== ZONA_TODO);
+  if(!zs.length) return "Todo Querétaro";
+  const z = zonaSimple(estado.f.zona);
+  let t = z && zs.includes(z) ? esc(z) + (zs.length > 1 ? " +" + (zs.length - 1) : "") : (zs.length > 2 ? zs.length + " zonas" : esc(zs.join(", ")));
+  return t + (todo ? " · Todo Qro" : "");
 }
 function tarjeta(b, fav){
   const cup = cupDe(b).length;
@@ -867,8 +888,8 @@ function vInicio(){
   const sinNada = DATA.live && negocios().length === 0;
   const vecinos = negocios().filter(b => b.tipo === "emprendimiento" && enZona(b)).slice(0,3);
   const cupones = negocios().filter(enZona).flatMap(b => cupDe(b).map(c => ({b, c}))).slice(0,4);
-  let proxEv = eventos().filter(e => !estado.f.zona || e.zona === estado.f.zona).slice(0,4);
-  const evCerca = !proxEv.length && !!estado.f.zona;
+  let proxEv = eventos().filter(e => !zonaSimple(estado.f.zona) || e.zona === estado.f.zona).slice(0,4);
+  const evCerca = !proxEv.length && !!zonaSimple(estado.f.zona);
   if(evCerca) proxEv = eventos().slice(0,4);
   const vacio = t => `<div class="empty">${t}</div>`;
   return `
@@ -902,7 +923,7 @@ function vInicio(){
   </section>
 
   ${proxEv.length ? `<section class="evlado">
-    <div class="sec-head"><div><h2>Qué hacer en Querétaro</h2>${evCerca ? `<p class="muted">Aún no hay en ${esc(estado.f.zona)}; mira estos cerca de ti.</p>` : ""}</div><a href="#eventos">Agenda</a></div>
+    <div class="sec-head"><div><h2>Qué hacer en Querétaro</h2>${evCerca ? `<p class="muted">Aún no hay en ${esc(zonaSimple(estado.f.zona))}; mira estos cerca de ti.</p>` : ""}</div><a href="#eventos">Agenda</a></div>
     ${proxEv.map(eventoMini).join("")}
   </section>` : ""}
 
@@ -942,7 +963,7 @@ function vDirectorio(soloVecinos){
   const hf = !soloVecinos && !!(f.ahora || f.dia || f.hora);
   let lista = negocios().filter(b =>
     (!soloVecinos || b.tipo === "emprendimiento") &&
-    (!f.zona || b.zonas.includes(f.zona)) &&
+    coincideZona(b, f.zona) &&
     (!f.cat || b.categoria === f.cat) &&
     (soloVecinos || !f.tipo || b.tipo === f.tipo) &&
     (!hf || cumpleHorario(b, f)) &&
@@ -973,7 +994,7 @@ function vDirectorio(soloVecinos){
       </div></details>`}
     </div>
     <p class="count">${(() => { const nr = lista.filter(b => b.referencia).length, nn = lista.length - nr; return nr && nn ? nn + (nn === 1 ? " negocio" : " negocios") + " + " + nr + (nr === 1 ? " lugar de referencia" : " lugares de referencia") : lista.length + " " + (lista.length === 1 ? "resultado" : "resultados"); })()}${hf ? " · solo negocios que registraron su horario" : ""}</p>
-    ${lista.length ? `<div class="grid">${lista.map(b => tarjeta(b, fav)).join("")}</div>` : `<div class="empty">${DATA.live && negocios().length === 0 ? "Estamos sumando los primeros negocios de la zona. ¿Tienes uno? <a href=\"#registrar\">Regístralo gratis</a>." : (f.zona ? `Aún no hay negocios con esos filtros en ${esc(f.zona)}. Mira también las otras zonas cercanas. <button type="button" class="btn sm" data-fz="">Ver todas las zonas</button>` : "No encontramos negocios con esos filtros. Prueba con otra categoría.")}</div>`}
+    ${lista.length ? `<div class="grid">${lista.map(b => tarjeta(b, fav)).join("")}</div>` : `<div class="empty">${DATA.live && negocios().length === 0 ? "Estamos sumando los primeros negocios de la zona. ¿Tienes uno? <a href=\"#registrar\">Regístralo gratis</a>." : (f.zona ? `Aún no hay negocios con esos filtros en ${esc(nombreFiltro(f.zona))}. Mira también las otras zonas cercanas. <button type="button" class="btn sm" data-fz="">Ver todas las zonas</button>` : "No encontramos negocios con esos filtros. Prueba con otra categoría.")}</div>`}
     ${soloVecinos ? `<div class="banner"><p><strong>¿Vendes desde casa?</strong> Convierte tu menú de WhatsApp en una tienda en línea profesional en 48 horas con nuestro aliado mimx.</p><a class="btn" href="https://mimx.store" target="_blank" rel="noopener">Conocer mimx</a></div>` : ""}
   </section>`;
 }
@@ -998,7 +1019,7 @@ function boleto(b, c, conLink = true){
 
 function vCupones(){
   const f = estado.f;
-  const items = negocios().filter(b => !f.zona || b.zonas.includes(f.zona)).flatMap(b => cupDe(b).map(c => ({b,c})));
+  const items = negocios().filter(b => coincideZona(b, f.zona)).flatMap(b => cupDe(b).map(c => ({b,c})));
   if(!negocios().some(b => cupDe(b).length)) return `<section>
     <div><p class="eyebrow">Cupones y promociones</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Pronto</h1>
     <p class="muted" style="margin-top:8px">Estamos juntando descuentos y promos de los negocios de tu zona. Mientras tanto, mira el directorio.</p></div>
@@ -1010,7 +1031,7 @@ function vCupones(){
     <div class="chips scrollrow" role="group" aria-label="Zona">
       ${chipsZona("fz", f.zona, false)}
     </div>
-    ${items.length ? `<div class="tickets">${items.map(({b,c}) => boleto(b,c)).join("")}</div>` : `<div class="empty">Aún no hay cupones en ${f.zona ? esc(f.zona) : "esta zona"}. ${f.zona ? 'Mira también las otras zonas cercanas. <button type="button" class="btn sm" data-fz="">Ver todas las zonas</button>' : ""}</div>`}
+    ${items.length ? `<div class="tickets">${items.map(({b,c}) => boleto(b,c)).join("")}</div>` : `<div class="empty">Aún no hay cupones en ${f.zona ? esc(nombreFiltro(f.zona)) : "esta zona"}. ${f.zona ? 'Mira también las otras zonas cercanas. <button type="button" class="btn sm" data-fz="">Ver todas las zonas</button>' : ""}</div>`}
   </section>`;
 }
 
@@ -1161,7 +1182,7 @@ function vRegistrar(enviado, adm){
       </div>
       <fieldset><legend id="lg-zonas">Zona</legend>
         ${zonasChecks()}
-      <p class="muted" style="font-size:.85rem;margin-top:6px">Elige todas las zonas donde atiendes clientes (hasta 6). Si no está la tuya, elige "${ZONA_OTRA}" y te tomamos en cuenta.</p></fieldset>
+      <p class="muted" style="font-size:.85rem;margin-top:6px">Elige tu colonia o zona (la macrozona se asigna sola). Si das servicio a domicilio o entregas en toda la ciudad, marca también "Atiendo en todo Querétaro". Si no está la tuya, elige "${ZONA_OTRA}".</p></fieldset>
       <label class="fld" for="r-desc">Describe tu negocio<textarea id="r-desc" maxlength="240" placeholder="Qué vendes o qué servicio das, en una o dos frases."></textarea></label>
       <div id="campos-local"><label class="fld" for="r-dir">Dirección del local<input id="r-dir" type="text" placeholder="Plaza, calle y número"></label></div>
       <fieldset id="campos-hor"><legend id="lg-hor">Días y horario</legend>
@@ -1744,7 +1765,7 @@ function vAdminLive(tab){
         <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th class="num">Vistas</th><th class="num">WhatsApp</th><th class="num">Web</th><th class="num">Promos</th><th></th></tr></thead><tbody>${filas.length ? filas.map(x => `<tr><td>${esc(x.b.nombre)}</td><td class="num">${x.v}</td><td class="num">${x.w}</td><td class="num">${x.web}</td><td class="num">${x.c}</td><td>${(x.v || x.w) && !x.b.referencia && x.b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(x.b.whatsapp), rep(x))}">Enviar reporte</a>` : `<span class="meta">${x.b.referencia || !x.b.whatsapp ? "Lugar de referencia (sin WhatsApp)" : "Sin visitas todavía"}</span>`}</td></tr>`).join("") : '<tr><td colspan="6">Todavía no hay negocios publicados.</td></tr>'}</tbody></table></div>`;
     }
   }
-  if(tab === "zonas") cuerpo = `<div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Negocios</th><th class="num">Meta</th><th>En el filtro</th></tr></thead><tbody>${ZONAS.map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= minFichas() ? "Visible" : "Oculta (menos de " + minFichas() + ")"}</td></tr>`).join("")}</tbody></table></div>`;
+  if(tab === "zonas") cuerpo = `<div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Negocios</th><th class="num">Meta</th><th>En el filtro</th></tr></thead><tbody>${ZONAS.filter(z => z !== ZONA_TODO && z !== ZONA_OTRA).map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= minFichas() ? "Visible" : "Oculta (menos de " + minFichas() + ")"}</td></tr>`).join("")}</tbody></table></div>`;
   const totalWa = A.neg.filter(x => x.estado === "aprobado").reduce((n,b) => n + (b.clics || 0), 0);
   const reales = A.neg.filter(x => x.estado === "aprobado" && !x.referencia);
   const hoyToca = [
@@ -1821,7 +1842,7 @@ function vAdmin(tab){
   }
   if(tab === "zonas"){
     cuerpo = `<div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Negocios</th><th class="num">Meta</th><th>En el filtro</th></tr></thead><tbody>
-      ${ZONAS.map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= minFichas() ? "Visible" : "Oculta (menos de " + minFichas() + ")"}</td></tr>`).join("")}
+      ${ZONAS.filter(z => z !== ZONA_TODO && z !== ZONA_OTRA).map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= minFichas() ? "Visible" : "Oculta (menos de " + minFichas() + ")"}</td></tr>`).join("")}
     </tbody></table></div><p class="muted" style="font-size:.85rem">Una zona aparece en el filtro con ${minFichas()} fichas o más.</p>`;
   }
   return `<section>
@@ -2482,7 +2503,7 @@ async function enviarRegistro(){
   if(!adm0 && v("r-desc").length < 30) errores.push("cuéntanos en al menos 30 letras qué vendes o qué servicio das");
   if(!/^\d{10}$/.test(v("r-wa"))) errores.push("el WhatsApp debe tener 10 dígitos");
   if(!zonas.length) errores.push("elige al menos una zona");
-  if(tipo === "local" && zonas.length > 1) errores.push("un local físico va en una sola zona");
+  if(tipo === "local" && zonas.filter(z => z !== ZONA_TODO).length > 1) errores.push("un local físico va en una sola zona");
   if(tipo === "local" && !v("r-dir")) errores.push("escribe la dirección del local");
   if(tipo === "emprendimiento" && !v("r-ent")) errores.push("cuéntanos cómo entregas");
   let horarios = {};
@@ -2526,7 +2547,7 @@ async function enviarRegistro(){
   enviar("negocios", fila, () => { estado.solicitudes.push(fila); guardar("zq_solicitudes", estado.solicitudes); }, ok => { if(ok) FOTOS = []; return vRegistrar(ok); }, box);
 }
 
-if(!ZONAS.includes(estado.f.zona)) estado.f.zona = "";
+if(!ZONAS.includes(estado.f.zona) && !String(estado.f.zona || "").startsWith(MP)) estado.f.zona = "";
 render();
 cargarPublico();
 </script>

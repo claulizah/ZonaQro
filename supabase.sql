@@ -437,3 +437,16 @@ alter table public.negocios add constraint negocios_zonas_check
     'Centro Sur','El Pueblito','Candiles',
     'Jurica','El Campanario',
     'Otra zona de Querétaro']);
+
+-- ===== 25. Macrozonas: Jurica pasa a Norte; Cimatario; "Todo Querétaro" para servicios a domicilio o con entrega =====
+do $$ declare r record; begin
+  for r in select conname from pg_constraint
+           where conrelid = 'public.negocios'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%zonas%'
+  loop execute format('alter table public.negocios drop constraint %I', r.conname); end loop;
+end $$;
+alter table public.negocios add constraint negocios_zonas_check
+  check (cardinality(zonas) between 1 and 6 and zonas <@ array[
+    'Zibatá','Zakia','Juriquilla','Jurica','El Refugio','La Pradera','La Vista',
+    'Centro Histórico','Cimatario','Milenio III','Carretas',
+    'Centro Sur','El Pueblito','Candiles',
+    'El Campanario','Otra zona de Querétaro','Todo Querétaro']);
