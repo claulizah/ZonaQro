@@ -73,7 +73,7 @@ ${web ? `<p style="margin:.2em 0"><strong>Sitio web:</strong> <a href="${esc(web
 <a class="btn" href="/#n-${esc(b.id)}">Ver opiniones y cupones en ZonaQro</a>
 <a class="btn" href="/#directorio">Más negocios en ${esc((b.zonas || ["tu zona"])[0])}</a>
 </main>
-<footer>ZonaQro · directorio de negocios de Zibatá, Zakia, Juriquilla, El Refugio, La Pradera y La Vista.<br><a href="/#registrar">Registra tu negocio gratis</a></footer>
+<footer>ZonaQro · directorio de negocios, servicios y eventos de Querétaro.<br><a href="/#registrar">Registra tu negocio gratis</a></footer>
 </body></html>`;
 }
 
