@@ -423,3 +423,17 @@ do $$ declare r record; begin
 end $$;
 alter table public.eventos add constraint eventos_tipo_check
   check (tipo in ('concierto','teatro','familia','deporte','bazar','feria','clase','comunidad'));
+
+-- ===== 24. Todo Querétaro: zonas nuevas para negocios (macrozonas Centro, Sur y Corregidora, Jurica y El Campanario) =====
+do $$ declare r record; begin
+  for r in select conname from pg_constraint
+           where conrelid = 'public.negocios'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%zonas%'
+  loop execute format('alter table public.negocios drop constraint %I', r.conname); end loop;
+end $$;
+alter table public.negocios add constraint negocios_zonas_check
+  check (cardinality(zonas) between 1 and 6 and zonas <@ array[
+    'Zibatá','Zakia','Juriquilla','El Refugio','La Pradera','La Vista',
+    'Centro Histórico','Milenio III','Carretas',
+    'Centro Sur','El Pueblito','Candiles',
+    'Jurica','El Campanario',
+    'Otra zona de Querétaro']);
