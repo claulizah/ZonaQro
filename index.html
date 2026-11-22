@@ -555,6 +555,15 @@ const ORIGEN = (() => {
   return o;
 })();
 const refOrigen = () => ORIGEN ? "o:" + ORIGEN : "";
+/* Campañas (UTM): ?utm_source=meta&utm_medium=cpc&utm_campaign=reclutamiento. Solo etiquetas cortas "fuente|medio|campaña", sin datos personales. Se queda la primera de la sesión. */
+const UTM = (() => {
+  const lim = (v, n) => String(v || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, n);
+  let u = "";
+  try{ const q = new URLSearchParams(location.search), a = lim(q.get("utm_source"), 20), m = lim(q.get("utm_medium"), 12), c = lim(q.get("utm_campaign"), 24); if(a || m || c) u = [a, m, c].join("|"); }catch(e){}
+  try{ if(u) sessionStorage.getItem("zq_u") || sessionStorage.setItem("zq_u", u); u = sessionStorage.getItem("zq_u") || u; }catch(e){}
+  return u;
+})();
+const metricaUtm = tipo => { if(UTM) metrica(tipo, UTM); };
 if(PROD && CF_TOKEN){ const sc = document.createElement("script"); sc.defer = true; sc.src = "https://static.cloudflareinsights.com/beacon.min.js"; sc.setAttribute("data-cf-beacon", JSON.stringify({token:CF_TOKEN})); document.head.appendChild(sc); }
 async function compartir(texto, url){
   try{ if(navigator.share){ await navigator.share({text:texto, url}); return; } }catch(err){ if(err && err.name === "AbortError") return; }
@@ -595,7 +604,7 @@ function enviar(tabla, fila, local, vista, box){
   const post = f => sb("/rest/v1/" + tabla, {method:"POST", body:Object.assign({}, f, {estado:"pendiente"}), prefer:"return=minimal", auth:false});
   post(fila)
     .catch(err => { if(fila.fuente && /fuente/i.test(err.message)){ const f = Object.assign({}, fila); delete f.fuente; return post(f); } throw err; })
-    .then(() => { metrica(tabla === "negocios" ? "registro_envio" : tabla === "eventos" ? "evento_envio" : "otro_envio", refOrigen()); app.innerHTML = vista(true); window.scrollTo(0,0); })
+    .then(() => { metrica(tabla === "negocios" ? "registro_envio" : tabla === "eventos" ? "evento_envio" : "otro_envio", refOrigen()); if(tabla === "negocios") metricaUtm("utm_registro"); app.innerHTML = vista(true); window.scrollTo(0,0); })
     .catch(err => {
       if(tabla === "negocios") metrica("registro_error", /zonas/i.test(String(err && err.message)) ? "zona" : /red|network|fetch|timeout/i.test(String(err && err.message)) ? "red" : "otro");
       box.hidden = false;
@@ -625,6 +634,13 @@ function graficaDias(M){
     <p class="meta" style="margin:10px 0 4px">${total.toLocaleString("es-MX")} en 30 días${total ? " · promedio " + (total / 30).toFixed(1).replace(/\.0$/, "") + " por día" : ""}</p>
     <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(resumen)}" style="max-width:${W}px;height:auto;display:block">${guias}${barras}${etiq}</svg>
     <details style="margin-top:8px"><summary class="meta" style="cursor:pointer">Ver los datos en tabla</summary><div class="tbl-wrap"><table><thead><tr><th>Día</th><th class="num">${esc(ser[1])}</th></tr></thead><tbody>${dias.map((d, i) => vals[i] ? `<tr><td>${fmt(d)}</td><td class="num">${vals[i]}</td></tr>` : "").join("") || '<tr><td colspan="2">Todavía no hay datos.</td></tr>'}</tbody></table></div></details></div>`;
+}
+function campanas(M){
+  const o = {}; M.filter(m => /^utm_/.test(m.tipo)).forEach(m => { const k = m.ref || "(sin etiqueta)"; (o[k] = o[k] || {})[m.tipo] = ((o[k] || {})[m.tipo] || 0) + m.n; });
+  const f = Object.entries(o).sort((a, b) => (b[1].utm_visita || 0) - (a[1].utm_visita || 0));
+  return `<div class="panel" style="margin:14px 0"><h3 style="margin-bottom:6px">Campañas (UTM)</h3>
+    <p class="muted" style="font-size:.85rem;margin-bottom:8px">Gente que llegó con enlaces tipo <code>?utm_source=…&amp;utm_campaign=…</code>, últimos 30 días. Fuente | medio | campaña.</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Fuente | medio | campaña</th><th class="num">Visitas</th><th class="num">Clics a WhatsApp</th><th class="num">Registros enviados</th></tr></thead><tbody>${f.length ? f.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="num">${v.utm_visita || 0}</td><td class="num">${v.utm_wa || 0}</td><td class="num">${v.utm_registro || 0}</td></tr>`).join("") : '<tr><td colspan="4">Todavía no llegan visitas con etiquetas UTM.</td></tr>'}</tbody></table></div></div>`;
 }
 function embudo(M){
   const s = t => M.filter(m => m.tipo === t).reduce((a, m) => a + m.n, 0);
@@ -1760,7 +1776,7 @@ function vAdminLive(tab){
       const rep = msgReporte;
       cuerpo = `<p class="muted">Últimos 30 días. Conteos anónimos: no guardamos IP ni datos de las personas.</p>
         <div class="stats"><div class="stat"><b>${sum("visita").toLocaleString("es-MX")}</b><span>Visitas al sitio</span></div><div class="stat"><b>${sum("vista").toLocaleString("es-MX")}</b><span>Fichas vistas</span></div><div class="stat"><b>${sum("wa").toLocaleString("es-MX")}</b><span>Clics a WhatsApp</span></div><div class="stat"><b>${(sum("evento_wa") + sum("evento_link")).toLocaleString("es-MX")}</b><span>Clics en eventos</span></div></div>
-        ${graficaDias(M)}${embudo(M)}
+        ${graficaDias(M)}${embudo(M)}${campanas(M)}
         <p class="meta">Cómo llegaron (visitas): ${porOrigen("visita")}</p><p class="meta">Registros enviados por origen: ${porOrigen("registro_envio")}</p><p class="meta">Zonas más consultadas: ${top("zona")}</p><p class="meta">Categorías más consultadas: ${top("cat")}</p><p class="meta">Veces compartido: ${sum("compartir")}</p>
         <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th class="num">Vistas</th><th class="num">WhatsApp</th><th class="num">Web</th><th class="num">Promos</th><th></th></tr></thead><tbody>${filas.length ? filas.map(x => `<tr><td>${esc(x.b.nombre)}</td><td class="num">${x.v}</td><td class="num">${x.w}</td><td class="num">${x.web}</td><td class="num">${x.c}</td><td>${(x.v || x.w) && !x.b.referencia && x.b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(x.b.whatsapp), rep(x))}">Enviar reporte</a>` : `<span class="meta">${x.b.referencia || !x.b.whatsapp ? "Lugar de referencia (sin WhatsApp)" : "Sin visitas todavía"}</span>`}</td></tr>`).join("") : '<tr><td colspan="6">Todavía no hay negocios publicados.</td></tr>'}</tbody></table></div>`;
     }
@@ -1901,9 +1917,10 @@ function vParaNegocios(){
   const ben = (t, d) => `<div class="panel"><h3>${t}</h3><p class="muted">${d}</p></div>`;
   return `<section style="max-width:900px">
     <p class="eyebrow">Para negocios de tu zona</p>
-    <h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Que tus vecinos te encuentren y te escriban directo</h1>
+    <h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Aparece gratis en ZonaQro</h1>
+    <p style="font-size:1.15rem;font-weight:600;margin:0 0 8px">Que tus vecinos te encuentren y te escriban directo</p>
     <p class="muted" style="font-size:1.05rem">ZonaQro es el directorio de negocios y servicios de tu zona en Querétaro. Registrarte es gratis, y en un par de minutos ya apareces.</p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 22px"><a class="btn" href="#registrar">Regístrate gratis</a>${hola ? `<a class="btn ghost" href="${esc(hola)}" target="_blank" rel="noopener">Tengo una duda</a>` : ""}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 22px"><a class="btn" href="#registrar">Regístrate gratis</a>${hola ? `<a class="btn wa" href="${esc(hola)}" target="_blank" rel="noopener">Escríbenos por WhatsApp</a>` : ""}</div>
     <h2>Qué te llevas</h2>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
       ${ben("Clientes que te escriben directo", "Tu ficha tiene botón de WhatsApp. Sin intermediarios ni comisiones: la gente te escribe a ti.")}
@@ -2267,7 +2284,7 @@ function render(){
     if(h.startsWith("editar-")){ document.title = "Editar tu ficha | ZonaQro"; if(ED.token !== h.slice(7) && !ED.cargando){ ED.datos = null; ED.error = ""; cargarEdicion(h.slice(7)); } } else
     document.title = nb ? nb.nombre + " en " + nb.zonas.join(", ") + " | ZonaQro" : TT[h] ? TT[h] + " | ZonaQro" : "ZonaQro: negocios, servicios y cupones en tu zona";
   }catch(err){}
-  if(h !== "admin" && !h.startsWith("editar-") && PROD && SB.ok && DATA.live){ if(unaVez("visita")) metrica("visita", refOrigen() || "sitio"); if((h.startsWith("n-") || h.startsWith("opinar-")) && unaVez("v" + h)) metrica("vista", (refNegocio(h.slice(h.indexOf("-")+1)) || {id: h.slice(h.indexOf("-")+1)}).id); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
+  if(h !== "admin" && !h.startsWith("editar-") && PROD && SB.ok && DATA.live){ if(unaVez("visita")){ metrica("visita", refOrigen() || "sitio"); metricaUtm("utm_visita"); } if((h.startsWith("n-") || h.startsWith("opinar-")) && unaVez("v" + h)) metrica("vista", (refNegocio(h.slice(h.indexOf("-")+1)) || {id: h.slice(h.indexOf("-")+1)}).id); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
   if(h === "admin" && SB.ok && SB.token && !estado.admin.cargado && !estado.admin.cargando){ estado.admin.cargando = true; cargarAdmin().finally(() => { estado.admin.cargando = false; }); }
   document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   pintarZona(); pintarContacto();
@@ -2281,6 +2298,7 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0,0); })
 
 /* ===== Eventos ===== */
 document.addEventListener("click", e => {
+  if(UTM && e.target.closest('a[href^="https://wa.me/"]')) metricaUtm("utm_wa");
   const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-fzev],[data-verqr],[data-wa],[data-web],[data-evwa],[data-evlink],[data-compartir],[data-copy],[data-aprobar],[data-rechazar],[data-atab],[data-amet]");
   if(!t) return;
   if(t.dataset.compartir){

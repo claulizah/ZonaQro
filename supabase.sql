@@ -450,3 +450,18 @@ alter table public.negocios add constraint negocios_zonas_check
     'Centro Histórico','Cimatario','Milenio III','Carretas',
     'Centro Sur','El Pueblito','Candiles',
     'El Campanario','Otra zona de Querétaro','Todo Querétaro']);
+
+-- ===== 26. Campañas (UTM): contar visitas, clics a WhatsApp y registros por fuente =====
+-- No agrega columnas: usa la tabla metricas con 3 tipos nuevos (ref = fuente|medio|campaña).
+alter table public.metricas drop constraint if exists metricas_tipo_check;
+alter table public.metricas add constraint metricas_tipo_check
+  check (tipo in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir','registro_vista','registro_inicio','registro_envio','registro_error','evento_vista','evento_inicio','evento_envio','otro_envio','utm_visita','utm_wa','utm_registro'));
+create or replace function public.registrar_evento(p_tipo text, p_ref text default '')
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if p_tipo not in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir','registro_vista','registro_inicio','registro_envio','registro_error','evento_vista','evento_inicio','evento_envio','otro_envio','utm_visita','utm_wa','utm_registro') then return; end if;
+  insert into public.metricas (dia, tipo, ref, n) values (current_date, p_tipo, left(coalesce(p_ref, ''), 60), 1)
+  on conflict (dia, tipo, ref) do update set n = public.metricas.n + 1;
+end $$;
+revoke all on function public.registrar_evento(text, text) from public;
+grant execute on function public.registrar_evento(text, text) to anon, authenticated;
