@@ -614,7 +614,7 @@ function enviar(tabla, fila, local, vista, box){
   if(btn) btn.disabled = true;
   const post = f => sb("/rest/v1/" + tabla, {method:"POST", body:Object.assign({}, f, {estado:"pendiente"}), prefer:"return=minimal", auth:false});
   post(fila)
-    .catch(err => { if(fila.fuente && /fuente/i.test(err.message)){ const f = Object.assign({}, fila); delete f.fuente; return post(f); } throw err; })
+    .catch(err => { const c = ["fuente", "interes"].find(x => x in fila && new RegExp("[\"']" + x + "[\"']").test(String((err && err.message) || ""))); if(!c) throw err; const f = Object.assign({}, fila); delete f[c]; return post(f); })
     .then(() => { metrica(tabla === "negocios" ? "registro_envio" : tabla === "eventos" ? "evento_envio" : "otro_envio", refOrigen()); if(tabla === "negocios") metricaUtm("utm_registro"); app.innerHTML = vista(true); window.scrollTo(0,0); })
     .catch(err => {
       const msg = String((err && err.message) || ""), tope = /muchos env[ií]os|demasiados env[ií]os/i.test(msg);
@@ -685,14 +685,19 @@ function tableroSemana(A){
 /* ===== Admin: estado de seguimiento por negocio ===== */
 const SEG = {sin_contactar:"Sin contactar", contactado:"Contactado", respondio:"Respondió", ficha_completa:"Ficha completa", enlace_enviado:"Enlace enviado"};
 let segFiltro = "";
+/* Interés declarado al registrarse ("¿Qué te serviría más?"): solo lo ve la administradora */
+const INTERES = {sitio_web:"Sitio web o tienda en línea", whatsapp_business:"WhatsApp Business bien configurado", nada:"Nada por ahora"};
+const interesDe = b => (Array.isArray(b.interes) ? b.interes : []).filter(x => INTERES[x]);
 function adminSeguimiento(A){
   if(!A.neg.length || !("seguimiento" in A.neg[0])) return '<div class="notice err">Falta correr la <b>sección 28</b> de supabase.sql en Supabase para guardar el estado de seguimiento.</div>';
   const lista = A.neg.filter(b => b.estado === "aprobado" && !b.referencia).sort((a, b) => Object.keys(SEG).indexOf(a.seguimiento) - Object.keys(SEG).indexOf(b.seguimiento) || a.nombre.localeCompare(b.nombre));
   const cuenta = k => lista.filter(b => b.seguimiento === k).length, ver = segFiltro ? lista.filter(b => b.seguimiento === segFiltro) : lista;
+  const resp = k => lista.filter(b => interesDe(b).includes(k)).length, sinResp = lista.filter(b => !interesDe(b).length).length;
   return `<p class="muted" style="max-width:66ch">Cambia el estado de cada negocio con el menú. Solo lo ves tú. "Enlace enviado" se marca solo cuando mandas el enlace desde <b>Pedir datos</b>.</p>
+    <p class="meta" id="resumen-interes"><b>Qué les serviría más</b> (respuestas del registro): ${Object.entries(INTERES).map(([k, t]) => esc(t) + " " + resp(k)).join(" · ")} · Sin respuesta ${sinResp}</p>
     <div class="tabs" role="group" aria-label="Filtrar por estado"><button class="chip" data-segf="" aria-pressed="${!segFiltro}">Todos <small>${lista.length}</small></button>${Object.entries(SEG).map(([k, t]) => `<button class="chip" data-segf="${k}" aria-pressed="${segFiltro === k}">${t} <small>${cuenta(k)}</small></button>`).join("")}</div>
-    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zonas</th><th class="num">Ficha</th><th>Estado</th><th>Último contacto</th></tr></thead><tbody>
-    ${ver.map(b => `<tr><td>${esc(b.nombre)}</td><td>${esc((b.zonas || []).join(", "))}</td><td class="num">${compDe(b).n}/3</td><td><select data-seg="${esc(b.id)}" style="min-width:10.5rem;min-height:44px" aria-label="Estado de ${esc(b.nombre)}">${Object.entries(SEG).map(([k, t]) => `<option value="${k}"${b.seguimiento === k ? " selected" : ""}>${t}</option>`).join("")}</select></td><td>${esc(b.ultimo_contacto || "—")}</td></tr>`).join("") || '<tr><td colspan="5">Ningún negocio en este estado.</td></tr>'}
+    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zonas</th><th class="num">Ficha</th><th>Le serviría</th><th>Estado</th><th>Último contacto</th></tr></thead><tbody>
+    ${ver.map(b => `<tr><td>${esc(b.nombre)}</td><td>${esc((b.zonas || []).join(", "))}</td><td class="num">${compDe(b).n}/3</td><td>${interesDe(b).map(x => esc(INTERES[x])).join(" · ") || "—"}</td><td><select data-seg="${esc(b.id)}" style="min-width:10.5rem;min-height:44px" aria-label="Estado de ${esc(b.nombre)}">${Object.entries(SEG).map(([k, t]) => `<option value="${k}"${b.seguimiento === k ? " selected" : ""}>${t}</option>`).join("")}</select></td><td>${esc(b.ultimo_contacto || "—")}</td></tr>`).join("") || '<tr><td colspan="6">Ningún negocio en este estado.</td></tr>'}
     </tbody></table></div>`;
 }
 document.addEventListener("change", async e => {
@@ -1284,7 +1289,9 @@ function panelOpiniones(b){
 
 function vRegistrar(enviado, adm){
   if(enviado && adm) return `<div class="notice">Listo, el negocio quedó publicado como "Agregado por ZonaQro".</div>`;
-  if(enviado) return `<section style="max-width:680px"><div class="notice"><b>¡Gracias! Recibimos tu solicitud.</b><br>La revisamos y en 1 o 2 días te escribimos por WhatsApp${RESP.wa ? " desde el " + telFmt(RESP.wa) : ""}. Guarda ese número para que te llegue el mensaje.<br>Cuando tu ficha esté publicada te mandamos un enlace personal para completar tu horario y tus fotos.</div><a class="btn ghost" href="#inicio">Volver al inicio</a></section>`;
+  if(enviado) return `<section style="max-width:680px"><div class="notice"><b>¡Gracias! Recibimos tu solicitud.</b><br>La revisamos y en 1 o 2 días te escribimos por WhatsApp${RESP.wa ? " desde el " + telFmt(RESP.wa) : ""}. Guarda ese número para que te llegue el mensaje.<br>Cuando tu ficha esté publicada te mandamos un enlace personal para completar tu horario y tus fotos.</div>
+    <p class="muted" style="margin:16px 0 8px;font-size:.9rem">mimx.store es un servicio aparte de ZonaQro.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" id="g-mimx" href="https://mimx.store/?utm_source=zonaqro&utm_medium=registro" target="_blank" rel="noopener">Conocer mimx.store</a><a class="btn ghost" href="#inicio">Volver al inicio</a></div></section>`;
   return `<section>
     ${adm ? `<div><h2 style="font-size:1.3rem">Agregar un negocio</h2><p class="muted" style="margin-top:6px;max-width:62ch">Usa solo información pública que el propio negocio ya difunde (su nombre, giro, zona, teléfono y dirección del local si es público). No copies fotos, logos, descripciones ni reseñas de otros sitios. Se publica como "Agregado por ZonaQro" hasta que el dueño lo confirme.</p></div>` : `<div><p class="eyebrow">Gratis para negocios de la zona</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Registra tu negocio</h1>
     <p class="muted" style="margin-top:8px;max-width:60ch">Con local, a domicilio o si vendes desde casa. Revisamos cada solicitud antes de publicarla.</p></div>`}
@@ -1326,6 +1333,13 @@ function vRegistrar(enviado, adm){
         </div>
         <div id="w-sitio" hidden><label class="fld" for="r-sitio"><span id="r-sitio-t">Dirección de tu página</span><input id="r-sitio" type="text" inputmode="url" placeholder="www.minegocio.com"></label></div>
         <div id="w-mimx" hidden><label class="opt"><input type="checkbox" id="r-mimx"><span>Me interesa que me contacten de mimx para hacerme una página en 48 horas, sin compromiso.</span></label></div>
+      </fieldset>
+      <fieldset id="f-interes"><legend>¿Qué te serviría más? <small>(opcional, puedes marcar varias)</small></legend>
+        <div class="inline-opts">
+          <label class="opt"><input type="checkbox" name="interes" value="sitio_web"><span>Sitio web o tienda en línea</span></label>
+          <label class="opt"><input type="checkbox" name="interes" value="whatsapp_business"><span>Dejar mi WhatsApp Business bien configurado</span></label>
+          <label class="opt"><input type="checkbox" name="interes" value="nada"><span>Nada por ahora</span></label>
+        </div>
       </fieldset>
       <label class="fld" for="r-mail">Correo (opcional, no se publica)<input id="r-mail" type="email" inputmode="email" autocomplete="email" placeholder="tunegocio@correo.com"></label>`}
       ${adm ? "" : `<input type="text" id="fx-r9k3" name="wq_k7p2" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0"><label class="opt"><input type="checkbox" id="r-ok"><span>Acepto los <a href="#terminos">términos de uso</a>, el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>`}
@@ -1825,6 +1839,7 @@ function vAdminLive(tab){
     const h = horariosDe(s), fo = fotosDe(s);
     const tw = {no:"Sin página web", redes:"Solo redes o WhatsApp", si:"Ya tiene página"}[s.tiene_web] || "";
     return `${tw || s.interes_mimx ? `<div class="badges">${tw ? `<span class="badge b-tipo">${tw}</span>` : ""}${s.interes_mimx ? '<span class="badge b-promo">Quiere página mimx</span>' : ""}</div>` : ""}
+      ${interesDe(s).length ? `<p class="meta">Le serviría: ${interesDe(s).map(x => esc(INTERES[x])).join(" · ")}</p>` : ""}
       ${h ? `<p class="meta">Horario: ${esc(horarioTexto(h))}</p>` : s.horario ? `<p class="meta">Horario: ${esc(s.horario)}</p>` : ""}
       ${s.direccion ? `<p class="meta">Dirección: ${esc(s.direccion)}</p>` : ""}
       ${s.sitio_web ? `<p class="meta">Sitio: ${/^https?:\/\//i.test(s.sitio_web) ? `<a href="${esc(s.sitio_web)}" target="_blank" rel="noopener nofollow">${esc(s.sitio_web)}</a>` : esc(s.sitio_web)}</p>` : ""}
@@ -2308,6 +2323,10 @@ document.addEventListener("click", e => {
     guardar("zq_ev_solicitudes", estado.evSolicitudes); toast("Evento rechazado: " + s.titulo); render();
   }
 });
+document.addEventListener("change", e => {
+  const c = e.target; if(!c || c.name !== "interes") return;
+  document.querySelectorAll('input[name="interes"]').forEach(x => { if(x !== c && (c.value === "nada" ? c.checked : x.value === "nada" && c.checked)) x.checked = false; });
+});
 document.addEventListener("click", e => {
   const dlg = document.getElementById("dlg");
   const c = e.target.closest("[data-cupon]");
@@ -2714,6 +2733,8 @@ async function enviarRegistro(){
     direccion: tipo === "local" ? v("r-dir") : "", horario: Object.keys(horarios).length ? horarioTexto(horarios) : "", horarios,
     entrega: tipo === "emprendimiento" ? v("r-ent") : "", redes: tipo === "emprendimiento" ? v("r-redes") : "",
     fotos, tiene_web:web, sitio_web:sitio, interes_mimx:!adm && (web === "no" || web === "redes") && document.getElementById("r-mimx").checked, email:mail};
+  const interes = adm ? [] : [...document.querySelectorAll('input[name="interes"]:checked')].map(i => i.value);
+  if(interes.length) fila.interes = interes; // opcional: si no marcó nada no se manda, y el registro nunca depende de este campo
   if(adm){
     const btn = document.querySelector("form.reg button[type=submit]"); btn.disabled = true;
     sb("/rest/v1/negocios", {method:"POST", body:Object.assign({}, fila, {estado:"aprobado", origen:"zonaqro", verificado:false, alta:hoyISO()}), prefer:"return=minimal"})

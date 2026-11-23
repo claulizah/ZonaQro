@@ -683,3 +683,14 @@ create policy "publico sube fotos" on storage.objects
 --     create or replace function public.registrar_clic(nid text) returns void language sql security definer set search_path = public
 --       as $f$ update public.negocios set clics = clics + 1 where id = nid and estado = 'aprobado' $f$;
 --   29b métricas: vuelve a correr la sección 26 de este archivo (deja registrar_evento y el filtro de tipos como antes; los tipos nuevos dejarán de contarse).
+
+-- ===== 31. Interés declarado en el registro: "¿Qué te serviría más?" (solo lo ve la administradora) =====
+-- Valores: sitio_web, whatsapp_business, nada (se puede marcar más de uno, salvo "nada" que va solo). Es opcional.
+-- La columna NO está en la lista pública (sección 7): el público no puede leerla. El sitio sigue registrando aunque no hayas corrido esto
+-- (si la columna no existe, reintenta sin ese campo).
+alter table public.negocios add column if not exists interes text[] not null default '{}';
+alter table public.negocios drop constraint if exists negocios_interes_check;
+alter table public.negocios add constraint negocios_interes_check
+  check (interes <@ array['sitio_web','whatsapp_business','nada']::text[] and cardinality(interes) <= 3);
+-- DESHACER:  alter table public.negocios drop column interes;   (borra las respuestas)
+
