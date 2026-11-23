@@ -534,8 +534,9 @@ const estado = {
 const SB_URL = "https://ymywxdwqiuisbqvtcxht.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlteXd4ZHdxaXVpc2JxdnRjeGh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwMTQ4NTIsImV4cCI6MjEwODU5MDg1Mn0.TNpoNIHOY3rkYZeDtIMZJn5JkP3jGR0LbXZ98xH_CmQ"; // llave pública (anon): es segura en el navegador; la seguridad está en las políticas RLS
 const SB = {ok:false, token:null};
-const DATA = {live:false, negocios:[], eventos:[], resenas:[]};
+const DATA = {live:false, cargando:false, negocios:[], eventos:[], resenas:[]};
 const PROD = /(^|\.)zonaqro\.com$|\.github\.io$/.test(location.hostname); // en el sitio real nunca se muestran ejemplos
+DATA.live = PROD; DATA.cargando = PROD; // en producción, mientras llegan los datos se muestra "Cargando", nunca los negocios de ejemplo
 const cupDe = b => (b.cupones || []).filter(c => !c.vence || c.vence >= hoyISO()); // las promos vencidas dejan de verse solas
 const BASE_URL = "https://zonaqro.com/";
 const CF_TOKEN = ""; // token de Cloudflare Web Analytics (pégalo aquí cuando lo tengas)
@@ -557,11 +558,14 @@ const ORIGEN = (() => {
 const refOrigen = () => ORIGEN ? "o:" + ORIGEN : "";
 /* Campañas (UTM): ?utm_source=meta&utm_medium=cpc&utm_campaign=reclutamiento. Solo etiquetas cortas "fuente|medio|campaña", sin datos personales. Se queda la primera de la sesión. */
 const UTM = (() => {
-  const lim = (v, n) => String(v || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, n);
-  let u = "";
-  try{ const q = new URLSearchParams(location.search), a = lim(q.get("utm_source"), 20), m = lim(q.get("utm_medium"), 12), c = lim(q.get("utm_campaign"), 24); if(a || m || c) u = [a, m, c].join("|"); }catch(e){}
-  try{ if(u) sessionStorage.getItem("zq_u") || sessionStorage.setItem("zq_u", u); u = sessionStorage.getItem("zq_u") || u; }catch(e){}
-  return u;
+  const lim = (v, n) => String(v || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, n), VIGENCIA = 7 * 864e5;
+  let nuevo = "", guardado = "";
+  try{ const q = new URLSearchParams(location.search), a = lim(q.get("utm_source"), 20), m = lim(q.get("utm_medium"), 12), c = lim(q.get("utm_campaign"), 24); if(a || m || c) nuevo = [a, m, c].join("|"); }catch(e){}
+  try{ const j = JSON.parse(localStorage.getItem("zq_utm") || "null"); if(j && j.u && Date.now() - j.t < VIGENCIA) guardado = j.u; else if(j) localStorage.removeItem("zq_utm"); }catch(e){}
+  if(!guardado) try{ guardado = sessionStorage.getItem("zq_u") || ""; }catch(e){}
+  if(guardado) return guardado; // el primer contacto gana durante 7 días
+  if(nuevo){ try{ localStorage.setItem("zq_utm", JSON.stringify({u:nuevo, t:Date.now()})); }catch(e){ try{ sessionStorage.setItem("zq_u", nuevo); }catch(e2){} } }
+  return nuevo;
 })();
 const metricaUtm = tipo => { if(UTM) metrica(tipo, UTM); };
 if(PROD && CF_TOKEN){ const sc = document.createElement("script"); sc.defer = true; sc.src = "https://static.cloudflareinsights.com/beacon.min.js"; sc.setAttribute("data-cf-beacon", JSON.stringify({token:CF_TOKEN})); document.head.appendChild(sc); }
@@ -594,6 +598,7 @@ async function cargarPublico(){
     DATA.live = PROD || n.length > 0; // en el sitio real solo se muestran datos reales, aunque aún no haya ninguno
     DATA.negocios = n; DATA.eventos = ev; DATA.resenas = rs;
   }catch(err){ SB.ok = false; DATA.live = PROD; }
+  DATA.cargando = false;
   const bar = document.getElementById("demoBar"); if(bar) bar.hidden = PROD || DATA.live;
   render();
 }
@@ -814,6 +819,8 @@ function badgesDe(b, fav, max){
   return (max ? l.slice(0, max) : l).join("");
 }
 function porZona(z){ return negocios().filter(b => b.zonas.includes(z)).length; }
+const MIN_CUPONES_PORTADA = 5; // la portada no muestra conteos de cupones hasta que haya 5 reales
+const cuponesVisibles = () => negocios().reduce((n, b) => n + cupDe(b).length, 0) >= MIN_CUPONES_PORTADA;
 function cuponesZona(z){ return negocios().filter(b => b.zonas.includes(z)).reduce((s,b) => s + cupDe(b).length, 0); }
 function zonasVisibles(){ return ZONAS.filter(z => z !== ZONA_OTRA && porZona(z) >= minFichas()); }
 function zonasPronto(){ const v = zonasVisibles(); return MACROS.map(m => ({nombre:m.nombre, zonas:m.zonas.filter(z => !v.includes(z))})).filter(m => m.zonas.length); }
@@ -922,7 +929,7 @@ function vInicio(){
     </div>
     ${sinNada ? `<div class="zones-board" aria-label="Estamos armando ZonaQro"><p class="eyebrow">Muy pronto</p><p style="margin:6px 0 12px">Estamos sumando los primeros negocios de tu zona. ¿Tienes uno? Sé de los primeros en aparecer, gratis.</p><a class="btn sm" href="#registrar">Registra tu negocio</a> <a class="btn sm ghost" href="#publicar-evento">Publica un evento</a></div>` : `<div class="zones-board" aria-label="Zonas">
       <p class="eyebrow">Explora por zona</p>
-      ${zonasVisibles().map(z => `<a class="zone-row" href="#directorio" data-zona="${z}"><strong>${z}</strong><span class="zinfo"><span>${textoZona(z)}</span>${cuponesZona(z) ? `<span class="badge b-cupon">${cuponesZona(z)} ${cuponesZona(z) === 1 ? "cupón" : "cupones"}</span>` : ""}</span></a>`).join("")}
+      ${zonasVisibles().map(z => `<a class="zone-row" href="#directorio" data-zona="${z}"><strong>${z}</strong><span class="zinfo"><span>${textoZona(z)}</span>${cuponesVisibles() && cuponesZona(z) ? `<span class="badge b-cupon">${cuponesZona(z)} ${cuponesZona(z) === 1 ? "cupón" : "cupones"}</span>` : ""}</span></a>`).join("")}
       ${prontoHtml()}
     </div>`}
   </section>
@@ -1527,6 +1534,7 @@ function faltasDe(b){
   return f;
 }
 /* Completitud para reclutamiento: una ficha cuenta como completa con horario, descripción (30+ caracteres) y WhatsApp de 10 dígitos. Los lugares de referencia no son negocios y no cuentan. */
+const nombreSospechoso = n => /@/.test(String(n || "")) || /^[\d\s().+-]{7,}$/.test(String(n || "").trim());
 function compDe(b){
   const h = !!(horariosDe(b) || b.horario), d = (b.descripcion || "").trim().length >= 30, w = String(b.whatsapp || "").replace(/\D/g, "").length >= 10;
   return {h, d, w, ok:h && d && w, n:(h ? 1 : 0) + (d ? 1 : 0) + (w ? 1 : 0)};
@@ -1645,6 +1653,7 @@ async function guardarFichas(ids){
     const c = document.querySelector('.edit-card[data-eid="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]'); if(!c) continue;
     try{
       const cambios = leerCardEd(c);
+      if(nombreSospechoso(cambios.nombre)) throw new Error("el nombre de \"" + String(cambios.nombre).slice(0, 20) + "…\" parece un correo o teléfono; pon el nombre del negocio");
       const r = await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:cambios, prefer:"return=representation"});
       if(!r || !r.length) throw new Error("no se aplicó el cambio en " + cambios.nombre + " (¿entraste como administradora?)");
       c.removeAttribute("data-dirty"); ok++;
@@ -1819,6 +1828,7 @@ function vAdminLive(tab){
   const reales = A.neg.filter(x => x.estado === "aprobado" && !x.referencia);
   const hoyToca = [
     [pn.length, "negocios por aprobar", "solicitudes"], [pe.length, "eventos por aprobar", "eventos"], [pr.length, "opiniones por revisar", "opiniones"], [sug.length, "eventos sugeridos", "sugeridos"],
+    [reales.filter(b => nombreSospechoso(b.nombre)).length, "fichas con correo o teléfono como nombre", "editar"],
     [reales.filter(b => faltasDe(b).length).length, "fichas incompletas", "editar"],
     [colaDe(A).filter(x => x.etapa === "pedir" || x.etapa === "recordar").length, "por pedir datos", "pedir"],
     [(A.edic || []).filter(x => !x.revisada).length, "cambios por revisar", "cambios"],
@@ -2307,6 +2317,7 @@ function render(){
   else if(h === "terminos") html = vTerminos();
   else if(h === "negocios") html = vParaNegocios();
   else { html = vInicio(); nav = "inicio"; }
+  if(DATA.cargando && ["inicio", "directorio", "vecinos", "cupones", "eventos", "directorio"].includes(nav)) html = '<section><p class="muted" role="status">Cargando…</p></section>';
   app.innerHTML = html;
   if(h.startsWith("editar-")) try{ avanceEd(); }catch(err){}
   try{
@@ -2550,7 +2561,7 @@ async function enviarRegistro(){
   const errores = [];
   const adm0 = !!document.getElementById("fReg").dataset.admin;
   if(!v("r-nombre")) errores.push("escribe el nombre del negocio");
-  else if(/@/.test(v("r-nombre")) || /^[\d\s().+-]{7,}$/.test(v("r-nombre"))) errores.push("en el nombre pon el nombre de tu negocio, no un correo ni un teléfono");
+  else if(nombreSospechoso(v("r-nombre"))) errores.push("en el nombre pon el nombre de tu negocio, no un correo ni un teléfono");
   if(!adm0 && v("r-desc").length < 30) errores.push("cuéntanos en al menos 30 letras qué vendes o qué servicio das");
   if(!/^\d{10}$/.test(v("r-wa"))) errores.push("el WhatsApp debe tener 10 dígitos");
   if(!zonas.length) errores.push("elige al menos una zona");
