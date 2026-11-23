@@ -1526,6 +1526,39 @@ function faltasDe(b){
   if(/[A-ZÁÉÍÓÚÑ]{3}/.test(b.nombre) && b.nombre === b.nombre.toUpperCase()) f.push("mayus");
   return f;
 }
+/* Completitud para reclutamiento: una ficha cuenta como completa con horario, descripción (30+ caracteres) y WhatsApp de 10 dígitos. Los lugares de referencia no son negocios y no cuentan. */
+function compDe(b){
+  const h = !!(horariosDe(b) || b.horario), d = (b.descripcion || "").trim().length >= 30, w = String(b.whatsapp || "").replace(/\D/g, "").length >= 10;
+  return {h, d, w, ok:h && d && w, n:(h ? 1 : 0) + (d ? 1 : 0) + (w ? 1 : 0)};
+}
+function conteoZonas(lista){
+  const reales = lista.filter(b => b.estado === "aprobado" && !b.referencia && Array.isArray(b.zonas));
+  return ZONAS.filter(z => z !== ZONA_OTRA).concat([ZONA_OTRA]).filter((z, i, a) => a.indexOf(z) === i).map(z => {
+    const l = reales.filter(b => b.zonas.includes(z)), c = l.map(compDe);
+    return {zona:z, macro:(macroDe(z) || {}).nombre || "Todas las zonas", total:l.length, ok:c.filter(x => x.ok).length, h:c.filter(x => x.h).length, d:c.filter(x => x.d).length, w:c.filter(x => x.w).length};
+  });
+}
+const pctN = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
+function adminZonas(A){
+  const filas = conteoZonas(A.neg), vis = z => porZona(z) >= minFichas();
+  const sinZona = A.neg.filter(b => b.estado === "aprobado" && !b.referencia && !(b.zonas || []).length).length;
+  const reales = A.neg.filter(b => b.estado === "aprobado" && !b.referencia);
+  const tot = reales.map(compDe);
+  const nego = reales.map(b => ({b, c:compDe(b)})).sort((a, b) => a.c.n - b.c.n || a.b.nombre.localeCompare(b.b.nombre));
+  const mk = v => v ? '<span aria-label="sí">✓</span>' : '<b style="color:#B42318" aria-label="falta">✗</b>';
+  return `<p class="muted" style="max-width:66ch">Conteo real: solo negocios publicados (sin lugares de referencia). <b>Ficha completa</b> = horario + descripción de 30 caracteres o más + WhatsApp. Un negocio en varias zonas cuenta en cada una. Meta para abrir una zona: ${minFichas()} fichas completas.</p>
+    <div class="stats"><div class="stat"><b>${reales.length}</b><span>Negocios reales publicados</span></div><div class="stat"><b>${tot.filter(x => x.ok).length}</b><span>Fichas completas (${pctN(tot.filter(x => x.ok).length, reales.length)})</span></div><div class="stat"><b>${tot.filter(x => !x.h).length}</b><span>Sin horario</span></div><div class="stat"><b>${tot.filter(x => !x.d).length}</b><span>Sin descripción</span></div><div class="stat"><b>${tot.filter(x => !x.w).length}</b><span>Sin WhatsApp</span></div></div>
+    ${sinZona ? `<div class="notice err">${sinZona} negocio(s) publicados sin zona: no salen en ninguna fila.</div>` : ""}
+    <h3>Por zona</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>Zona</th><th>Macrozona</th><th class="num">Publicados</th><th class="num">Completas</th><th class="num">% completas</th><th class="num">Con horario</th><th class="num">Con descripción</th><th class="num">Con WhatsApp</th><th>Meta (${minFichas()} completas)</th><th>En el filtro público hoy</th></tr></thead><tbody>
+    ${filas.map(r => `<tr><td>${esc(r.zona)}</td><td>${esc(r.macro)}</td><td class="num">${r.total}</td><td class="num"><b>${r.ok}</b></td><td class="num">${pctN(r.ok, r.total)}</td><td class="num">${r.h}</td><td class="num">${r.d}</td><td class="num">${r.w}</td><td>${r.ok >= minFichas() ? "Lista" : "Faltan " + (minFichas() - r.ok)}</td><td>${r.zona === ZONA_TODO || r.zona === ZONA_OTRA ? "—" : vis(r.zona) ? "Visible" : "Oculta"}</td></tr>`).join("")}
+    </tbody></table></div>
+    <p class="muted" style="font-size:.85rem">El filtro público hoy sigue contando todas las fichas publicadas (con o sin datos completos), igual que antes; esta tabla solo mide.</p>
+    <h3>Por negocio (las más incompletas primero)</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zonas</th><th class="num">Completitud</th><th>Horario</th><th>Descripción</th><th>WhatsApp</th></tr></thead><tbody>
+    ${nego.map(({b, c}) => `<tr><td>${esc(b.nombre)}</td><td>${esc((b.zonas || []).join(", "))}</td><td class="num">${c.n}/3${c.ok ? " ✓" : ""}</td><td>${mk(c.h)}</td><td>${mk(c.d)}</td><td>${mk(c.w)}</td></tr>`).join("") || '<tr><td colspan="6">Aún no hay negocios publicados.</td></tr>'}
+    </tbody></table></div>`;
+}
 const FALTA_TXT = {horario:"Sin horario", foto:"Sin foto", desc:"Descripción corta", mayus:"Nombre en mayúsculas"};
 function adminEditar(A){
   const lista = A.neg.filter(b => b.estado === "aprobado" && !b.referencia).sort((a, b) => faltasDe(b).length - faltasDe(a).length || a.nombre.localeCompare(b.nombre));
@@ -1781,7 +1814,7 @@ function vAdminLive(tab){
         <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th class="num">Vistas</th><th class="num">WhatsApp</th><th class="num">Web</th><th class="num">Promos</th><th></th></tr></thead><tbody>${filas.length ? filas.map(x => `<tr><td>${esc(x.b.nombre)}</td><td class="num">${x.v}</td><td class="num">${x.w}</td><td class="num">${x.web}</td><td class="num">${x.c}</td><td>${(x.v || x.w) && !x.b.referencia && x.b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(x.b.whatsapp), rep(x))}">Enviar reporte</a>` : `<span class="meta">${x.b.referencia || !x.b.whatsapp ? "Lugar de referencia (sin WhatsApp)" : "Sin visitas todavía"}</span>`}</td></tr>`).join("") : '<tr><td colspan="6">Todavía no hay negocios publicados.</td></tr>'}</tbody></table></div>`;
     }
   }
-  if(tab === "zonas") cuerpo = `<div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Negocios</th><th class="num">Meta</th><th>En el filtro</th></tr></thead><tbody>${ZONAS.filter(z => z !== ZONA_TODO && z !== ZONA_OTRA).map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= minFichas() ? "Visible" : "Oculta (menos de " + minFichas() + ")"}</td></tr>`).join("")}</tbody></table></div>`;
+  if(tab === "zonas") cuerpo = adminZonas(A);
   const totalWa = A.neg.filter(x => x.estado === "aprobado").reduce((n,b) => n + (b.clics || 0), 0);
   const reales = A.neg.filter(x => x.estado === "aprobado" && !x.referencia);
   const hoyToca = [
