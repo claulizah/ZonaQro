@@ -1289,7 +1289,7 @@ function vRegistrar(enviado, adm){
         <div id="w-mimx" hidden><label class="opt"><input type="checkbox" id="r-mimx"><span>Me interesa que me contacten de mimx para hacerme una página en 48 horas, sin compromiso.</span></label></div>
       </fieldset>
       <label class="fld" for="r-mail">Correo (opcional, no se publica)<input id="r-mail" type="email" inputmode="email" autocomplete="email" placeholder="tunegocio@correo.com"></label>`}
-      ${adm ? "" : `<label class="opt"><input type="checkbox" id="r-ok"><span>Acepto los <a href="#terminos">términos de uso</a>, el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>`}
+      ${adm ? "" : `<input type="text" id="r-hp" name="zq_hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0"><label class="opt"><input type="checkbox" id="r-ok"><span>Acepto los <a href="#terminos">términos de uso</a>, el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>`}
       <div id="r-err" class="notice err" hidden></div>
       <div><button class="btn" type="submit">${adm ? "Publicar negocio" : "Enviar solicitud"}</button></div>
     </form>
@@ -2219,12 +2219,17 @@ function vRegEvento(enviado){
       <label class="fld" for="e-web">Página o enlace del evento <small>(opcional: boletos, Instagram, Facebook o sitio web)</small><input id="e-web" type="url" inputmode="url" autocomplete="url" maxlength="200" placeholder="https://"></label>
       <label class="fld" for="e-desc">Descripción<textarea id="e-desc" maxlength="280" placeholder="Qué habrá, para quién es y qué hay que llevar."></textarea></label>
       <label class="opt"><input type="checkbox" id="e-mimx"><span>Quiero tener mi propia página para vender boletos o promocionar mis eventos. <small>Opcional: mimx te contacta por WhatsApp.</small></span></label>
+      <input type="text" id="e-hp" name="zq_hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0">
       <label class="opt"><input type="checkbox" id="e-ok"><span>Acepto los <a href="#terminos">términos de uso</a>, el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>
       <div id="e-err" class="notice err" hidden></div>
       <div><button class="btn" type="submit">Enviar evento</button></div>
     </form>
   </section>`;
 }
+/* Anti-spam sin captcha: un campo escondido que una persona no ve (si viene lleno) y un mínimo de 2.5 s desde que se abrió el formulario.
+   Quien lo active ve la pantalla de gracias y no se manda nada, para no darle pistas a un robot. */
+let T_FORM = Date.now();
+const esBot = idHp => !!((document.getElementById(idHp) || {}).value) || (Date.now() - T_FORM) < 2500;
 function enviarEvento(){
   const v = id => document.getElementById(id).value.trim();
   const err = [];
@@ -2241,6 +2246,7 @@ function enviarEvento(){
   if(!document.getElementById("e-ok").checked) err.push("acepta los términos y el aviso de privacidad");
   const box = document.getElementById("e-err");
   if(err.length){ box.hidden = false; box.textContent = "Para enviar: " + err.join(", ") + "."; return; }
+  if(esBot("e-hp")){ app.innerHTML = vRegEvento(true); window.scrollTo(0,0); return; }
   const filaEv = ({id:"ev-" + Date.now().toString(36), titulo:v("e-titulo"), tipo:v("e-tipo"), zona:v("e-zona"), lugar:v("e-lugar"), fecha:v("e-fecha"), hora:v("e-hora"), precio:v("e-precio") || "Por confirmar", organizador:v("e-org") || "Vecinos de la zona", whatsapp:v("e-wa"), descripcion:v("e-desc"), fuente:web, mimx:document.getElementById("e-mimx").checked});
   enviar("eventos", filaEv, () => { estado.evSolicitudes.push(filaEv); guardar("zq_ev_solicitudes", estado.evSolicitudes); }, vRegEvento, box);
 }
@@ -2395,6 +2401,7 @@ function render(){
   pintarZona(); pintarContacto();
   if(h.startsWith("opinar-")) setTimeout(() => { try{ const d = document.querySelector("#opiniones .rev-form"); if(d){ d.open = true; document.getElementById("opiniones").scrollIntoView({block:"start"}); } }catch(err){} }, 60);
   try{ document.querySelectorAll('.chips.scrollrow .chip[aria-pressed="true"]').forEach(c => c.scrollIntoView({block:"nearest", inline:"center"})); }catch(err){}
+  if(h === "registrar" || h === "publicar-evento") T_FORM = Date.now();
   if(h === "registrar" || (h === "admin" && document.getElementById("fReg"))) prepararRegistro();
   else if(FOTOS.length){ FOTOS.forEach(f => URL.revokeObjectURL(f.url)); FOTOS = []; }
 }
@@ -2649,6 +2656,7 @@ async function enviarRegistro(){
   const box = document.getElementById("r-err");
   if(errores.length){ box.hidden = false; box.textContent = "Para enviar: " + errores.join(", ") + "."; box.scrollIntoView({block:"nearest"}); return; }
   box.hidden = true;
+  if(!adm && esBot("r-hp")){ app.innerHTML = vRegistrar(true); window.scrollTo(0,0); return; }
   const nombre = nombreBonito(v("r-nombre"));
   const id = nombre.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") + "-" + Date.now().toString(36);
   let fotos = [];

@@ -34,7 +34,8 @@ async function registro(p, s){
   await p.fill("#r-nombre", "Pastelería de prueba"); await p.check("#tipo-emprendimiento");
   await p.selectOption("#r-cat", "tienda"); await p.check("#z-Zakia");
   await p.fill("#r-desc", "Pasteles y postres por encargo, entrega a domicilio en la zona."); await p.fill("#r-ent", "Entrega a domicilio sin costo en la zona");
-  await p.check("#r-ok"); await p.click("#fReg button[type=submit]");
+  await p.check("#r-ok"); await p.waitForTimeout(2700); // una persona tarda más de 2.5 s en llenar el formulario
+  await p.click("#fReg button[type=submit]");
   await p.waitForSelector("text=Recibimos tu solicitud", { timeout: 5000 }).catch(() => {});
   ok(/Recibimos tu solicitud/.test(await p.textContent("#app")), "muestra la pantalla de gracias");
   const post = s.posts.find(x => x[0] === "negocios");
@@ -57,7 +58,8 @@ async function evento(p, s){
   ok(s.posts.filter(x => x[0] === "eventos").length === 0, "no envía un evento incompleto");
   await p.fill("#e-titulo", "Bazar de prueba"); await p.fill("#e-lugar", "Parque central"); await p.fill("#e-fecha", hoy(10));
   await p.fill("#e-hora", "4:00 pm a 9:00 pm"); await p.fill("#e-wa", "4421234567");
-  await p.check("#e-ok"); await p.click("#fEv button[type=submit]");
+  await p.check("#e-ok"); await p.waitForTimeout(2700);
+  await p.click("#fEv button[type=submit]");
   await p.waitForTimeout(800);
   const post = s.posts.find(x => x[0] === "eventos");
   ok(!!post, "envía el evento a Supabase");
@@ -65,11 +67,30 @@ async function evento(p, s){
   ok(/Gracias|Recibimos/i.test(await p.textContent("#app")), "muestra la pantalla de gracias");
 }
 
+async function robots(p, s){
+  console.log(" Anti-spam (sin captcha)");
+  const llenarReg = async () => { await p.goto("about:blank"); await p.goto("https://zonaqro.com/#registrar"); await p.waitForSelector("#r-nombre");
+    await p.fill("#r-nombre", "Robot de prueba"); await p.check("#tipo-emprendimiento"); await p.selectOption("#r-cat", "tienda"); await p.check("#z-Zakia");
+    await p.fill("#r-desc", "Descripción suficientemente larga para pasar el mínimo del formulario."); await p.fill("#r-ent", "Entrega a domicilio"); await p.fill("#r-wa", "4421234567"); await p.check("#r-ok"); };
+  const llenarEv = async () => { await p.goto("about:blank"); await p.goto("https://zonaqro.com/#publicar-evento"); await p.waitForSelector("#e-titulo");
+    await p.fill("#e-titulo", "Evento robot"); await p.fill("#e-lugar", "Parque"); await p.fill("#e-fecha", hoy(10)); await p.fill("#e-hora", "5 pm"); await p.fill("#e-wa", "4421234567"); await p.check("#e-ok"); };
+  const enviados = () => s.posts.length;
+  await llenarReg(); await p.waitForTimeout(2700); await p.evaluate(() => { document.getElementById("r-hp").value = "http://spam"; }); await p.click("#fReg button[type=submit]"); await p.waitForTimeout(500);
+  ok(enviados() === 0, "registro: campo escondido lleno, no se manda nada");
+  ok(/Recibimos tu solicitud/.test(await p.textContent("#app")), "registro: el robot ve la pantalla de gracias (sin pistas)");
+  await llenarReg(); await p.click("#fReg button[type=submit]"); await p.waitForTimeout(500);
+  ok(enviados() === 0, "registro: envío instantáneo (menos de 2.5 s), no se manda nada");
+  await llenarEv(); await p.waitForTimeout(2700); await p.evaluate(() => { document.getElementById("e-hp").value = "x"; }); await p.click("#fEv button[type=submit]"); await p.waitForTimeout(500);
+  ok(enviados() === 0, "evento: campo escondido lleno, no se manda nada");
+  await llenarEv(); await p.click("#fEv button[type=submit]"); await p.waitForTimeout(500);
+  ok(enviados() === 0, "evento: envío instantáneo, no se manda nada");
+}
+
 (async () => {
   const browser = await chromium.launch();
   for(const [nombre, vp] of [["celular 390 px", { width: 390, height: 800 }], ["escritorio 1280 px", { width: 1280, height: 900 }]]){
     console.log("\n== " + nombre);
-    for(const prueba of [registro, evento]){
+    for(const prueba of [registro, evento, robots]){
       const { ctx, p, s } = await nuevaPagina(browser, vp);
       try{ await prueba(p, s); }catch(e){ ok(false, "la prueba se rompió: " + String(e.message).split("\n")[0]); }
       ok(s.errores.length === 0, "sin errores de consola" + (s.errores.length ? ": " + s.errores[0] : ""));
