@@ -1,0 +1,32 @@
+name: Pruebas
+# Corre las pruebas de humo (tests/*.js) en cada PR hacia main. No toca la base real: Supabase va simulado.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Instalar Playwright y Chromium
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: Pruebas de humo (celular 390 px y escritorio 1280 px)
+        run: |
+          fallos=0
+          for f in tests/*.js; do
+            echo "::group::$f"
+            node "$f" || fallos=$((fallos + 1))
+            echo "::endgroup::"
+          done
+          if [ "$fallos" -gt 0 ]; then echo "::error::Fallaron $fallos archivo(s) de pruebas"; exit 1; fi
