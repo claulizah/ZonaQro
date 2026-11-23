@@ -28,7 +28,7 @@ function horarioTexto(h){
 const fotos = b => (Array.isArray(b.fotos) ? b.fotos : []).filter(u => typeof u === "string" && u.startsWith(SB_URL + "/storage/v1/object/public/fotos/") && !/[\s"'<>]/.test(u)).slice(0, 3);
 const tel = w => { const d = String(w || "").replace(/\D/g, ""); return d.length === 10 ? "52" + d : d.length >= 11 ? d : ""; };
 const urlSeguro = u => { try{ const x = new URL(/^https?:/i.test(u) ? u : "https://" + u); return /^https?:$/.test(x.protocol) ? x.href : ""; }catch(e){ return ""; } };
-const completa = b => b.estado !== "rechazado" && !b.referencia && (b.descripcion || "").trim().length >= 30 && !(b.nombre === b.nombre.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{3}/.test(b.nombre));
+const completa = b => b.estado !== "rechazado" && !b.referencia && !/@/.test(b.nombre || "") && (b.descripcion || "").trim().length >= 30 && !(b.nombre === b.nombre.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{3}/.test(b.nombre));
 
 function pagina(b, url){
   const zonas = (b.zonas || []).join(", "), cat = catNombre(b.categoria), hor = horarios(b), ft = fotos(b), t = tel(b.whatsapp), web = urlSeguro(b.sitio_web || "");

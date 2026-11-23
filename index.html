@@ -534,8 +534,9 @@ const estado = {
 const SB_URL = "https://ymywxdwqiuisbqvtcxht.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlteXd4ZHdxaXVpc2JxdnRjeGh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwMTQ4NTIsImV4cCI6MjEwODU5MDg1Mn0.TNpoNIHOY3rkYZeDtIMZJn5JkP3jGR0LbXZ98xH_CmQ"; // llave pública (anon): es segura en el navegador; la seguridad está en las políticas RLS
 const SB = {ok:false, token:null};
-const DATA = {live:false, negocios:[], eventos:[], resenas:[]};
+const DATA = {live:false, cargando:false, negocios:[], eventos:[], resenas:[]};
 const PROD = /(^|\.)zonaqro\.com$|\.github\.io$/.test(location.hostname); // en el sitio real nunca se muestran ejemplos
+DATA.live = PROD; DATA.cargando = PROD; // en producción, mientras llegan los datos se muestra "Cargando", nunca los negocios de ejemplo
 const cupDe = b => (b.cupones || []).filter(c => !c.vence || c.vence >= hoyISO()); // las promos vencidas dejan de verse solas
 const BASE_URL = "https://zonaqro.com/";
 const CF_TOKEN = ""; // token de Cloudflare Web Analytics (pégalo aquí cuando lo tengas)
@@ -557,11 +558,14 @@ const ORIGEN = (() => {
 const refOrigen = () => ORIGEN ? "o:" + ORIGEN : "";
 /* Campañas (UTM): ?utm_source=meta&utm_medium=cpc&utm_campaign=reclutamiento. Solo etiquetas cortas "fuente|medio|campaña", sin datos personales. Se queda la primera de la sesión. */
 const UTM = (() => {
-  const lim = (v, n) => String(v || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, n);
-  let u = "";
-  try{ const q = new URLSearchParams(location.search), a = lim(q.get("utm_source"), 20), m = lim(q.get("utm_medium"), 12), c = lim(q.get("utm_campaign"), 24); if(a || m || c) u = [a, m, c].join("|"); }catch(e){}
-  try{ if(u) sessionStorage.getItem("zq_u") || sessionStorage.setItem("zq_u", u); u = sessionStorage.getItem("zq_u") || u; }catch(e){}
-  return u;
+  const lim = (v, n) => String(v || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, n), VIGENCIA = 7 * 864e5;
+  let nuevo = "", guardado = "";
+  try{ const q = new URLSearchParams(location.search), a = lim(q.get("utm_source"), 20), m = lim(q.get("utm_medium"), 12), c = lim(q.get("utm_campaign"), 24); if(a || m || c) nuevo = [a, m, c].join("|"); }catch(e){}
+  try{ const j = JSON.parse(localStorage.getItem("zq_utm") || "null"); if(j && j.u && Date.now() - j.t < VIGENCIA) guardado = j.u; else if(j) localStorage.removeItem("zq_utm"); }catch(e){}
+  if(!guardado) try{ guardado = sessionStorage.getItem("zq_u") || ""; }catch(e){}
+  if(guardado) return guardado; // el primer contacto gana durante 7 días
+  if(nuevo){ try{ localStorage.setItem("zq_utm", JSON.stringify({u:nuevo, t:Date.now()})); }catch(e){ try{ sessionStorage.setItem("zq_u", nuevo); }catch(e2){} } }
+  return nuevo;
 })();
 const metricaUtm = tipo => { if(UTM) metrica(tipo, UTM); };
 if(PROD && CF_TOKEN){ const sc = document.createElement("script"); sc.defer = true; sc.src = "https://static.cloudflareinsights.com/beacon.min.js"; sc.setAttribute("data-cf-beacon", JSON.stringify({token:CF_TOKEN})); document.head.appendChild(sc); }
@@ -594,6 +598,7 @@ async function cargarPublico(){
     DATA.live = PROD || n.length > 0; // en el sitio real solo se muestran datos reales, aunque aún no haya ninguno
     DATA.negocios = n; DATA.eventos = ev; DATA.resenas = rs;
   }catch(err){ SB.ok = false; DATA.live = PROD; }
+  DATA.cargando = false;
   const bar = document.getElementById("demoBar"); if(bar) bar.hidden = PROD || DATA.live;
   render();
 }
@@ -642,6 +647,48 @@ function campanas(M){
     <p class="muted" style="font-size:.85rem;margin-bottom:8px">Gente que llegó con enlaces tipo <code>?utm_source=…&amp;utm_campaign=…</code>, últimos 30 días. Fuente | medio | campaña.</p>
     <div class="tbl-wrap"><table><thead><tr><th>Fuente | medio | campaña</th><th class="num">Visitas</th><th class="num">Clics a WhatsApp</th><th class="num">Registros enviados</th></tr></thead><tbody>${f.length ? f.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="num">${v.utm_visita || 0}</td><td class="num">${v.utm_wa || 0}</td><td class="num">${v.utm_registro || 0}</td></tr>`).join("") : '<tr><td colspan="4">Todavía no llegan visitas con etiquetas UTM.</td></tr>'}</tbody></table></div></div>`;
 }
+/* ===== Admin: tablero semanal ===== */
+const isoDias = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+function tableroSemana(A){
+  const M = A.met; if(!M) return '<div class="empty">Aún no hay métricas. Corre la sección 10 de <b>supabase.sql</b> en Supabase.</div>';
+  const W = [{d:isoDias(6), h:isoDias(0)}, {d:isoDias(13), h:isoDias(7)}], enW = (f, w) => f && f >= W[w].d && f <= W[w].h;
+  const reales = A.neg.filter(b => !b.referencia), porId = {}; reales.forEach(b => { porId[b.id] = b; });
+  const sumaM = (tipo, w, ok) => M.filter(m => m.tipo === tipo && enW(m.dia, w) && (!ok || ok(m))).reduce((a, m) => a + m.n, 0);
+  const regs = (w, z) => reales.filter(b => enW(String(b.created_at || "").slice(0, 10), w) && (!z || (b.zonas || []).includes(z))).length;
+  const dl = (a, b) => a === b ? "=" : (a > b ? "▲ " : "▼ ") + Math.abs(a - b);
+  const celda = (a, b) => `<td class="num"><b>${a}</b> <small class="muted">${dl(a, b)}</small></td>`;
+  const delZona = (z, ref) => { const b = porId[ref]; return !!b && (b.zonas || []).includes(z); };
+  const tot = [["Visitas al sitio", w => sumaM("visita", w)], ["Registros enviados", w => regs(w)], ["Clics a WhatsApp", w => sumaM("wa", w)], ["Fichas vistas", w => sumaM("vista", w)]];
+  const filas = ZONAS.map(z => { const v = [0, 1].map(w => ({r:regs(w, z), c:sumaM("wa", w, m => delZona(z, m.ref)), f:sumaM("vista", w, m => delZona(z, m.ref)), q:sumaM("zona", w, m => m.ref === z)})); return {z, v}; })
+    .filter(x => x.v.some(w => w.r || w.c || w.f || w.q));
+  return `<p class="muted" style="max-width:66ch">Esta semana = últimos 7 días (${W[0].d} al ${W[0].h}). Entre paréntesis, el cambio contra la semana anterior (${W[1].d} al ${W[1].h}). Son conteos anónimos.</p>
+    <div class="stats">${tot.map(([t, f]) => `<div class="stat"><b>${f(0).toLocaleString("es-MX")}</b><span>${t} <small>${dl(f(0), f(1))}</small></span></div>`).join("")}</div>
+    <h3>Por zona</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Registros</th><th class="num">Clics a WhatsApp</th><th class="num">Fichas vistas</th><th class="num">Consultas de la zona</th></tr></thead><tbody>
+    ${filas.length ? filas.map(x => `<tr><td>${esc(x.z)}</td>${celda(x.v[0].r, x.v[1].r)}${celda(x.v[0].c, x.v[1].c)}${celda(x.v[0].f, x.v[1].f)}${celda(x.v[0].q, x.v[1].q)}</tr>`).join("") : '<tr><td colspan="5">Sin movimiento en las dos semanas.</td></tr>'}
+    </tbody></table></div>
+    <p class="muted" style="font-size:.85rem">Registros: negocios enviados por zona (un negocio en varias zonas cuenta en cada una). Clics y fichas vistas: de los negocios que atienden la zona. Consultas: veces que alguien eligió la zona. Las visitas al sitio no se miden por zona.</p>`;
+}
+/* ===== Admin: estado de seguimiento por negocio ===== */
+const SEG = {sin_contactar:"Sin contactar", contactado:"Contactado", respondio:"Respondió", ficha_completa:"Ficha completa", enlace_enviado:"Enlace enviado"};
+let segFiltro = "";
+function adminSeguimiento(A){
+  if(!A.neg.length || !("seguimiento" in A.neg[0])) return '<div class="notice err">Falta correr la <b>sección 28</b> de supabase.sql en Supabase para guardar el estado de seguimiento.</div>';
+  const lista = A.neg.filter(b => b.estado === "aprobado" && !b.referencia).sort((a, b) => Object.keys(SEG).indexOf(a.seguimiento) - Object.keys(SEG).indexOf(b.seguimiento) || a.nombre.localeCompare(b.nombre));
+  const cuenta = k => lista.filter(b => b.seguimiento === k).length, ver = segFiltro ? lista.filter(b => b.seguimiento === segFiltro) : lista;
+  return `<p class="muted" style="max-width:66ch">Cambia el estado de cada negocio con el menú. Solo lo ves tú. "Enlace enviado" se marca solo cuando mandas el enlace desde <b>Pedir datos</b>.</p>
+    <div class="tabs" role="group" aria-label="Filtrar por estado"><button class="chip" data-segf="" aria-pressed="${!segFiltro}">Todos <small>${lista.length}</small></button>${Object.entries(SEG).map(([k, t]) => `<button class="chip" data-segf="${k}" aria-pressed="${segFiltro === k}">${t} <small>${cuenta(k)}</small></button>`).join("")}</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zonas</th><th class="num">Ficha</th><th>Estado</th><th>Último contacto</th></tr></thead><tbody>
+    ${ver.map(b => `<tr><td>${esc(b.nombre)}</td><td>${esc((b.zonas || []).join(", "))}</td><td class="num">${compDe(b).n}/3</td><td><select data-seg="${esc(b.id)}" style="min-width:10.5rem;min-height:44px" aria-label="Estado de ${esc(b.nombre)}">${Object.entries(SEG).map(([k, t]) => `<option value="${k}"${b.seguimiento === k ? " selected" : ""}>${t}</option>`).join("")}</select></td><td>${esc(b.ultimo_contacto || "—")}</td></tr>`).join("") || '<tr><td colspan="5">Ningún negocio en este estado.</td></tr>'}
+    </tbody></table></div>`;
+}
+document.addEventListener("change", async e => {
+  const s = e.target.closest("[data-seg]"); if(!s) return;
+  const A = estado.admin, id = s.dataset.seg, b = A.neg.find(x => x.id === id); if(!b || !SEG[s.value]) return;
+  const antes = b.seguimiento; s.disabled = true;
+  try{ const r = await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:{seguimiento:s.value}, prefer:"return=representation"}); if(!r || !r.length) throw new Error("no se aplicó (¿entraste como administradora?)"); b.seguimiento = s.value; toast("Guardado: " + SEG[s.value]); render(); }
+  catch(err){ b.seguimiento = antes; s.value = antes; s.disabled = false; toast("No se pudo guardar: " + err.message); }
+});
 function embudo(M){
   const s = t => M.filter(m => m.tipo === t).reduce((a, m) => a + m.n, 0);
   const pct = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
@@ -814,14 +861,22 @@ function badgesDe(b, fav, max){
   return (max ? l.slice(0, max) : l).join("");
 }
 function porZona(z){ return negocios().filter(b => b.zonas.includes(z)).length; }
+/* Una sola fuente para las cifras por zona (portada, directorio y selector). Solo cuentan negocios (no lugares de referencia); un negocio con varias zonas cuenta en cada una.
+   "En la zona" = Local físico; "a domicilio" = A domicilio y Desde casa. Una zona está activa con 3 fichas completas o más (compDe), incluidos los de domicilio. */
+function statsZona(z){
+  const l = negocios().filter(b => b.zonas.includes(z)), r = l.filter(b => !b.referencia), local = r.filter(b => b.tipo === "local").length;
+  return {total:r.length, local, dom:r.length - local, completos:r.filter(b => compDe(b).ok).length, refs:l.length - r.length};
+}
+const MIN_CUPONES_PORTADA = 5; // la portada no muestra conteos de cupones hasta que haya 5 reales
+const cuponesVisibles = () => negocios().reduce((n, b) => n + cupDe(b).length, 0) >= MIN_CUPONES_PORTADA;
 function cuponesZona(z){ return negocios().filter(b => b.zonas.includes(z)).reduce((s,b) => s + cupDe(b).length, 0); }
-function zonasVisibles(){ return ZONAS.filter(z => z !== ZONA_OTRA && porZona(z) >= minFichas()); }
+function zonasVisibles(){ return ZONAS.filter(z => z !== ZONA_OTRA && statsZona(z).completos >= minFichas()); }
 function zonasPronto(){ const v = zonasVisibles(); return MACROS.map(m => ({nombre:m.nombre, zonas:m.zonas.filter(z => !v.includes(z))})).filter(m => m.zonas.length); }
 /* Chips de zona agrupados por macrozona (si solo hay una macrozona activa salen sin título), más la línea de "Próximamente" */
 function chipsZona(attr, sel, conteo){
   const v = zonasVisibles(), macs = MACROS.map(m => ({id:m.id, nombre:m.nombre, zonas:m.zonas.filter(z => v.includes(z))})).filter(m => m.zonas.length);
   const chip = (val, txt, on, n) => `<button class="chip" data-${attr}="${val}" aria-pressed="${on}">${txt}${n ? ` <small>${n}</small>` : ""}</button>`;
-  const zchip = z => chip(z, z, sel === z, conteo ? (realesZona(z) || porZona(z)) : "");
+  const zchip = z => chip(z, z, sel === z, conteo ? (realesZona(z) || "") : "");
   const todas = chip("", "Todas las zonas", !sel);
   if(macs.length <= 1) return todas + (macs[0] ? macs[0].zonas.map(zchip).join("") : ""); // con una sola macrozona activa, las zonas van directas
   const act = sel && sel.startsWith(MP) ? sel.slice(MP.length) : ((macroDe(sel) || {}).id || "");
@@ -845,8 +900,12 @@ function zonasChecks(){
     `<div class="zgrp"><p class="macro-tag">Servicio a domicilio o con entrega</p><div class="inline-opts"><label class="opt"><input type="checkbox" name="zonas" id="z-todo" value="${ZONA_TODO}"><span>Atiendo en todo Querétaro<small>También aparezco en las otras zonas.</small></span></label></div></div>`;
 }
 /* Para mostrar: cuenta solo negocios reales (con WhatsApp); los lugares de referencia no se presumen como negocios */
-function realesZona(z){ return negocios().filter(b => !b.referencia && b.zonas.includes(z)).length; }
-function textoZona(z){ const r = realesZona(z); return r ? r + (r === 1 ? " negocio" : " negocios") : porZona(z) + (porZona(z) === 1 ? " lugar" : " lugares"); }
+function realesZona(z){ return statsZona(z).total; }
+function textoZona(z){
+  const s = statsZona(z); if(!s.total) return s.refs + (s.refs === 1 ? " lugar" : " lugares");
+  const p = []; if(s.local) p.push(s.local + " en la zona"); if(s.dom) p.push(s.dom + " a domicilio");
+  return s.total + (s.total === 1 ? " negocio" : " negocios") + " · " + p.join(", ");
+}
 /* Igual que las zonas: una categoría aparece en el menú cuando tiene 3 negocios o más (el registro siempre muestra todas) */
 function porCat(c){ return negocios().filter(b => b.categoria === c).length; }
 function catsVisibles(sel){ return CATEGORIAS.filter(c => porCat(c.id) >= minFichas() || c.id === sel); }
@@ -913,7 +972,7 @@ function vInicio(){
     <div>
       <p class="eyebrow">Querétaro</p>
       <h1>Encuentra negocios, servicios y promos en tu misma zona.</h1>
-      <p class="lead">Plomeros, comida a domicilio y emprendedores de tu zona en Querétaro. Empezamos en el norte (Zibatá, Zakia, Juriquilla, El Refugio) y sumamos más zonas. Escríbeles directo por WhatsApp, sin intermediarios.</p>
+      <p class="lead">Plomeros, comida a domicilio y emprendedores de Querétaro, y seguimos sumando zonas. Escríbeles directo por WhatsApp, sin intermediarios.</p>
       <p class="muted" style="font-weight:600">Contacto directo · Sin comisiones · La palomita marca los verificados</p>
       <form class="search" id="fBuscar" role="search">
         <input id="q" type="search" placeholder="Ej. plomero, pasteles…" aria-label="¿Qué necesitas hoy? Buscar negocios">
@@ -922,7 +981,7 @@ function vInicio(){
     </div>
     ${sinNada ? `<div class="zones-board" aria-label="Estamos armando ZonaQro"><p class="eyebrow">Muy pronto</p><p style="margin:6px 0 12px">Estamos sumando los primeros negocios de tu zona. ¿Tienes uno? Sé de los primeros en aparecer, gratis.</p><a class="btn sm" href="#registrar">Registra tu negocio</a> <a class="btn sm ghost" href="#publicar-evento">Publica un evento</a></div>` : `<div class="zones-board" aria-label="Zonas">
       <p class="eyebrow">Explora por zona</p>
-      ${zonasVisibles().map(z => `<a class="zone-row" href="#directorio" data-zona="${z}"><strong>${z}</strong><span class="zinfo"><span>${textoZona(z)}</span>${cuponesZona(z) ? `<span class="badge b-cupon">${cuponesZona(z)} ${cuponesZona(z) === 1 ? "cupón" : "cupones"}</span>` : ""}</span></a>`).join("")}
+      ${zonasVisibles().map(z => `<a class="zone-row" href="#directorio" data-zona="${z}"><strong>${z}</strong><span class="zinfo"><span>${textoZona(z)}</span>${cuponesVisibles() && cuponesZona(z) ? `<span class="badge b-cupon">${cuponesZona(z)} ${cuponesZona(z) === 1 ? "cupón" : "cupones"}</span>` : ""}</span></a>`).join("")}
       ${prontoHtml()}
     </div>`}
   </section>
@@ -1052,9 +1111,12 @@ function vCupones(){
 }
 
 const slugNeg = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+/* Ids antiguos que llevaban un correo (SQL 27). Se guardan como huella para no repetir el dato; sus ligas viejas (#n-…, por id o por nombre) siguen abriendo la ficha con el id nuevo. */
+const ID_ANTERIORES = {"2961248":"n-8419e1aa30","357297e5":"n-99344d46d5","83be651":"n-99344d46d5","1ed6c479":"n-8419e1aa30","10c3f727":"n-702ae7e48f","2efdef2d":"n-702ae7e48f"};
+const huella = t => { let h = 0x811c9dc5; for(let i = 0; i < t.length; i++){ h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16); };
 function refNegocio(ref){ // una liga puede traer el id o el nombre ("#n-cafe-real"): el id siempre funciona, aunque el negocio cambie de nombre
   const l = negocios();
-  return l.find(x => x.id === ref) || l.find(x => slugNeg(x.nombre) === ref) || null;
+  return l.find(x => x.id === ref) || l.find(x => slugNeg(x.nombre) === ref) || (ID_ANTERIORES[huella(String(ref))] ? l.find(x => x.id === ID_ANTERIORES[huella(String(ref))]) : null) || null;
 }
 function enlaceNeg(b){ const s = slugNeg(b.nombre); return s && negocios().filter(x => slugNeg(x.nombre) === s).length === 1 ? s : b.id; }
 function vNegocio(id){
@@ -1471,6 +1533,7 @@ document.addEventListener("click", async e => {
   const a = e.target.closest("[data-ped]"); if(!a) return;
   const A = estado.admin, id = a.dataset.ped, b = A.neg.find(x => x.id === id); if(!b) return;
   const crmPed = "pedidos_ficha" in b, hoy = hoyISO(), cuerpo = {ultimo_contacto:hoy}; if(crmPed) cuerpo.pedidos_ficha = (b.pedidos_ficha || 0) + 1;
+  if(["sin_contactar", "contactado", "respondio"].includes(b.seguimiento)) cuerpo.seguimiento = "enlace_enviado";
   const c = document.querySelector('[data-pedc="' + id + '"]'); if(c) c.textContent = "Enviado · " + hoy; a.remove();
   try{ await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:cuerpo, prefer:"return=minimal"}); Object.assign(b, cuerpo); }catch(err){ toast("No se pudo guardar el envío: " + err.message); }
 });
@@ -1525,6 +1588,40 @@ function faltasDe(b){
   if((b.descripcion || "").length < 30) f.push("desc");
   if(/[A-ZÁÉÍÓÚÑ]{3}/.test(b.nombre) && b.nombre === b.nombre.toUpperCase()) f.push("mayus");
   return f;
+}
+/* Completitud para reclutamiento: una ficha cuenta como completa con horario, descripción (30+ caracteres) y WhatsApp de 10 dígitos. Los lugares de referencia no son negocios y no cuentan. */
+const nombreSospechoso = n => /@/.test(String(n || "")) || /^[\d\s().+-]{7,}$/.test(String(n || "").trim());
+function compDe(b){
+  const h = !!(horariosDe(b) || b.horario), d = (b.descripcion || "").trim().length >= 30, w = String(b.whatsapp || "").replace(/\D/g, "").length >= 10;
+  return {h, d, w, ok:h && d && w, n:(h ? 1 : 0) + (d ? 1 : 0) + (w ? 1 : 0)};
+}
+function conteoZonas(lista){
+  const reales = lista.filter(b => b.estado === "aprobado" && !b.referencia && Array.isArray(b.zonas));
+  return ZONAS.filter(z => z !== ZONA_OTRA).concat([ZONA_OTRA]).filter((z, i, a) => a.indexOf(z) === i).map(z => {
+    const l = reales.filter(b => b.zonas.includes(z)), c = l.map(compDe), loc = l.filter(b => b.tipo === "local");
+    return {zona:z, macro:(macroDe(z) || {}).nombre || "Todas las zonas", total:l.length, ok:c.filter(x => x.ok).length, loc:loc.length, locOk:loc.filter(b => compDe(b).ok).length, h:c.filter(x => x.h).length, d:c.filter(x => x.d).length, w:c.filter(x => x.w).length};
+  });
+}
+const pctN = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
+function adminZonas(A){
+  const filas = conteoZonas(A.neg), vis = z => zonasVisibles().includes(z);
+  const sinZona = A.neg.filter(b => b.estado === "aprobado" && !b.referencia && !(b.zonas || []).length).length;
+  const reales = A.neg.filter(b => b.estado === "aprobado" && !b.referencia);
+  const tot = reales.map(compDe);
+  const nego = reales.map(b => ({b, c:compDe(b)})).sort((a, b) => a.c.n - b.c.n || a.b.nombre.localeCompare(b.b.nombre));
+  const mk = v => v ? '<span aria-label="sí">✓</span>' : '<b style="color:#B42318" aria-label="falta">✗</b>';
+  return `<p class="muted" style="max-width:66ch">Conteo real: solo negocios publicados (sin lugares de referencia). <b>Ficha completa</b> = horario + descripción de 30 caracteres o más + WhatsApp. Un negocio en varias zonas cuenta en cada una. Meta de reclutamiento por zona: ${minFichas()} <b>locales físicos</b> completos (es meta, no bloquea el lanzamiento). El público ve una zona activa con ${minFichas()} fichas completas de cualquier tipo.</p>
+    <div class="stats"><div class="stat"><b>${reales.length}</b><span>Negocios reales publicados</span></div><div class="stat"><b>${tot.filter(x => x.ok).length}</b><span>Fichas completas (${pctN(tot.filter(x => x.ok).length, reales.length)})</span></div><div class="stat"><b>${tot.filter(x => !x.h).length}</b><span>Sin horario</span></div><div class="stat"><b>${tot.filter(x => !x.d).length}</b><span>Sin descripción</span></div><div class="stat"><b>${tot.filter(x => !x.w).length}</b><span>Sin WhatsApp</span></div></div>
+    ${sinZona ? `<div class="notice err">${sinZona} negocio(s) publicados sin zona: no salen en ninguna fila.</div>` : ""}
+    <h3>Por zona</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>Zona</th><th>Macrozona</th><th class="num">Publicados</th><th class="num">Completas</th><th class="num">% completas</th><th class="num">Locales físicos</th><th class="num">Locales completos</th><th class="num">Con horario</th><th class="num">Con descripción</th><th class="num">Con WhatsApp</th><th>Meta (${minFichas()} locales completos)</th><th>En el filtro público hoy</th></tr></thead><tbody>
+    ${filas.map(r => `<tr><td>${esc(r.zona)}</td><td>${esc(r.macro)}</td><td class="num">${r.total}</td><td class="num"><b>${r.ok}</b></td><td class="num">${pctN(r.ok, r.total)}</td><td class="num">${r.loc}</td><td class="num"><b>${r.locOk}</b></td><td class="num">${r.h}</td><td class="num">${r.d}</td><td class="num">${r.w}</td><td>${r.zona === ZONA_TODO ? "—" : r.locOk >= minFichas() ? "Lista" : "Faltan " + (minFichas() - r.locOk)}</td><td>${r.zona === ZONA_TODO || r.zona === ZONA_OTRA ? "—" : vis(r.zona) ? "Visible" : "Oculta"}</td></tr>`).join("")}
+    </tbody></table></div>
+    <p class="muted" style="font-size:.85rem">El filtro público hoy sigue contando todas las fichas publicadas (con o sin datos completos), igual que antes; esta tabla solo mide.</p>
+    <h3>Por negocio (las más incompletas primero)</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zonas</th><th class="num">Completitud</th><th>Horario</th><th>Descripción</th><th>WhatsApp</th></tr></thead><tbody>
+    ${nego.map(({b, c}) => `<tr><td>${esc(b.nombre)}</td><td>${esc((b.zonas || []).join(", "))}</td><td class="num">${c.n}/3${c.ok ? " ✓" : ""}</td><td>${mk(c.h)}</td><td>${mk(c.d)}</td><td>${mk(c.w)}</td></tr>`).join("") || '<tr><td colspan="6">Aún no hay negocios publicados.</td></tr>'}
+    </tbody></table></div>`;
 }
 const FALTA_TXT = {horario:"Sin horario", foto:"Sin foto", desc:"Descripción corta", mayus:"Nombre en mayúsculas"};
 function adminEditar(A){
@@ -1612,6 +1709,7 @@ async function guardarFichas(ids){
     const c = document.querySelector('.edit-card[data-eid="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]'); if(!c) continue;
     try{
       const cambios = leerCardEd(c);
+      if(nombreSospechoso(cambios.nombre)) throw new Error("el nombre de \"" + String(cambios.nombre).slice(0, 20) + "…\" parece un correo o teléfono; pon el nombre del negocio");
       const r = await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:cambios, prefer:"return=representation"});
       if(!r || !r.length) throw new Error("no se aplicó el cambio en " + cambios.nombre + " (¿entraste como administradora?)");
       c.removeAttribute("data-dirty"); ok++;
@@ -1673,7 +1771,7 @@ function vAdminLive(tab){
     </form></section>`;
   const A = estado.admin;
   if(!A.cargado) return `<section><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1><p class="muted">Cargando…</p></section>`;
-  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas"].includes(tab) ? tab : "solicitudes";
+  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas","semana","seguimiento"].includes(tab) ? tab : "solicitudes";
   const RS = A.res || [];
   const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente"), pr = RS.filter(x => x.estado === "pendiente");
   const descartados = (() => { try{ return JSON.parse(localStorage.getItem("zq_desc") || "[]"); }catch(e){ return []; } })();
@@ -1706,6 +1804,8 @@ function vAdminLive(tab){
   if(tab === "editar") cuerpo = adminEditar(A);
   if(tab === "reportes") cuerpo = adminReportes(A);
   if(tab === "pedir") cuerpo = adminPedir(A);
+  if(tab === "semana") cuerpo = tableroSemana(A);
+  if(tab === "seguimiento") cuerpo = adminSeguimiento(A);
   if(tab === "cambios") cuerpo = adminCambios(A);
   if(tab === "rechazados"){
     const rj = A.neg.filter(x => x.estado === "rechazado");
@@ -1781,11 +1881,13 @@ function vAdminLive(tab){
         <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th class="num">Vistas</th><th class="num">WhatsApp</th><th class="num">Web</th><th class="num">Promos</th><th></th></tr></thead><tbody>${filas.length ? filas.map(x => `<tr><td>${esc(x.b.nombre)}</td><td class="num">${x.v}</td><td class="num">${x.w}</td><td class="num">${x.web}</td><td class="num">${x.c}</td><td>${(x.v || x.w) && !x.b.referencia && x.b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(x.b.whatsapp), rep(x))}">Enviar reporte</a>` : `<span class="meta">${x.b.referencia || !x.b.whatsapp ? "Lugar de referencia (sin WhatsApp)" : "Sin visitas todavía"}</span>`}</td></tr>`).join("") : '<tr><td colspan="6">Todavía no hay negocios publicados.</td></tr>'}</tbody></table></div>`;
     }
   }
-  if(tab === "zonas") cuerpo = `<div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Negocios</th><th class="num">Meta</th><th>En el filtro</th></tr></thead><tbody>${ZONAS.filter(z => z !== ZONA_TODO && z !== ZONA_OTRA).map(z => `<tr><td>${z}</td><td class="num">${porZona(z)}</td><td class="num">25–30</td><td>${porZona(z) >= minFichas() ? "Visible" : "Oculta (menos de " + minFichas() + ")"}</td></tr>`).join("")}</tbody></table></div>`;
+  if(tab === "zonas") cuerpo = adminZonas(A);
   const totalWa = A.neg.filter(x => x.estado === "aprobado").reduce((n,b) => n + (b.clics || 0), 0);
   const reales = A.neg.filter(x => x.estado === "aprobado" && !x.referencia);
   const hoyToca = [
     [pn.length, "negocios por aprobar", "solicitudes"], [pe.length, "eventos por aprobar", "eventos"], [pr.length, "opiniones por revisar", "opiniones"], [sug.length, "eventos sugeridos", "sugeridos"],
+    [reales.filter(b => b.seguimiento === "sin_contactar").length, "negocios sin contactar", "seguimiento"],
+    [reales.filter(b => nombreSospechoso(b.nombre)).length, "fichas con correo o teléfono como nombre", "editar"],
     [reales.filter(b => faltasDe(b).length).length, "fichas incompletas", "editar"],
     [colaDe(A).filter(x => x.etapa === "pedir" || x.etapa === "recordar").length, "por pedir datos", "pedir"],
     [(A.edic || []).filter(x => !x.revisada).length, "cambios por revisar", "cambios"],
@@ -1819,6 +1921,8 @@ function vAdminLive(tab){
       <button class="chip" data-atab="rechazados" aria-pressed="${tab==="rechazados"}">Rechazados</button>
       <button class="chip" data-atab="prospectos" aria-pressed="${tab==="prospectos"}">Prospectos mimx <small>${prospSi.length}</small></button>
       <button class="chip" data-atab="agregar" aria-pressed="${tab==="agregar"}">Agregar negocio</button>
+      <button class="chip" data-atab="semana" aria-pressed="${tab==="semana"}">Semana</button>
+      <button class="chip" data-atab="seguimiento" aria-pressed="${tab==="seguimiento"}">Seguimiento</button>
       <button class="chip" data-atab="metricas" aria-pressed="${tab==="metricas"}">Métricas</button>
       <button class="chip" data-atab="zonas" aria-pressed="${tab==="zonas"}">Zonas</button>
     </div>
@@ -2048,7 +2152,7 @@ function eventoCard(e){
   const link = /^https?:\/\//i.test(e.fuente || "") ? e.fuente : "";
   const grande = !!link && e.whatsapp === RESP.wa; // evento tomado de una fuente pública: el WhatsApp sería el nuestro, mejor ir a la fuente
   const org = evPorConf(e.organizador) ? "" : `<span class="meta">Organiza: ${esc(e.organizador)}</span>`;
-  const hora = evPorConf(e.hora) ? "" : ", " + esc(e.hora);
+  const hora = evPorConf(e.hora) ? ', <b>hora por confirmar</b>' : ", " + esc(e.hora);
   const precio = evGratis(e) ? '<span class="badge b-gratis">Gratis</span>' : evPorConf(e.precio) ? "" : `<span class="precio">${esc(e.precio)}</span>`;
   return `<article class="evento${e.destacado ? " dest" : ""}">
     <div class="fecha" aria-label="${rango ? esc(rangoEv(e)) : dia + " de " + mes}"><i>${sem}</i><b>${dia}</b><span>${mes}</span>${rango ? `<small>al ${+e.fecha_fin.slice(8)} ${MESES[+e.fecha_fin.slice(5,7) - 1]}</small>` : ""}</div>
@@ -2274,6 +2378,7 @@ function render(){
   else if(h === "terminos") html = vTerminos();
   else if(h === "negocios") html = vParaNegocios();
   else { html = vInicio(); nav = "inicio"; }
+  if(DATA.cargando && ["inicio", "directorio", "vecinos", "cupones", "eventos", "directorio"].includes(nav)) html = '<section><p class="muted" role="status">Cargando…</p></section>';
   app.innerHTML = html;
   if(h.startsWith("editar-")) try{ avanceEd(); }catch(err){}
   try{
@@ -2299,7 +2404,7 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0,0); })
 /* ===== Eventos ===== */
 document.addEventListener("click", e => {
   if(UTM && e.target.closest('a[href^="https://wa.me/"]')) metricaUtm("utm_wa");
-  const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-fzev],[data-verqr],[data-wa],[data-web],[data-evwa],[data-evlink],[data-compartir],[data-copy],[data-aprobar],[data-rechazar],[data-atab],[data-amet]");
+  const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-fzev],[data-verqr],[data-wa],[data-web],[data-evwa],[data-evlink],[data-compartir],[data-copy],[data-aprobar],[data-rechazar],[data-atab],[data-amet],[data-segf]");
   if(!t) return;
   if(t.dataset.compartir){
     const [k, id, cod] = t.dataset.compartir.split(":");
@@ -2345,6 +2450,7 @@ document.addEventListener("click", e => {
     const s = estado.solicitudes.splice(+t.dataset.rechazar, 1)[0];
     guardar("zq_solicitudes", estado.solicitudes); toast("Solicitud rechazada: " + s.nombre); render();
   }
+  else if(t.dataset.segf !== undefined){ segFiltro = t.dataset.segf; render(); }
   else if(t.dataset.atab){ adminTab = t.dataset.atab; render(); }
   else if(t.dataset.amet){ adminMet = t.dataset.amet; render(); }
 });
@@ -2517,7 +2623,7 @@ async function enviarRegistro(){
   const errores = [];
   const adm0 = !!document.getElementById("fReg").dataset.admin;
   if(!v("r-nombre")) errores.push("escribe el nombre del negocio");
-  else if(/@/.test(v("r-nombre")) || /^[\d\s().+-]{7,}$/.test(v("r-nombre"))) errores.push("en el nombre pon el nombre de tu negocio, no un correo ni un teléfono");
+  else if(nombreSospechoso(v("r-nombre"))) errores.push("en el nombre pon el nombre de tu negocio, no un correo ni un teléfono");
   if(!adm0 && v("r-desc").length < 30) errores.push("cuéntanos en al menos 30 letras qué vendes o qué servicio das");
   if(!/^\d{10}$/.test(v("r-wa"))) errores.push("el WhatsApp debe tener 10 dígitos");
   if(!zonas.length) errores.push("elige al menos una zona");

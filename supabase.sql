@@ -465,3 +465,90 @@ begin
 end $$;
 revoke all on function public.registrar_evento(text, text) from public;
 grant execute on function public.registrar_evento(text, text) to anon, authenticated;
+
+-- ===== 27. Quitar correos de las ligas de los negocios (renombrar ids) =====
+-- QUÉ HACE: a los negocios cuyo id contiene un correo (gmail, hotmail, outlook, yahoo, icloud o "@") les pone un id nuevo
+--   neutro ("n-" + 10 caracteres). Reseñas, ediciones y métricas se mueven con ellos.
+-- MODO ENSAYO: el script trae  ensayo constant boolean := true.  Así no guarda NADA: hace todo dentro de una sola
+--   transacción, cuenta cuántas filas tocaría y termina con un aviso rojo "ENSAYO - no se guardó nada: ..." (ese error es lo
+--   esperado: deshace todo). Para ejecutarlo de verdad, cambia  true  por  false  y córrelo otra vez.
+-- RESPALDO: antes de cambiar nada guarda cada fila completa (negocio, reseñas, ediciones y métricas) en
+--   public.respaldo_ids_27. Esa tabla queda cerrada al público (RLS sin políticas); solo la ves tú en el SQL Editor.
+-- IDEMPOTENTE: si lo corres otra vez, no vuelve a tocar lo ya renombrado.
+-- ORDEN: 28, merge del PR, y luego este (27). Córrelo ANTES de corregir los nombres a mano. No cambia nombres ni descripciones.
+-- LIGAS VIEJAS: el sitio traduce los ids viejos a los nuevos (#n-<id viejo> sigue abriendo la ficha).
+-- DESHACER: al final hay un bloque comentado.
+do $$
+declare
+  ensayo constant boolean := true;   -- true = ensayo (no guarda nada) | false = ejecutar de verdad
+  r record; nuevo text; k integer;
+  n_neg integer := 0; n_res integer := 0; n_edi integer := 0; n_met integer := 0;
+begin
+  create table if not exists public.respaldo_ids_27 (
+    id_anterior text primary key,
+    id_nuevo    text not null,
+    negocio     jsonb not null,
+    resenas     jsonb not null default '[]'::jsonb,
+    ediciones   jsonb not null default '[]'::jsonb,
+    metricas    jsonb not null default '[]'::jsonb,
+    creado      timestamptz not null default now()
+  );
+  alter table public.respaldo_ids_27 enable row level security;
+  revoke all on public.respaldo_ids_27 from public, anon, authenticated;
+
+  -- Las llaves foráneas hacia negocios(id) no seguían cambios de id: se recrean con "on update cascade".
+  for r in select c.conrelid::regclass::text as tabla, c.conname from pg_constraint c
+           where c.contype = 'f' and c.confrelid = 'public.negocios'::regclass and c.confupdtype <> 'c' loop
+    execute format('alter table %s drop constraint %I', r.tabla, r.conname);
+    execute format('alter table %s add constraint %I foreign key (negocio_id) references public.negocios(id) on update cascade on delete cascade', r.tabla, r.conname);
+  end loop;
+
+  for r in select id from public.negocios
+           where id ~* '(^|-)(gmail|hotmail|outlook|yahoo|icloud)(-|$)' or id like '%@%' loop
+    if exists (select 1 from public.respaldo_ids_27 where id_anterior = r.id) then continue; end if;
+    nuevo := 'n-' || substr(md5(r.id), 1, 10);
+    n_neg := n_neg + 1;
+    select count(*) into k from public.resenas where negocio_id = r.id;   n_res := n_res + k;
+    select count(*) into k from public.ediciones where negocio_id = r.id; n_edi := n_edi + k;
+    insert into public.respaldo_ids_27 (id_anterior, id_nuevo, negocio, resenas, ediciones, metricas)
+    select r.id, nuevo,
+      (select to_jsonb(n) from public.negocios n where n.id = r.id),
+      coalesce((select jsonb_agg(to_jsonb(x)) from public.resenas x where x.negocio_id = r.id), '[]'::jsonb),
+      coalesce((select jsonb_agg(to_jsonb(x)) from public.ediciones x where x.negocio_id = r.id), '[]'::jsonb),
+      coalesce((select jsonb_agg(to_jsonb(m)) from public.metricas m
+                where (m.tipo in ('vista','wa','web','cupon') and m.ref = r.id) or (m.tipo = 'compartir' and m.ref like '%:' || r.id)), '[]'::jsonb);
+    update public.negocios set id = nuevo where id = r.id;
+    update public.metricas set ref = nuevo where tipo in ('vista','wa','web','cupon') and ref = r.id;
+    get diagnostics k = row_count; n_met := n_met + k;
+    update public.metricas set ref = split_part(ref, ':', 1) || ':' || nuevo where tipo = 'compartir' and ref like '%:' || r.id;
+    get diagnostics k = row_count; n_met := n_met + k;
+  end loop;
+
+  if ensayo then
+    raise exception 'ENSAYO - no se guardó nada. Negocios que se renombrarían: %. Reseñas que se moverían con ellos: %. Ediciones: %. Filas de métricas: %. Para ejecutar de verdad, cambia "ensayo constant boolean := true" por false.', n_neg, n_res, n_edi, n_met;
+  end if;
+  raise notice 'Listo. Negocios renombrados: %, reseñas: %, ediciones: %, filas de métricas: %.', n_neg, n_res, n_edi, n_met;
+end $$;
+
+-- Para revisar el resultado (después de ejecutarlo de verdad):  select id_nuevo, creado from public.respaldo_ids_27;
+
+-- DESHACER (quita los comentarios y córrelo; regresa los ids originales con sus reseñas, ediciones y métricas):
+-- do $$ declare r record; begin
+--   for r in select id_anterior, id_nuevo from public.respaldo_ids_27 loop
+--     update public.negocios set id = r.id_anterior where id = r.id_nuevo;
+--     update public.metricas set ref = r.id_anterior where tipo in ('vista','wa','web','cupon') and ref = r.id_nuevo;
+--     update public.metricas set ref = split_part(ref, ':', 1) || ':' || r.id_anterior where tipo = 'compartir' and ref like '%:' || r.id_nuevo;
+--   end loop;
+-- end $$;
+-- (la tabla respaldo_ids_27 se queda como constancia; bórrala solo cuando estés segura: drop table public.respaldo_ids_27;)
+
+-- ===== 28. Estado de seguimiento de cada negocio (solo lo ve la administradora) =====
+-- Estados: sin_contactar, contactado, respondio, ficha_completa, enlace_enviado.
+-- La columna NO se agrega a la lista pública (sección 7): el público no puede leerla.
+alter table public.negocios add column if not exists seguimiento text not null default 'sin_contactar';
+alter table public.negocios drop constraint if exists negocios_seguimiento_check;
+alter table public.negocios add constraint negocios_seguimiento_check
+  check (seguimiento in ('sin_contactar','contactado','respondio','ficha_completa','enlace_enviado'));
+-- A los negocios a los que ya les mandaste el enlace (tienen "último contacto") se les marca "enlace_enviado" una sola vez.
+update public.negocios set seguimiento = 'enlace_enviado' where seguimiento = 'sin_contactar' and ultimo_contacto is not null;
+
