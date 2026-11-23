@@ -819,16 +819,22 @@ function badgesDe(b, fav, max){
   return (max ? l.slice(0, max) : l).join("");
 }
 function porZona(z){ return negocios().filter(b => b.zonas.includes(z)).length; }
+/* Una sola fuente para las cifras por zona (portada, directorio y selector). Solo cuentan negocios (no lugares de referencia); un negocio con varias zonas cuenta en cada una.
+   "En la zona" = Local físico; "a domicilio" = A domicilio y Desde casa. Una zona está activa con 3 fichas completas o más (compDe), incluidos los de domicilio. */
+function statsZona(z){
+  const l = negocios().filter(b => b.zonas.includes(z)), r = l.filter(b => !b.referencia), local = r.filter(b => b.tipo === "local").length;
+  return {total:r.length, local, dom:r.length - local, completos:r.filter(b => compDe(b).ok).length, refs:l.length - r.length};
+}
 const MIN_CUPONES_PORTADA = 5; // la portada no muestra conteos de cupones hasta que haya 5 reales
 const cuponesVisibles = () => negocios().reduce((n, b) => n + cupDe(b).length, 0) >= MIN_CUPONES_PORTADA;
 function cuponesZona(z){ return negocios().filter(b => b.zonas.includes(z)).reduce((s,b) => s + cupDe(b).length, 0); }
-function zonasVisibles(){ return ZONAS.filter(z => z !== ZONA_OTRA && porZona(z) >= minFichas()); }
+function zonasVisibles(){ return ZONAS.filter(z => z !== ZONA_OTRA && statsZona(z).completos >= minFichas()); }
 function zonasPronto(){ const v = zonasVisibles(); return MACROS.map(m => ({nombre:m.nombre, zonas:m.zonas.filter(z => !v.includes(z))})).filter(m => m.zonas.length); }
 /* Chips de zona agrupados por macrozona (si solo hay una macrozona activa salen sin título), más la línea de "Próximamente" */
 function chipsZona(attr, sel, conteo){
   const v = zonasVisibles(), macs = MACROS.map(m => ({id:m.id, nombre:m.nombre, zonas:m.zonas.filter(z => v.includes(z))})).filter(m => m.zonas.length);
   const chip = (val, txt, on, n) => `<button class="chip" data-${attr}="${val}" aria-pressed="${on}">${txt}${n ? ` <small>${n}</small>` : ""}</button>`;
-  const zchip = z => chip(z, z, sel === z, conteo ? (realesZona(z) || porZona(z)) : "");
+  const zchip = z => chip(z, z, sel === z, conteo ? (realesZona(z) || "") : "");
   const todas = chip("", "Todas las zonas", !sel);
   if(macs.length <= 1) return todas + (macs[0] ? macs[0].zonas.map(zchip).join("") : ""); // con una sola macrozona activa, las zonas van directas
   const act = sel && sel.startsWith(MP) ? sel.slice(MP.length) : ((macroDe(sel) || {}).id || "");
@@ -852,8 +858,12 @@ function zonasChecks(){
     `<div class="zgrp"><p class="macro-tag">Servicio a domicilio o con entrega</p><div class="inline-opts"><label class="opt"><input type="checkbox" name="zonas" id="z-todo" value="${ZONA_TODO}"><span>Atiendo en todo Querétaro<small>También aparezco en las otras zonas.</small></span></label></div></div>`;
 }
 /* Para mostrar: cuenta solo negocios reales (con WhatsApp); los lugares de referencia no se presumen como negocios */
-function realesZona(z){ return negocios().filter(b => !b.referencia && b.zonas.includes(z)).length; }
-function textoZona(z){ const r = realesZona(z); return r ? r + (r === 1 ? " negocio" : " negocios") : porZona(z) + (porZona(z) === 1 ? " lugar" : " lugares"); }
+function realesZona(z){ return statsZona(z).total; }
+function textoZona(z){
+  const s = statsZona(z); if(!s.total) return s.refs + (s.refs === 1 ? " lugar" : " lugares");
+  const p = []; if(s.local) p.push(s.local + " en la zona"); if(s.dom) p.push(s.dom + " a domicilio");
+  return s.total + (s.total === 1 ? " negocio" : " negocios") + " · " + p.join(", ");
+}
 /* Igual que las zonas: una categoría aparece en el menú cuando tiene 3 negocios o más (el registro siempre muestra todas) */
 function porCat(c){ return negocios().filter(b => b.categoria === c).length; }
 function catsVisibles(sel){ return CATEGORIAS.filter(c => porCat(c.id) >= minFichas() || c.id === sel); }
@@ -920,7 +930,7 @@ function vInicio(){
     <div>
       <p class="eyebrow">Querétaro</p>
       <h1>Encuentra negocios, servicios y promos en tu misma zona.</h1>
-      <p class="lead">Plomeros, comida a domicilio y emprendedores de tu zona en Querétaro. Empezamos en el norte (Zibatá, Zakia, Juriquilla, El Refugio) y sumamos más zonas. Escríbeles directo por WhatsApp, sin intermediarios.</p>
+      <p class="lead">Plomeros, comida a domicilio y emprendedores de Querétaro, y seguimos sumando zonas. Escríbeles directo por WhatsApp, sin intermediarios.</p>
       <p class="muted" style="font-weight:600">Contacto directo · Sin comisiones · La palomita marca los verificados</p>
       <form class="search" id="fBuscar" role="search">
         <input id="q" type="search" placeholder="Ej. plomero, pasteles…" aria-label="¿Qué necesitas hoy? Buscar negocios">
@@ -1059,9 +1069,12 @@ function vCupones(){
 }
 
 const slugNeg = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+/* Ids antiguos que llevaban un correo (SQL 27). Se guardan como huella para no repetir el dato; sus ligas viejas (#n-…) siguen abriendo la ficha con el id nuevo. */
+const ID_ANTERIORES = {"357297e5":"n-99344d46d5", "1ed6c479":"n-8419e1aa30", "10c3f727":"n-702ae7e48f"};
+const huella = t => { let h = 0x811c9dc5; for(let i = 0; i < t.length; i++){ h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16); };
 function refNegocio(ref){ // una liga puede traer el id o el nombre ("#n-cafe-real"): el id siempre funciona, aunque el negocio cambie de nombre
   const l = negocios();
-  return l.find(x => x.id === ref) || l.find(x => slugNeg(x.nombre) === ref) || null;
+  return l.find(x => x.id === ref) || l.find(x => slugNeg(x.nombre) === ref) || (ID_ANTERIORES[huella(String(ref))] ? l.find(x => x.id === ID_ANTERIORES[huella(String(ref))]) : null) || null;
 }
 function enlaceNeg(b){ const s = slugNeg(b.nombre); return s && negocios().filter(x => slugNeg(x.nombre) === s).length === 1 ? s : b.id; }
 function vNegocio(id){
@@ -1542,24 +1555,24 @@ function compDe(b){
 function conteoZonas(lista){
   const reales = lista.filter(b => b.estado === "aprobado" && !b.referencia && Array.isArray(b.zonas));
   return ZONAS.filter(z => z !== ZONA_OTRA).concat([ZONA_OTRA]).filter((z, i, a) => a.indexOf(z) === i).map(z => {
-    const l = reales.filter(b => b.zonas.includes(z)), c = l.map(compDe);
-    return {zona:z, macro:(macroDe(z) || {}).nombre || "Todas las zonas", total:l.length, ok:c.filter(x => x.ok).length, h:c.filter(x => x.h).length, d:c.filter(x => x.d).length, w:c.filter(x => x.w).length};
+    const l = reales.filter(b => b.zonas.includes(z)), c = l.map(compDe), loc = l.filter(b => b.tipo === "local");
+    return {zona:z, macro:(macroDe(z) || {}).nombre || "Todas las zonas", total:l.length, ok:c.filter(x => x.ok).length, loc:loc.length, locOk:loc.filter(b => compDe(b).ok).length, h:c.filter(x => x.h).length, d:c.filter(x => x.d).length, w:c.filter(x => x.w).length};
   });
 }
 const pctN = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
 function adminZonas(A){
-  const filas = conteoZonas(A.neg), vis = z => porZona(z) >= minFichas();
+  const filas = conteoZonas(A.neg), vis = z => zonasVisibles().includes(z);
   const sinZona = A.neg.filter(b => b.estado === "aprobado" && !b.referencia && !(b.zonas || []).length).length;
   const reales = A.neg.filter(b => b.estado === "aprobado" && !b.referencia);
   const tot = reales.map(compDe);
   const nego = reales.map(b => ({b, c:compDe(b)})).sort((a, b) => a.c.n - b.c.n || a.b.nombre.localeCompare(b.b.nombre));
   const mk = v => v ? '<span aria-label="sí">✓</span>' : '<b style="color:#B42318" aria-label="falta">✗</b>';
-  return `<p class="muted" style="max-width:66ch">Conteo real: solo negocios publicados (sin lugares de referencia). <b>Ficha completa</b> = horario + descripción de 30 caracteres o más + WhatsApp. Un negocio en varias zonas cuenta en cada una. Meta para abrir una zona: ${minFichas()} fichas completas.</p>
+  return `<p class="muted" style="max-width:66ch">Conteo real: solo negocios publicados (sin lugares de referencia). <b>Ficha completa</b> = horario + descripción de 30 caracteres o más + WhatsApp. Un negocio en varias zonas cuenta en cada una. Meta de reclutamiento por zona: ${minFichas()} <b>locales físicos</b> completos (es meta, no bloquea el lanzamiento). El público ve una zona activa con ${minFichas()} fichas completas de cualquier tipo.</p>
     <div class="stats"><div class="stat"><b>${reales.length}</b><span>Negocios reales publicados</span></div><div class="stat"><b>${tot.filter(x => x.ok).length}</b><span>Fichas completas (${pctN(tot.filter(x => x.ok).length, reales.length)})</span></div><div class="stat"><b>${tot.filter(x => !x.h).length}</b><span>Sin horario</span></div><div class="stat"><b>${tot.filter(x => !x.d).length}</b><span>Sin descripción</span></div><div class="stat"><b>${tot.filter(x => !x.w).length}</b><span>Sin WhatsApp</span></div></div>
     ${sinZona ? `<div class="notice err">${sinZona} negocio(s) publicados sin zona: no salen en ninguna fila.</div>` : ""}
     <h3>Por zona</h3>
-    <div class="tbl-wrap"><table><thead><tr><th>Zona</th><th>Macrozona</th><th class="num">Publicados</th><th class="num">Completas</th><th class="num">% completas</th><th class="num">Con horario</th><th class="num">Con descripción</th><th class="num">Con WhatsApp</th><th>Meta (${minFichas()} completas)</th><th>En el filtro público hoy</th></tr></thead><tbody>
-    ${filas.map(r => `<tr><td>${esc(r.zona)}</td><td>${esc(r.macro)}</td><td class="num">${r.total}</td><td class="num"><b>${r.ok}</b></td><td class="num">${pctN(r.ok, r.total)}</td><td class="num">${r.h}</td><td class="num">${r.d}</td><td class="num">${r.w}</td><td>${r.ok >= minFichas() ? "Lista" : "Faltan " + (minFichas() - r.ok)}</td><td>${r.zona === ZONA_TODO || r.zona === ZONA_OTRA ? "—" : vis(r.zona) ? "Visible" : "Oculta"}</td></tr>`).join("")}
+    <div class="tbl-wrap"><table><thead><tr><th>Zona</th><th>Macrozona</th><th class="num">Publicados</th><th class="num">Completas</th><th class="num">% completas</th><th class="num">Locales físicos</th><th class="num">Locales completos</th><th class="num">Con horario</th><th class="num">Con descripción</th><th class="num">Con WhatsApp</th><th>Meta (${minFichas()} locales completos)</th><th>En el filtro público hoy</th></tr></thead><tbody>
+    ${filas.map(r => `<tr><td>${esc(r.zona)}</td><td>${esc(r.macro)}</td><td class="num">${r.total}</td><td class="num"><b>${r.ok}</b></td><td class="num">${pctN(r.ok, r.total)}</td><td class="num">${r.loc}</td><td class="num"><b>${r.locOk}</b></td><td class="num">${r.h}</td><td class="num">${r.d}</td><td class="num">${r.w}</td><td>${r.zona === ZONA_TODO ? "—" : r.locOk >= minFichas() ? "Lista" : "Faltan " + (minFichas() - r.locOk)}</td><td>${r.zona === ZONA_TODO || r.zona === ZONA_OTRA ? "—" : vis(r.zona) ? "Visible" : "Oculta"}</td></tr>`).join("")}
     </tbody></table></div>
     <p class="muted" style="font-size:.85rem">El filtro público hoy sigue contando todas las fichas publicadas (con o sin datos completos), igual que antes; esta tabla solo mide.</p>
     <h3>Por negocio (las más incompletas primero)</h3>
@@ -2091,7 +2104,7 @@ function eventoCard(e){
   const link = /^https?:\/\//i.test(e.fuente || "") ? e.fuente : "";
   const grande = !!link && e.whatsapp === RESP.wa; // evento tomado de una fuente pública: el WhatsApp sería el nuestro, mejor ir a la fuente
   const org = evPorConf(e.organizador) ? "" : `<span class="meta">Organiza: ${esc(e.organizador)}</span>`;
-  const hora = evPorConf(e.hora) ? "" : ", " + esc(e.hora);
+  const hora = evPorConf(e.hora) ? ', <b>hora por confirmar</b>' : ", " + esc(e.hora);
   const precio = evGratis(e) ? '<span class="badge b-gratis">Gratis</span>' : evPorConf(e.precio) ? "" : `<span class="precio">${esc(e.precio)}</span>`;
   return `<article class="evento${e.destacado ? " dest" : ""}">
     <div class="fecha" aria-label="${rango ? esc(rangoEv(e)) : dia + " de " + mes}"><i>${sem}</i><b>${dia}</b><span>${mes}</span>${rango ? `<small>al ${+e.fecha_fin.slice(8)} ${MESES[+e.fecha_fin.slice(5,7) - 1]}</small>` : ""}</div>

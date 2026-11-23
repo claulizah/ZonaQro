@@ -465,3 +465,63 @@ begin
 end $$;
 revoke all on function public.registrar_evento(text, text) from public;
 grant execute on function public.registrar_evento(text, text) to anon, authenticated;
+
+-- ===== 27. Quitar correos de las ligas de los negocios (renombrar ids) =====
+-- QUÉ HACE: a los negocios cuyo id contiene un correo (gmail, hotmail, outlook, yahoo, icloud o "@") les pone un id nuevo
+--   neutro ("n-" + 10 caracteres). Reseñas, ediciones y métricas se mueven con ellos.
+-- ANTES DE CAMBIAR NADA guarda un respaldo completo de cada fila en public.respaldo_ids_27 (negocio, reseñas, ediciones y
+--   métricas). Esa tabla queda cerrada al público (RLS sin políticas); solo la ves tú en el SQL Editor.
+-- IDEMPOTENTE: si lo corres otra vez, no vuelve a tocar lo ya renombrado.
+-- ORDEN: córrelo ANTES de corregir los nombres a mano. No cambia nombres ni descripciones.
+-- LIGAS VIEJAS: el sitio traduce los ids viejos a los nuevos (#n-<id viejo> sigue abriendo la ficha).
+-- DESHACER: al final hay un bloque comentado.
+create table if not exists public.respaldo_ids_27 (
+  id_anterior text primary key,
+  id_nuevo    text not null,
+  negocio     jsonb not null,
+  resenas     jsonb not null default '[]'::jsonb,
+  ediciones   jsonb not null default '[]'::jsonb,
+  metricas    jsonb not null default '[]'::jsonb,
+  creado      timestamptz not null default now()
+);
+alter table public.respaldo_ids_27 enable row level security;
+revoke all on public.respaldo_ids_27 from public, anon, authenticated;
+
+-- Las llaves foráneas hacia negocios(id) no seguían cambios de id: se recrean con "on update cascade".
+do $$ declare r record; begin
+  for r in select c.conrelid::regclass::text as tabla, c.conname from pg_constraint c
+           where c.contype = 'f' and c.confrelid = 'public.negocios'::regclass and c.confupdtype <> 'c' loop
+    execute format('alter table %s drop constraint %I', r.tabla, r.conname);
+    execute format('alter table %s add constraint %I foreign key (negocio_id) references public.negocios(id) on update cascade on delete cascade', r.tabla, r.conname);
+  end loop;
+end $$;
+
+do $$ declare r record; nuevo text; begin
+  for r in select id from public.negocios
+           where id ~* '(^|-)(gmail|hotmail|outlook|yahoo|icloud)(-|$)' or id like '%@%' loop
+    nuevo := 'n-' || substr(md5(r.id), 1, 10);
+    if exists (select 1 from public.respaldo_ids_27 where id_anterior = r.id) then continue; end if;
+    insert into public.respaldo_ids_27 (id_anterior, id_nuevo, negocio, resenas, ediciones, metricas)
+    select r.id, nuevo,
+      (select to_jsonb(n) from public.negocios n where n.id = r.id),
+      coalesce((select jsonb_agg(to_jsonb(x)) from public.resenas x where x.negocio_id = r.id), '[]'::jsonb),
+      coalesce((select jsonb_agg(to_jsonb(x)) from public.ediciones x where x.negocio_id = r.id), '[]'::jsonb),
+      coalesce((select jsonb_agg(to_jsonb(m)) from public.metricas m
+                where (m.tipo in ('vista','wa','web','cupon') and m.ref = r.id) or (m.tipo = 'compartir' and m.ref like '%:' || r.id)), '[]'::jsonb);
+    update public.negocios set id = nuevo where id = r.id;
+    update public.metricas set ref = nuevo where tipo in ('vista','wa','web','cupon') and ref = r.id;
+    update public.metricas set ref = split_part(ref, ':', 1) || ':' || nuevo where tipo = 'compartir' and ref like '%:' || r.id;
+  end loop;
+end $$;
+
+-- Para revisar el resultado:  select id_anterior is not null as respaldado, id_nuevo from public.respaldo_ids_27;
+
+-- DESHACER (quita los comentarios y córrelo; regresa los ids originales con sus reseñas, ediciones y métricas):
+-- do $$ declare r record; begin
+--   for r in select id_anterior, id_nuevo from public.respaldo_ids_27 loop
+--     update public.negocios set id = r.id_anterior where id = r.id_nuevo;
+--     update public.metricas set ref = r.id_anterior where tipo in ('vista','wa','web','cupon') and ref = r.id_nuevo;
+--     update public.metricas set ref = split_part(ref, ':', 1) || ':' || r.id_anterior where tipo = 'compartir' and ref like '%:' || r.id_nuevo;
+--   end loop;
+-- end $$;
+-- (la tabla respaldo_ids_27 se queda como constancia; bórrala solo cuando estés segura: drop table public.respaldo_ids_27;)
