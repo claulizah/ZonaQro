@@ -565,6 +565,8 @@ update public.negocios set seguimiento = 'enlace_enviado' where seguimiento = 's
 create or replace function public.limitar_envios()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
+  -- Solo aplica a visitantes y sesiones de la app (anon / authenticated). Lo que insertas desde el SQL Editor no se toca.
+  if coalesce(current_setting('role', true), 'none') not in ('anon', 'authenticated') then return new; end if;
   if public.es_admin() then return new; end if;
   new.created_at := now();
   if tg_table_name = 'negocios' then
@@ -598,11 +600,17 @@ alter table public.negocios drop constraint if exists negocios_id_largo;
 alter table public.negocios add constraint negocios_id_largo check (char_length(id) between 2 and 80) not valid;
 
 -- 29b. Métricas: solo se cuentan referencias que existen y con el formato esperado; y un tope de referencias nuevas por tipo y día.
+--   Tipos nuevos: envio_descartado (campo escondido o envío demasiado rápido) y tope_envios (se activó el límite de la 29a), para verlos en el admin.
+alter table public.metricas drop constraint if exists metricas_tipo_check;
+alter table public.metricas add constraint metricas_tipo_check
+  check (tipo in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir','registro_vista','registro_inicio','registro_envio','registro_error','evento_vista','evento_inicio','evento_envio','otro_envio','utm_visita','utm_wa','utm_registro','envio_descartado','tope_envios'));
 create or replace function public.registrar_evento(p_tipo text, p_ref text default '')
 returns void language plpgsql security definer set search_path = public as $$
 declare v_ref text := left(coalesce(p_ref, ''), 60);
 begin
-  if p_tipo not in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir','registro_vista','registro_inicio','registro_envio','registro_error','evento_vista','evento_inicio','evento_envio','otro_envio','utm_visita','utm_wa','utm_registro') then return; end if;
+  if p_tipo not in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir','registro_vista','registro_inicio','registro_envio','registro_error','evento_vista','evento_inicio','evento_envio','otro_envio','utm_visita','utm_wa','utm_registro','envio_descartado','tope_envios') then return; end if;
+  if p_tipo = 'envio_descartado' and v_ref !~ '^(registro|evento):(trampa|rapido)$' then return; end if;
+  if p_tipo = 'tope_envios' and v_ref !~ '^(negocios|eventos):(hora|whatsapp)$' then return; end if;
   if p_tipo in ('vista','wa','web','cupon') and not exists (select 1 from public.negocios where id = v_ref) then return; end if;
   if p_tipo in ('evento_wa','evento_link') and not exists (select 1 from public.eventos where id = v_ref) then return; end if;
   if p_tipo = 'compartir' and v_ref !~ '^[nep]:[A-Za-z0-9_-]{1,50}$' then return; end if;
@@ -664,3 +672,14 @@ create policy "publico sube fotos" on storage.objects
 --          (select pg_get_functiondef('public.registrar_clic(text)'::regprocedure) like '%clics_ritmo%') as clics_ok,
 --          (select count(*) from pg_policies where policyname = 'publico sube fotos' and with_check like '%jpg%') = 1 as fotos_ok;
 -- Para quitar los límites de envío si estorban:  drop trigger limitar_envios_negocios on public.negocios;  (igual con _eventos y _resenas)
+
+-- DESHACER 29 (quita los comentarios de lo que quieras revertir):
+--   29a límites de envío:   drop trigger limitar_envios_negocios on public.negocios; drop trigger limitar_envios_eventos on public.eventos; drop trigger limitar_envios_resenas on public.resenas;
+--   29d permisos:           grant update, delete on all tables in schema public to anon;   -- (RLS sigue protegiendo)
+--   29e fotos (política original, sin restricciones de ruta):
+--     drop policy if exists "publico sube fotos" on storage.objects;
+--     create policy "publico sube fotos" on storage.objects for insert to anon, authenticated with check (bucket_id = 'fotos');
+--   29c clics (versión original):
+--     create or replace function public.registrar_clic(nid text) returns void language sql security definer set search_path = public
+--       as $f$ update public.negocios set clics = clics + 1 where id = nid and estado = 'aprobado' $f$;
+--   29b métricas: vuelve a correr la sección 26 de este archivo (deja registrar_evento y el filtro de tipos como antes; los tipos nuevos dejarán de contarse).
