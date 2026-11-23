@@ -15,7 +15,7 @@ const fallos = []; let pruebas = 0;
 const ok = (cond, msg) => { pruebas++; if(!cond){ fallos.push(msg); console.log("  ✗ " + msg); } else console.log("  ✓ " + msg); };
 
 async function nuevaPagina(browser, vp){
-  const ctx = await browser.newContext({ viewport: vp }), p = await ctx.newPage(), s = { errores: [], posts: [], rpc: [], fotos: [], rpcs: [], patches: [] };
+  const ctx = await browser.newContext({ viewport: vp, hasTouch: vp.width < 600 }), p = await ctx.newPage(), s = { errores: [], posts: [], rpc: [], fotos: [], rpcs: [], patches: [] };
   p.on("console", m => { if(m.type() === "error" && !/ERR_|Failed to load resource/.test(m.text())) s.errores.push(m.text()); });
   p.on("pageerror", e => s.errores.push(String(e)));
   const json = body => ({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
@@ -134,6 +134,21 @@ async function utm(p, s, nombre){
   s.rpc.filter(x => /^utm_/.test(x.p_tipo)).forEach(x => rutasUtm.add(x.p_tipo + "\t" + x.p_ref));
 }
 
+async function inicios(p, s){
+  await p.goto("https://zonaqro.com/#inicio"); const tactil = await p.evaluate(() => navigator.maxTouchPoints > 0);
+  console.log(" Métricas de inicio de formulario" + (tactil ? " (con toque)" : " (con teclado)"));
+  const escribe = async (sel, txt) => { if(tactil) await p.tap(sel); else await p.click(sel); await p.keyboard.type(txt); await p.waitForTimeout(400); };
+  await p.goto("https://zonaqro.com/#publicar-evento"); await p.waitForSelector("#e-titulo"); await p.waitForTimeout(300);
+  ok(s.rpc.some(x => x.p_tipo === "evento_vista"), "cuenta que abrieron el formulario de evento");
+  ok(!s.rpc.some(x => x.p_tipo === "evento_inicio"), "todavía no cuenta 'empezó' si no han escrito");
+  await escribe("#e-titulo", "Bazar");
+  ok(s.rpc.filter(x => x.p_tipo === "evento_inicio").length === 1, "al escribir cuenta 'empezó' el formulario de evento (una vez)");
+  await escribe("#e-lugar", "Parque");
+  ok(s.rpc.filter(x => x.p_tipo === "evento_inicio").length === 1, "seguir escribiendo no lo cuenta otra vez");
+  await p.goto("about:blank"); await p.goto("https://zonaqro.com/#registrar"); await p.waitForSelector("#r-nombre"); await escribe("#r-nombre", "Mi negocio");
+  ok(s.rpc.some(x => x.p_tipo === "registro_inicio"), "al escribir cuenta 'empezó' el registro de negocio");
+}
+
 async function robots(p, s){
   console.log(" Anti-spam (sin captcha)");
   const llenarReg = async () => { await p.goto("about:blank"); await p.goto("https://zonaqro.com/#registrar"); await p.waitForSelector("#r-nombre");
@@ -157,7 +172,7 @@ async function robots(p, s){
   const browser = await chromium.launch();
   for(const [nombre, vp] of [["celular 390 px", { width: 390, height: 800 }], ["escritorio 1280 px", { width: 1280, height: 900 }]]){
     console.log("\n== " + nombre);
-    const lista = [[registro], [evento], [ficha], [adminFoto], [fotoRegistro], [utm, "ola1-juriquilla"], [utm, "ola1-centro-sur"], [robots]];
+    const lista = [[registro], [evento], [inicios], [ficha], [adminFoto], [fotoRegistro], [utm, "ola1-juriquilla"], [utm, "ola1-centro-sur"], [robots]];
     for(const [prueba, ...args] of lista){
       const { ctx, p, s } = await nuevaPagina(browser, vp);
       try{ await prueba(p, s, ...args); }catch(e){ ok(false, "la prueba se rompió: " + String(e.message).split("\n")[0]); }
