@@ -524,7 +524,7 @@ begin
     get diagnostics k = row_count; n_met := n_met + k;
   end loop;
 
-  if ensayo then
+  if ensayo and n_neg > 0 then   -- sin nada que renombrar no hay error: así se puede volver a correr todo el archivo
     raise exception 'ENSAYO - no se guardó nada. Negocios que se renombrarían: %. Reseñas que se moverían con ellos: %. Ediciones: %. Filas de métricas: %. Para ejecutar de verdad, cambia "ensayo constant boolean := true" por false.', n_neg, n_res, n_edi, n_met;
   end if;
   raise notice 'Listo. Negocios renombrados: %, reseñas: %, ediciones: %, filas de métricas: %.', n_neg, n_res, n_edi, n_met;
@@ -552,3 +552,115 @@ alter table public.negocios add constraint negocios_seguimiento_check
 -- A los negocios a los que ya les mandaste el enlace (tienen "último contacto") se les marca "enlace_enviado" una sola vez.
 update public.negocios set seguimiento = 'enlace_enviado' where seguimiento = 'sin_contactar' and ultimo_contacto is not null;
 
+
+-- ===== 29. Seguridad: límite de envíos, campos internos, métricas y clics, fotos, permisos =====
+-- Cada parte (29a a 29e) es independiente e idempotente: puedes correr solo las que apruebes.
+-- Nada de esto cambia lo que ve o hace una persona normal; solo frena abusos. Todo lo que hace la administradora queda igual.
+
+-- 29a. Límite de envíos (sin captcha) y campos de uso interno.
+--   Negocios y eventos: máximo 5 envíos por WhatsApp en 24 horas y 40 por hora en total. Opiniones: 60 por hora en total.
+--   (El tope por hora en total puede frenar a personas reales si alguien satura: se vería "intenta en un rato".)
+--   En negocios, los campos internos se ponen siempre en su valor inicial, mande lo que mande el formulario público
+--   (seguimiento, notas, token_edicion, último contacto/reporte, pedidos, aperturas). La fecha de creación la pone el servidor.
+create or replace function public.limitar_envios()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if public.es_admin() then return new; end if;
+  new.created_at := now();
+  if tg_table_name = 'negocios' then
+    new.token_edicion := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
+    new.seguimiento := 'sin_contactar'; new.notas := ''; new.ultimo_contacto := null; new.ultimo_reporte := null;
+    new.pedidos_ficha := 0; new.aperturas := 0; new.enlace_abierto := null;
+    if (select count(*) from public.negocios where whatsapp = new.whatsapp and created_at > now() - interval '1 day') >= 5 then
+      raise exception 'Demasiados envíos con este WhatsApp. Escríbenos por WhatsApp y te ayudamos.'; end if;
+    if (select count(*) from public.negocios where origen = 'registro' and created_at > now() - interval '1 hour') >= 40 then
+      raise exception 'Hay muchos envíos en este momento. Intenta de nuevo en un rato.'; end if;
+  elsif tg_table_name = 'eventos' then
+    if (select count(*) from public.eventos where whatsapp = new.whatsapp and created_at > now() - interval '1 day') >= 5 then
+      raise exception 'Demasiados envíos con este WhatsApp. Escríbenos por WhatsApp y te ayudamos.'; end if;
+    if (select count(*) from public.eventos where created_at > now() - interval '1 hour') >= 40 then
+      raise exception 'Hay muchos envíos en este momento. Intenta de nuevo en un rato.'; end if;
+  elsif tg_table_name = 'resenas' then
+    if (select count(*) from public.resenas where created_at > now() - interval '1 hour') >= 60 then
+      raise exception 'Hay muchos envíos en este momento. Intenta de nuevo en un rato.'; end if;
+  end if;
+  return new;
+end $$;
+revoke all on function public.limitar_envios() from public, anon, authenticated;
+drop trigger if exists limitar_envios_negocios on public.negocios;
+create trigger limitar_envios_negocios before insert on public.negocios for each row execute function public.limitar_envios();
+drop trigger if exists limitar_envios_eventos on public.eventos;
+create trigger limitar_envios_eventos before insert on public.eventos for each row execute function public.limitar_envios();
+drop trigger if exists limitar_envios_resenas on public.resenas;
+create trigger limitar_envios_resenas before insert on public.resenas for each row execute function public.limitar_envios();
+-- Los ids de negocio no pueden ser enormes (NOT VALID: no revisa los existentes, solo los nuevos).
+alter table public.negocios drop constraint if exists negocios_id_largo;
+alter table public.negocios add constraint negocios_id_largo check (char_length(id) between 2 and 80) not valid;
+
+-- 29b. Métricas: solo se cuentan referencias que existen y con el formato esperado; y un tope de referencias nuevas por tipo y día.
+create or replace function public.registrar_evento(p_tipo text, p_ref text default '')
+returns void language plpgsql security definer set search_path = public as $$
+declare v_ref text := left(coalesce(p_ref, ''), 60);
+begin
+  if p_tipo not in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir','registro_vista','registro_inicio','registro_envio','registro_error','evento_vista','evento_inicio','evento_envio','otro_envio','utm_visita','utm_wa','utm_registro') then return; end if;
+  if p_tipo in ('vista','wa','web','cupon') and not exists (select 1 from public.negocios where id = v_ref) then return; end if;
+  if p_tipo in ('evento_wa','evento_link') and not exists (select 1 from public.eventos where id = v_ref) then return; end if;
+  if p_tipo = 'compartir' and v_ref !~ '^[nep]:[A-Za-z0-9_-]{1,50}$' then return; end if;
+  if p_tipo like 'utm\_%' and v_ref !~ '^[a-z0-9_-]{0,20}\|[a-z0-9_-]{0,12}\|[a-z0-9_-]{0,24}$' then return; end if;
+  if not exists (select 1 from public.metricas m where m.dia = current_date and m.tipo = p_tipo and m.ref = v_ref)
+     and (select count(*) from public.metricas m where m.dia = current_date and m.tipo = p_tipo) >= 300 then return; end if;
+  insert into public.metricas (dia, tipo, ref, n) values (current_date, p_tipo, v_ref, 1)
+  on conflict (dia, tipo, ref) do update set n = public.metricas.n + 1;
+end $$;
+revoke all on function public.registrar_evento(text, text) from public;
+grant execute on function public.registrar_evento(text, text) to anon, authenticated;
+
+-- 29c. Clics a WhatsApp: máximo 30 por minuto por negocio (una persona normal nunca llega a eso).
+create table if not exists public.clics_ritmo (
+  negocio_id text not null,
+  minuto     timestamptz not null,
+  n          integer not null default 0,
+  primary key (negocio_id, minuto)
+);
+alter table public.clics_ritmo enable row level security;
+revoke all on public.clics_ritmo from public, anon, authenticated;
+create or replace function public.registrar_clic(nid text)
+returns void language plpgsql security definer set search_path = public as $$
+declare v integer;
+begin
+  if not exists (select 1 from public.negocios where id = nid and estado = 'aprobado') then return; end if;
+  insert into public.clics_ritmo (negocio_id, minuto, n) values (nid, date_trunc('minute', now()), 1)
+  on conflict (negocio_id, minuto) do update set n = public.clics_ritmo.n + 1 returning n into v;
+  if v > 30 then return; end if;
+  update public.negocios set clics = clics + 1 where id = nid and estado = 'aprobado';
+  if random() < 0.01 then delete from public.clics_ritmo where minuto < now() - interval '1 day'; end if;
+end $$;
+revoke all on function public.registrar_clic(text) from public;
+grant execute on function public.registrar_clic(text) to anon, authenticated;
+
+-- 29d. Permisos: el público no necesita actualizar ni borrar nada directamente (lo hacen las funciones). Defensa extra además de RLS.
+revoke update, delete, truncate on all tables in schema public from anon;
+
+-- 29e. Fotos: solo rutas con la forma <id>/<número>-<letras>.jpg (la que usa el sitio), máximo 12 por carpeta y 150 por hora en total.
+--   La administradora sigue pudiendo subir y borrar lo que sea. Si algún día cambia la forma de las rutas, esta política hay que ajustarla.
+create or replace function public.fotos_en_carpeta(carpeta text)
+returns integer language sql security definer stable set search_path = public, storage as $$
+  select count(*)::int from storage.objects where bucket_id = 'fotos' and split_part(name, '/', 1) = carpeta $$;
+create or replace function public.fotos_ultima_hora()
+returns integer language sql security definer stable set search_path = public, storage as $$
+  select count(*)::int from storage.objects where bucket_id = 'fotos' and created_at > now() - interval '1 hour' $$;
+revoke all on function public.fotos_en_carpeta(text), public.fotos_ultima_hora() from public;
+grant execute on function public.fotos_en_carpeta(text), public.fotos_ultima_hora() to anon, authenticated;
+drop policy if exists "publico sube fotos" on storage.objects;
+create policy "publico sube fotos" on storage.objects
+  for insert to anon, authenticated
+  with check (bucket_id = 'fotos'
+    and name ~ '^[A-Za-z0-9_-]{2,80}/[0-9]{1,2}-[a-z0-9]{1,8}\.jpg$'
+    and public.fotos_en_carpeta(split_part(name, '/', 1)) < 12
+    and public.fotos_ultima_hora() < 150);
+
+-- Para comprobar que quedó (cada fila debe decir true):
+--   select (select count(*) from pg_trigger where tgname like 'limitar_envios_%') = 3 as triggers_ok,
+--          (select pg_get_functiondef('public.registrar_clic(text)'::regprocedure) like '%clics_ritmo%') as clics_ok,
+--          (select count(*) from pg_policies where policyname = 'publico sube fotos' and with_check like '%jpg%') = 1 as fotos_ok;
+-- Para quitar los límites de envío si estorban:  drop trigger limitar_envios_negocios on public.negocios;  (igual con _eventos y _resenas)
