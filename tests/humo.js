@@ -21,6 +21,7 @@ async function nuevaPagina(browser, vp){
   const json = body => ({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   await p.route("https://zonaqro.com/**", r => r.fulfill(r.request().url().includes("/rest/") ? json([]) : { status: 200, contentType: "text/html", body: html }));
   await p.route("https://fonts.*/**", r => r.fulfill({ status: 200, body: "" }));
+  await p.route("**/rest/v1/**", r => r.fulfill(json([]))); // lo que no se simule abajo se contesta vacío: ninguna prueba debe llegar al Supabase real
   await p.route("**/rest/v1/negocios*", r => { if(r.request().method() === "POST"){ s.posts.push(["negocios", JSON.parse(r.request().postData())]); r.fulfill({ status: 201, body: "" }); } else r.fulfill(json([])); });
   await p.route("**/rest/v1/eventos*", r => { if(r.request().method() === "POST"){ s.posts.push(["eventos", JSON.parse(r.request().postData())]); r.fulfill({ status: 201, body: "" }); } else r.fulfill(json([])); });
   await p.route("**/rest/v1/resenas*", r => r.fulfill(json([])));

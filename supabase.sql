@@ -683,3 +683,25 @@ create policy "publico sube fotos" on storage.objects
 --     create or replace function public.registrar_clic(nid text) returns void language sql security definer set search_path = public
 --       as $f$ update public.negocios set clics = clics + 1 where id = nid and estado = 'aprobado' $f$;
 --   29b métricas: vuelve a correr la sección 26 de este archivo (deja registrar_evento y el filtro de tipos como antes; los tipos nuevos dejarán de contarse).
+
+-- ===== 32. Gasto de campañas (captura manual; solo la administradora) =====
+-- Una fila por captura: campaña (el utm_campaign del enlace), fecha de inicio, fecha de fin y monto en pesos. Puede haber varias por campaña.
+-- Los registros y clics para calcular el costo salen de las métricas del sitio (utm_registro, utm_wa), no de Meta.
+-- El público no puede ver ni escribir nada aquí (RLS solo para la administradora).
+create table if not exists public.gastos_campana (
+  id         uuid primary key default gen_random_uuid(),
+  campana    text not null check (campana ~ '^[a-z0-9_-]{1,24}$'),
+  desde      date not null,
+  hasta      date not null,
+  monto      numeric(12,2) not null check (monto > 0 and monto <= 1000000),
+  created_at timestamptz not null default now(),
+  check (hasta >= desde and hasta - desde <= 366)
+);
+create index if not exists gastos_campana_idx on public.gastos_campana (campana, desde);
+alter table public.gastos_campana enable row level security;
+revoke all on public.gastos_campana from public, anon;
+drop policy if exists "admin gastos" on public.gastos_campana;
+create policy "admin gastos" on public.gastos_campana
+  for all to authenticated using (public.es_admin()) with check (public.es_admin());
+-- DESHACER:  drop table public.gastos_campana;   (borra las capturas)
+

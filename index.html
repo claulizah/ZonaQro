@@ -702,6 +702,76 @@ document.addEventListener("change", async e => {
   try{ const r = await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:{seguimiento:s.value}, prefer:"return=representation"}); if(!r || !r.length) throw new Error("no se aplicó (¿entraste como administradora?)"); b.seguimiento = s.value; toast("Guardado: " + SEG[s.value]); render(); }
   catch(err){ b.seguimiento = antes; s.value = antes; s.disabled = false; toast("No se pudo guardar: " + err.message); }
 });
+/* ===== Admin: gasto de campañas y costo por registro =====
+   El gasto se captura a mano (campaña = el utm_campaign del enlace, fechas y monto; puede haber varias capturas por campaña).
+   Los registros, clics a WhatsApp y visitas salen del propio sitio (métricas utm_*), solo de los días de la captura. No se importa nada de Meta. */
+const peso = n => new Intl.NumberFormat("es-MX", {style:"currency", currency:"MXN"}).format(n);
+const campanaDe = ref => String(ref || "").split("|")[2] || "";
+function fusionarRangos(rs){ // une rangos de fechas que se empalman o se tocan, para no contar dos veces los mismos días
+  const o = rs.slice().sort((a, b) => a[0].localeCompare(b[0])), out = [];
+  for(const [d, h] of o){ const u = out[out.length - 1]; if(u && d <= sumaDias(u[1], 1)){ if(h > u[1]) u[1] = h; } else out.push([d, h]); }
+  return out;
+}
+function gastoPorCampana(A){
+  const gs = A.gastos || [], M = A.metLargo || [], por = {};
+  gs.forEach(g => { (por[g.campana] = por[g.campana] || []).push(g); });
+  return Object.entries(por).map(([c, l]) => {
+    const rangos = fusionarRangos(l.map(g => [g.desde, g.hasta])), dentro = d => rangos.some(([a, b]) => d >= a && d <= b);
+    const suma = tipo => M.filter(m => m.tipo === tipo && campanaDe(m.ref) === c && dentro(m.dia)).reduce((a, m) => a + m.n, 0);
+    const gasto = l.reduce((a, g) => a + Number(g.monto), 0), reg = suma("utm_registro"), wa = suma("utm_wa");
+    return {campana:c, desde:rangos[0][0], hasta:rangos[rangos.length - 1][1], gasto, visitas:suma("utm_visita"), wa, reg, porReg:reg ? gasto / reg : null, porWa:wa ? gasto / wa : null, n:l.length};
+  }).sort((a, b) => b.hasta.localeCompare(a.hasta));
+}
+function adminGasto(A){
+  if(A.gastos === null) return '<div class="notice err">Falta correr la <b>sección 32</b> de supabase.sql en Supabase para guardar el gasto de campañas.</div>';
+  const filas = gastoPorCampana(A), hoy = hoyISO();
+  const conocidas = [...new Set((A.metLargo || []).filter(m => /^utm_/.test(m.tipo)).map(m => campanaDe(m.ref)).filter(Boolean))].sort();
+  const tot = filas.reduce((t, f) => ({gasto:t.gasto + f.gasto, reg:t.reg + f.reg, wa:t.wa + f.wa}), {gasto:0, reg:0, wa:0});
+  const dash = v => v === null ? "—" : peso(v);
+  return `<p class="muted" style="max-width:68ch">Captura lo que gastaste en cada campaña (el nombre es el <code>utm_campaign</code> del enlace, por ejemplo <code>ola1-juriquilla</code>). Puedes capturar varias veces la misma campaña. Los <b>registros, clics a WhatsApp y visitas</b> salen de las métricas del sitio, solo de los días que captures; no se importa nada de Meta.</p>
+    <form class="reg" id="fGasto" novalidate style="max-width:720px">
+      <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+        <label class="fld" for="g-campana">Campaña<input id="g-campana" list="g-lista" type="text" maxlength="24" placeholder="ola1-juriquilla" autocomplete="off"></label>
+        <label class="fld" for="g-desde">Desde<input id="g-desde" type="date" value="${hoy}"></label>
+        <label class="fld" for="g-hasta">Hasta<input id="g-hasta" type="date" value="${hoy}"></label>
+        <label class="fld" for="g-monto">Monto gastado (MXN)<input id="g-monto" type="text" inputmode="decimal" placeholder="600"></label>
+      </div>
+      <datalist id="g-lista">${conocidas.map(c => `<option value="${esc(c)}"></option>`).join("")}</datalist>
+      <div id="g-err" class="notice err" hidden></div>
+      <div><button class="btn" type="submit">Guardar gasto</button></div>
+    </form>
+    <h3>Costo por campaña</h3>
+    <div class="tbl-wrap"><table id="t-gasto"><thead><tr><th>Campaña</th><th>Periodo capturado</th><th class="num">Gasto</th><th class="num">Visitas</th><th class="num">Clics WhatsApp</th><th class="num">Registros</th><th class="num">Costo / registro</th><th class="num">Costo / clic</th></tr></thead><tbody>
+    ${filas.length ? filas.map(f => `<tr><td>${esc(f.campana)}${f.n > 1 ? ` <small class="muted">(${f.n} capturas)</small>` : ""}</td><td>${esc(f.desde)} a ${esc(f.hasta)}${f.hasta >= hoy ? " <small class=\"muted\">(en curso)</small>" : ""}</td><td class="num">${peso(f.gasto)}</td><td class="num">${f.visitas}</td><td class="num">${f.wa}</td><td class="num"><b>${f.reg}</b></td><td class="num">${f.reg ? "<b>" + peso(f.porReg) + "</b>" : "—"}</td><td class="num">${dash(f.porWa)}</td></tr>`).join("") + `<tr><td><b>Total</b></td><td></td><td class="num"><b>${peso(tot.gasto)}</b></td><td class="num"></td><td class="num"><b>${tot.wa}</b></td><td class="num"><b>${tot.reg}</b></td><td class="num"><b>${tot.reg ? peso(tot.gasto / tot.reg) : "—"}</b></td><td class="num"><b>${tot.wa ? peso(tot.gasto / tot.wa) : "—"}</b></td></tr>` : '<tr><td colspan="8">Todavía no has capturado gasto.</td></tr>'}
+    </tbody></table></div>
+    <p class="muted" style="font-size:.85rem;max-width:70ch">Costo por registro = gasto ÷ registros enviados desde el sitio con esa campaña en esos días. Si hay "—", todavía no hubo registros o clics. Los días de las métricas son de la hora del servidor (UTC): un registro de la noche puede caer en el día siguiente. Si capturas dos periodos que se empalman para la misma campaña, los días se cuentan una sola vez.</p>
+    <h3>Capturas</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>Campaña</th><th>Desde</th><th>Hasta</th><th class="num">Monto</th><th></th></tr></thead><tbody>
+    ${(A.gastos || []).length ? A.gastos.map(g => `<tr><td>${esc(g.campana)}</td><td>${esc(g.desde)}</td><td>${esc(g.hasta)}</td><td class="num">${peso(Number(g.monto))}</td><td><button type="button" class="btn sm danger" data-gdel="${esc(g.id)}" aria-label="Borrar la captura de ${esc(g.campana)} del ${esc(g.desde)}">Borrar</button></td></tr>`).join("") : '<tr><td colspan="5">Sin capturas.</td></tr>'}
+    </tbody></table></div>`;
+}
+const normCampana = t => String(t || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 24); // igual que el sitio arma el utm_campaign
+const montoNum = t => { const n = Number(String(t || "").replace(/[$\s,]/g, "")); return isFinite(n) ? Math.round(n * 100) / 100 : NaN; };
+document.addEventListener("submit", async e => {
+  if(e.target.id !== "fGasto") return; e.preventDefault();
+  const A = estado.admin, er = document.getElementById("g-err"), v = id => document.getElementById(id).value.trim();
+  const c = normCampana(v("g-campana")), d = v("g-desde"), h = v("g-hasta"), m = montoNum(v("g-monto")), err = [];
+  if(!c) err.push("escribe el nombre de la campaña (solo letras, números, guion y guion bajo)");
+  if(!d || !h) err.push("elige las fechas"); else if(h < d) err.push("la fecha final no puede ser antes de la inicial"); else if(Date.parse(h) - Date.parse(d) > 366 * 864e5) err.push("el periodo no puede pasar de un año");
+  if(!(m > 0)) err.push("el monto debe ser un número mayor que cero"); else if(m > 1000000) err.push("el monto es demasiado grande");
+  if(err.length){ er.hidden = false; er.textContent = "Para guardar: " + err.join(", ") + "."; return; }
+  er.hidden = true; const bt = e.target.querySelector("button[type=submit]"); bt.disabled = true;
+  try{ await sb("/rest/v1/gastos_campana", {method:"POST", body:{campana:c, desde:d, hasta:h, monto:m}, prefer:"return=minimal"}); toast("Gasto guardado: " + c); await cargarAdmin(); render(); }
+  catch(x){ er.hidden = false; er.textContent = "No se pudo guardar: " + x.message; bt.disabled = false; }
+});
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-gdel]"); if(!b) return;
+  const g = (estado.admin.gastos || []).find(x => x.id === b.dataset.gdel); if(!g) return;
+  if(!confirm("¿Borrar la captura de " + g.campana + " (" + g.desde + " a " + g.hasta + ", " + peso(Number(g.monto)) + ")? No se puede deshacer.")) return;
+  b.disabled = true;
+  try{ await sb("/rest/v1/gastos_campana?id=eq." + encodeURIComponent(g.id), {method:"DELETE", prefer:"return=minimal"}); toast("Captura borrada"); await cargarAdmin(); render(); }
+  catch(x){ b.disabled = false; toast("No se pudo borrar: " + x.message); }
+});
 function embudo(M){
   const s = t => M.filter(m => m.tipo === t).reduce((a, m) => a + m.n, 0);
   const pct = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
@@ -713,6 +783,16 @@ function embudo(M){
     ${fila("Publicar evento", s("evento_vista"), s("evento_inicio"), s("evento_envio"))}</tbody></table></div>
     ${s("registro_error") ? `<div class="notice err" style="margin-top:8px">Hubo <b>${s("registro_error")}</b> registro${s("registro_error") === 1 ? "" : "s"} que no se pudo${s("registro_error") === 1 ? "" : "ron"} enviar en los últimos 30 días. Si ves muchos, revisa que corriste el último SQL.</div>` : ""}</div>`;
 }
+/* Trae todas las filas pidiendo páginas hasta que no haya más: así no importa el tope de filas por consulta que tenga Supabase (por omisión 1,000). */
+async function sbPaginado(path){
+  let todo = [], off = 0, antes = "";
+  for(;;){
+    const r = await sb(path + "&limit=1000&offset=" + off); if(!Array.isArray(r) || !r.length) break;
+    const primera = JSON.stringify(r[0]); if(primera === antes) break; // si el servidor ignora "offset" y repite la página, se detiene en vez de dar vueltas
+    antes = primera; todo = todo.concat(r); off += r.length; if(off >= 500000) break;
+  }
+  return todo;
+}
 async function cargarAdmin(){
   const A = estado.admin;
   try{
@@ -721,7 +801,12 @@ async function cargarAdmin(){
   }catch(err){ A.error = err.message; }
   try{ A.edic = await sb("/rest/v1/ediciones?select=*&order=created_at.desc&limit=100"); }catch(err){ A.edic = null; }
   try{ const r = await fetch("eventos-sugeridos.json?v=" + Date.now(), {cache:"no-store"}); A.sug = r.ok ? await r.json() : []; }catch(err){ A.sug = []; }
-  try{ const d = new Date(Date.now() - 30 * 864e5), iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); A.met = await sb("/rest/v1/metricas?select=dia,tipo,ref,n&dia=gte." + iso + "&limit=20000"); }catch(err){ A.met = null; }
+  try{ A.gastos = await sb("/rest/v1/gastos_campana?select=*&order=desde.desc,created_at.desc"); }catch(err){ A.gastos = null; }
+  try{
+    const hace30 = isoDias(30), primera = (A.gastos || []).reduce((m, g) => g.desde < m ? g.desde : m, hace30);
+    A.metLargo = await sbPaginado("/rest/v1/metricas?select=dia,tipo,ref,n&dia=gte." + primera + "&order=dia.desc,tipo.asc,ref.asc"); // desde la captura de gasto más antigua
+    A.met = A.metLargo.filter(m => m.dia >= hace30); // el resto del tablero sigue mirando los últimos 30 días
+  }catch(err){ A.met = null; A.metLargo = null; }
   A.cargado = true;
   if(location.hash === "#admin") render();
 }
@@ -1811,7 +1896,7 @@ function vAdminLive(tab){
     </form></section>`;
   const A = estado.admin;
   if(!A.cargado) return `<section><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1><p class="muted">Cargando…</p></section>`;
-  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas","semana","seguimiento"].includes(tab) ? tab : "solicitudes";
+  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas","semana","seguimiento","gasto"].includes(tab) ? tab : "solicitudes";
   const RS = A.res || [];
   const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente"), pr = RS.filter(x => x.estado === "pendiente");
   const descartados = (() => { try{ return JSON.parse(localStorage.getItem("zq_desc") || "[]"); }catch(e){ return []; } })();
@@ -1845,6 +1930,7 @@ function vAdminLive(tab){
   if(tab === "reportes") cuerpo = adminReportes(A);
   if(tab === "pedir") cuerpo = adminPedir(A);
   if(tab === "semana") cuerpo = tableroSemana(A);
+  if(tab === "gasto") cuerpo = adminGasto(A);
   if(tab === "seguimiento") cuerpo = adminSeguimiento(A);
   if(tab === "cambios") cuerpo = adminCambios(A);
   if(tab === "rechazados"){
@@ -1964,6 +2050,7 @@ function vAdminLive(tab){
       <button class="chip" data-atab="agregar" aria-pressed="${tab==="agregar"}">Agregar negocio</button>
       <button class="chip" data-atab="semana" aria-pressed="${tab==="semana"}">Semana</button>
       <button class="chip" data-atab="seguimiento" aria-pressed="${tab==="seguimiento"}">Seguimiento</button>
+      <button class="chip" data-atab="gasto" aria-pressed="${tab==="gasto"}">Gasto</button>
       <button class="chip" data-atab="metricas" aria-pressed="${tab==="metricas"}">Métricas</button>
       <button class="chip" data-atab="zonas" aria-pressed="${tab==="zonas"}">Zonas</button>
     </div>
