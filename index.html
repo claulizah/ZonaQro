@@ -362,6 +362,12 @@ input[type=file]{max-width:100%}
 .home-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:28px}
 .home-cols .evlado{gap:10px}
 .evlado .sec-head h2{font-size:1.25rem}
+.tres-bloques{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));margin:6px 0 4px}
+.bloque{background:var(--card,#fff);border:1px solid var(--line,#e2e6df);border-radius:16px;padding:14px}
+.bloque .sec-head h2{font-size:1.15rem}.bloque .sec-head p{margin:2px 0 0;font-size:.82rem}
+.bloque .lista{display:grid;gap:8px;margin-top:10px}
+.neg-row .avatar{width:40px;height:40px;border-radius:10px;font-size:.95rem}
+.neg-row small.nota{color:var(--agave);font-weight:600}
 .ev-row{display:flex;gap:10px;align-items:flex-start;padding:10px;background:var(--card,#fff);border:1px solid var(--line,#e2e6df);border-radius:14px;color:inherit;text-decoration:none}
 .ev-row .f{flex:none;width:44px;text-align:center;background:#ece6f6;color:#5b3fa0;border-radius:10px;padding:4px 0;line-height:1.1}
 .ev-row .f b{display:block;font-size:1.2rem}.ev-row .f span{font-size:.68rem;font-weight:700;text-transform:uppercase}
@@ -955,6 +961,28 @@ function bannerReclutar(){
   </aside>`;
 }
 
+/* ===== Portada: tres bloques (Este finde, Nuevos en ZonaQro, Abierto ahora) =====
+   Reutilizan lo que ya existe (agenda, etiqueta "Nuevo en la zona" y "Abierto ahora"). Todos respetan "Mi zona" y solo usan datos reales.
+   "Nuevos" se oculta con menos de 3; "Abierto ahora" solo usa fichas con horario por días; un bloque sin nada no se muestra. */
+const MIN_NUEVOS = 3, FILAS_BLOQUE = 3;
+const esFinde = e => grupoEv(e) === "Este fin de semana" || grupoEv(e) === "Hoy"; // el mismo criterio del filtro "Este finde" de la agenda
+const evEnZona = e => { const z = estado.f.zona; if(!z) return true; if(z.startsWith(MP)){ const m = MACROS.find(x => x.id === z.slice(MP.length)); return !!m && m.zonas.includes(e.zona); } return e.zona === z; };
+function cierraHoy(b){ // "Cierra 6:00 pm" cuando el horario de hoy lo permite; si no, solo "Abierto ahora"
+  const t = (horariosDe(b) || {})[hoyKey()], d = new Date(), m = d.getHours() * 60 + d.getMinutes();
+  return t && mins(t[1]) > mins(t[0]) && m >= mins(t[0]) && m < mins(t[1]) ? "Abierto · cierra " + h12(t[1]) : "Abierto ahora";
+}
+const negMini = (b, nota) => `<a class="ev-row neg-row" href="#n-${esc(enlaceNeg(b))}">${avatarHtml(b)}<div><strong>${esc(nombreTarjeta(b.nombre))}</strong><small>${esc(catNombre(b.categoria))} · ${zonasTxt(b)}</small>${nota ? `<small class="nota">${esc(nota)}</small>` : ""}</div></a>`;
+function bloquesPortada(fav){
+  const zona = estado.f.zona ? nombreFiltro(estado.f.zona) : "Todas las zonas";
+  const finde = eventos().filter(e => esFinde(e) && evEnZona(e)), nuevos = negocios().filter(b => esNuevo(b) && enZona(b)).sort((a, b) => String(b.alta).localeCompare(String(a.alta)));
+  const abiertos = ordenar(negocios().filter(b => !b.referencia && horariosDe(b) && enZona(b) && abiertoAhora(b)), fav);
+  const bloque = (titulo, link, cuerpo) => `<section class="bloque"><div class="sec-head"><div><h2>${titulo}</h2><p class="muted">${esc(zona)}</p></div>${link}</div><div class="lista">${cuerpo}</div></section>`;
+  const b = [];
+  if(finde.length) b.push(bloque("Este finde en tu zona", '<a href="#eventos" data-finde-go>Ver agenda</a>', finde.slice(0, FILAS_BLOQUE).map(eventoMini).join("")));
+  if(nuevos.length >= MIN_NUEVOS) b.push(bloque("Nuevos en ZonaQro", '<a href="#directorio">Ver directorio</a>', nuevos.slice(0, FILAS_BLOQUE).map(x => negMini(x)).join("")));
+  if(abiertos.length) b.push(bloque("Abierto ahora", '<a href="#directorio" data-ahora-go>' + (abiertos.length > FILAS_BLOQUE ? "Ver los " + abiertos.length : "Ver todos") + '</a>', abiertos.slice(0, FILAS_BLOQUE).map(x => negMini(x, cierraHoy(x))).join("")));
+  return {html:b.length ? `<div class="tres-bloques">${b.join("")}</div>` : "", finde:new Set(finde.slice(0, FILAS_BLOQUE))};
+}
 function vInicio(){
   const fav = favoritos();
   const promos = ordenar(negocios().filter(b => (b.promocionado || fav.has(b.id)) && enZona(b)), fav).slice(0,6);
@@ -967,6 +995,8 @@ function vInicio(){
   const evCerca = !proxEv.length && !!zonaSimple(estado.f.zona);
   if(evCerca) proxEv = eventos().slice(0,4);
   const vacio = t => `<div class="empty">${t}</div>`;
+  const tres = sinNada ? {html:"", finde:new Set()} : bloquesPortada(fav);
+  proxEv = proxEv.filter(e => !tres.finde.has(e)); // lo que ya sale en "Este finde" no se repite en "Qué hacer"
   return `
   <section class="hero">
     <div>
@@ -985,6 +1015,8 @@ function vInicio(){
       ${prontoHtml()}
     </div>`}
   </section>
+
+  ${tres.html}
 
   <section>
     <div class="sec-head"><h2>Categorías</h2></div>
@@ -2172,7 +2204,7 @@ function eventoCard(e){
 function vEventos(){
   const f = estado.f;
   const zev = f.zev !== undefined ? f.zev : ""; // la agenda abre en todo Querétaro: casi ningún evento es de un solo fraccionamiento
-  const base = eventos().filter(e => (!f.ev || e.tipo === f.ev) && (!f.finde || grupoEv(e) === "Este fin de semana" || grupoEv(e) === "Hoy"));
+  const base = eventos().filter(e => (!f.ev || e.tipo === f.ev) && (!f.finde || esFinde(e)));
   const orden = (a,b) => (b.destacado?1:0) - (a.destacado?1:0) || inicioEv(a).localeCompare(inicioEv(b));
   let lista = base.filter(e => !zev || e.zona === zev).sort(orden), cerca = false;
   if(!lista.length && zev && base.length){ lista = base.slice().sort(orden); cerca = true; } // la agenda nunca sale vacía
@@ -2404,7 +2436,7 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0,0); })
 /* ===== Eventos ===== */
 document.addEventListener("click", e => {
   if(UTM && e.target.closest('a[href^="https://wa.me/"]')) metricaUtm("utm_wa");
-  const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-fzev],[data-verqr],[data-wa],[data-web],[data-evwa],[data-evlink],[data-compartir],[data-copy],[data-aprobar],[data-rechazar],[data-atab],[data-amet],[data-segf]");
+  const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-fzev],[data-verqr],[data-wa],[data-web],[data-evwa],[data-evlink],[data-compartir],[data-copy],[data-aprobar],[data-rechazar],[data-atab],[data-amet],[data-finde-go],[data-ahora-go],[data-segf]");
   if(!t) return;
   if(t.dataset.compartir){
     const [k, id, cod] = t.dataset.compartir.split(":");
@@ -2450,6 +2482,8 @@ document.addEventListener("click", e => {
     const s = estado.solicitudes.splice(+t.dataset.rechazar, 1)[0];
     guardar("zq_solicitudes", estado.solicitudes); toast("Solicitud rechazada: " + s.nombre); render();
   }
+  else if(t.dataset.findeGo !== undefined){ estado.f.finde = true; }   // el enlace sigue su camino a #eventos con el filtro puesto
+  else if(t.dataset.ahoraGo !== undefined){ estado.f.ahora = true; estado.f.dia = ""; estado.f.hora = ""; }
   else if(t.dataset.segf !== undefined){ segFiltro = t.dataset.segf; render(); }
   else if(t.dataset.atab){ adminTab = t.dataset.atab; render(); }
   else if(t.dataset.amet){ adminMet = t.dataset.amet; render(); }
