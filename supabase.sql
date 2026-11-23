@@ -525,3 +525,14 @@ end $$;
 --   end loop;
 -- end $$;
 -- (la tabla respaldo_ids_27 se queda como constancia; bórrala solo cuando estés segura: drop table public.respaldo_ids_27;)
+
+-- ===== 28. Estado de seguimiento de cada negocio (solo lo ve la administradora) =====
+-- Estados: sin_contactar, contactado, respondio, ficha_completa, enlace_enviado.
+-- La columna NO se agrega a la lista pública (sección 7): el público no puede leerla.
+alter table public.negocios add column if not exists seguimiento text not null default 'sin_contactar';
+alter table public.negocios drop constraint if exists negocios_seguimiento_check;
+alter table public.negocios add constraint negocios_seguimiento_check
+  check (seguimiento in ('sin_contactar','contactado','respondio','ficha_completa','enlace_enviado'));
+-- A los negocios a los que ya les mandaste el enlace (tienen "último contacto") se les marca "enlace_enviado" una sola vez.
+update public.negocios set seguimiento = 'enlace_enviado' where seguimiento = 'sin_contactar' and ultimo_contacto is not null;
+

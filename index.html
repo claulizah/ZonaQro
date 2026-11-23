@@ -647,6 +647,48 @@ function campanas(M){
     <p class="muted" style="font-size:.85rem;margin-bottom:8px">Gente que llegó con enlaces tipo <code>?utm_source=…&amp;utm_campaign=…</code>, últimos 30 días. Fuente | medio | campaña.</p>
     <div class="tbl-wrap"><table><thead><tr><th>Fuente | medio | campaña</th><th class="num">Visitas</th><th class="num">Clics a WhatsApp</th><th class="num">Registros enviados</th></tr></thead><tbody>${f.length ? f.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="num">${v.utm_visita || 0}</td><td class="num">${v.utm_wa || 0}</td><td class="num">${v.utm_registro || 0}</td></tr>`).join("") : '<tr><td colspan="4">Todavía no llegan visitas con etiquetas UTM.</td></tr>'}</tbody></table></div></div>`;
 }
+/* ===== Admin: tablero semanal ===== */
+const isoDias = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+function tableroSemana(A){
+  const M = A.met; if(!M) return '<div class="empty">Aún no hay métricas. Corre la sección 10 de <b>supabase.sql</b> en Supabase.</div>';
+  const W = [{d:isoDias(6), h:isoDias(0)}, {d:isoDias(13), h:isoDias(7)}], enW = (f, w) => f && f >= W[w].d && f <= W[w].h;
+  const reales = A.neg.filter(b => !b.referencia), porId = {}; reales.forEach(b => { porId[b.id] = b; });
+  const sumaM = (tipo, w, ok) => M.filter(m => m.tipo === tipo && enW(m.dia, w) && (!ok || ok(m))).reduce((a, m) => a + m.n, 0);
+  const regs = (w, z) => reales.filter(b => enW(String(b.created_at || "").slice(0, 10), w) && (!z || (b.zonas || []).includes(z))).length;
+  const dl = (a, b) => a === b ? "=" : (a > b ? "▲ " : "▼ ") + Math.abs(a - b);
+  const celda = (a, b) => `<td class="num"><b>${a}</b> <small class="muted">${dl(a, b)}</small></td>`;
+  const delZona = (z, ref) => { const b = porId[ref]; return !!b && (b.zonas || []).includes(z); };
+  const tot = [["Visitas al sitio", w => sumaM("visita", w)], ["Registros enviados", w => regs(w)], ["Clics a WhatsApp", w => sumaM("wa", w)], ["Fichas vistas", w => sumaM("vista", w)]];
+  const filas = ZONAS.map(z => { const v = [0, 1].map(w => ({r:regs(w, z), c:sumaM("wa", w, m => delZona(z, m.ref)), f:sumaM("vista", w, m => delZona(z, m.ref)), q:sumaM("zona", w, m => m.ref === z)})); return {z, v}; })
+    .filter(x => x.v.some(w => w.r || w.c || w.f || w.q));
+  return `<p class="muted" style="max-width:66ch">Esta semana = últimos 7 días (${W[0].d} al ${W[0].h}). Entre paréntesis, el cambio contra la semana anterior (${W[1].d} al ${W[1].h}). Son conteos anónimos.</p>
+    <div class="stats">${tot.map(([t, f]) => `<div class="stat"><b>${f(0).toLocaleString("es-MX")}</b><span>${t} <small>${dl(f(0), f(1))}</small></span></div>`).join("")}</div>
+    <h3>Por zona</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Registros</th><th class="num">Clics a WhatsApp</th><th class="num">Fichas vistas</th><th class="num">Consultas de la zona</th></tr></thead><tbody>
+    ${filas.length ? filas.map(x => `<tr><td>${esc(x.z)}</td>${celda(x.v[0].r, x.v[1].r)}${celda(x.v[0].c, x.v[1].c)}${celda(x.v[0].f, x.v[1].f)}${celda(x.v[0].q, x.v[1].q)}</tr>`).join("") : '<tr><td colspan="5">Sin movimiento en las dos semanas.</td></tr>'}
+    </tbody></table></div>
+    <p class="muted" style="font-size:.85rem">Registros: negocios enviados por zona (un negocio en varias zonas cuenta en cada una). Clics y fichas vistas: de los negocios que atienden la zona. Consultas: veces que alguien eligió la zona. Las visitas al sitio no se miden por zona.</p>`;
+}
+/* ===== Admin: estado de seguimiento por negocio ===== */
+const SEG = {sin_contactar:"Sin contactar", contactado:"Contactado", respondio:"Respondió", ficha_completa:"Ficha completa", enlace_enviado:"Enlace enviado"};
+let segFiltro = "";
+function adminSeguimiento(A){
+  if(!A.neg.length || !("seguimiento" in A.neg[0])) return '<div class="notice err">Falta correr la <b>sección 28</b> de supabase.sql en Supabase para guardar el estado de seguimiento.</div>';
+  const lista = A.neg.filter(b => b.estado === "aprobado" && !b.referencia).sort((a, b) => Object.keys(SEG).indexOf(a.seguimiento) - Object.keys(SEG).indexOf(b.seguimiento) || a.nombre.localeCompare(b.nombre));
+  const cuenta = k => lista.filter(b => b.seguimiento === k).length, ver = segFiltro ? lista.filter(b => b.seguimiento === segFiltro) : lista;
+  return `<p class="muted" style="max-width:66ch">Cambia el estado de cada negocio con el menú. Solo lo ves tú. "Enlace enviado" se marca solo cuando mandas el enlace desde <b>Pedir datos</b>.</p>
+    <div class="tabs" role="group" aria-label="Filtrar por estado"><button class="chip" data-segf="" aria-pressed="${!segFiltro}">Todos <small>${lista.length}</small></button>${Object.entries(SEG).map(([k, t]) => `<button class="chip" data-segf="${k}" aria-pressed="${segFiltro === k}">${t} <small>${cuenta(k)}</small></button>`).join("")}</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Zonas</th><th class="num">Ficha</th><th>Estado</th><th>Último contacto</th></tr></thead><tbody>
+    ${ver.map(b => `<tr><td>${esc(b.nombre)}</td><td>${esc((b.zonas || []).join(", "))}</td><td class="num">${compDe(b).n}/3</td><td><select data-seg="${esc(b.id)}" style="min-width:10.5rem;min-height:44px" aria-label="Estado de ${esc(b.nombre)}">${Object.entries(SEG).map(([k, t]) => `<option value="${k}"${b.seguimiento === k ? " selected" : ""}>${t}</option>`).join("")}</select></td><td>${esc(b.ultimo_contacto || "—")}</td></tr>`).join("") || '<tr><td colspan="5">Ningún negocio en este estado.</td></tr>'}
+    </tbody></table></div>`;
+}
+document.addEventListener("change", async e => {
+  const s = e.target.closest("[data-seg]"); if(!s) return;
+  const A = estado.admin, id = s.dataset.seg, b = A.neg.find(x => x.id === id); if(!b || !SEG[s.value]) return;
+  const antes = b.seguimiento; s.disabled = true;
+  try{ const r = await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:{seguimiento:s.value}, prefer:"return=representation"}); if(!r || !r.length) throw new Error("no se aplicó (¿entraste como administradora?)"); b.seguimiento = s.value; toast("Guardado: " + SEG[s.value]); render(); }
+  catch(err){ b.seguimiento = antes; s.value = antes; s.disabled = false; toast("No se pudo guardar: " + err.message); }
+});
 function embudo(M){
   const s = t => M.filter(m => m.tipo === t).reduce((a, m) => a + m.n, 0);
   const pct = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
@@ -1491,6 +1533,7 @@ document.addEventListener("click", async e => {
   const a = e.target.closest("[data-ped]"); if(!a) return;
   const A = estado.admin, id = a.dataset.ped, b = A.neg.find(x => x.id === id); if(!b) return;
   const crmPed = "pedidos_ficha" in b, hoy = hoyISO(), cuerpo = {ultimo_contacto:hoy}; if(crmPed) cuerpo.pedidos_ficha = (b.pedidos_ficha || 0) + 1;
+  if(["sin_contactar", "contactado", "respondio"].includes(b.seguimiento)) cuerpo.seguimiento = "enlace_enviado";
   const c = document.querySelector('[data-pedc="' + id + '"]'); if(c) c.textContent = "Enviado · " + hoy; a.remove();
   try{ await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:cuerpo, prefer:"return=minimal"}); Object.assign(b, cuerpo); }catch(err){ toast("No se pudo guardar el envío: " + err.message); }
 });
@@ -1728,7 +1771,7 @@ function vAdminLive(tab){
     </form></section>`;
   const A = estado.admin;
   if(!A.cargado) return `<section><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1><p class="muted">Cargando…</p></section>`;
-  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas"].includes(tab) ? tab : "solicitudes";
+  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas","semana","seguimiento"].includes(tab) ? tab : "solicitudes";
   const RS = A.res || [];
   const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente"), pr = RS.filter(x => x.estado === "pendiente");
   const descartados = (() => { try{ return JSON.parse(localStorage.getItem("zq_desc") || "[]"); }catch(e){ return []; } })();
@@ -1761,6 +1804,8 @@ function vAdminLive(tab){
   if(tab === "editar") cuerpo = adminEditar(A);
   if(tab === "reportes") cuerpo = adminReportes(A);
   if(tab === "pedir") cuerpo = adminPedir(A);
+  if(tab === "semana") cuerpo = tableroSemana(A);
+  if(tab === "seguimiento") cuerpo = adminSeguimiento(A);
   if(tab === "cambios") cuerpo = adminCambios(A);
   if(tab === "rechazados"){
     const rj = A.neg.filter(x => x.estado === "rechazado");
@@ -1841,6 +1886,7 @@ function vAdminLive(tab){
   const reales = A.neg.filter(x => x.estado === "aprobado" && !x.referencia);
   const hoyToca = [
     [pn.length, "negocios por aprobar", "solicitudes"], [pe.length, "eventos por aprobar", "eventos"], [pr.length, "opiniones por revisar", "opiniones"], [sug.length, "eventos sugeridos", "sugeridos"],
+    [reales.filter(b => b.seguimiento === "sin_contactar").length, "negocios sin contactar", "seguimiento"],
     [reales.filter(b => nombreSospechoso(b.nombre)).length, "fichas con correo o teléfono como nombre", "editar"],
     [reales.filter(b => faltasDe(b).length).length, "fichas incompletas", "editar"],
     [colaDe(A).filter(x => x.etapa === "pedir" || x.etapa === "recordar").length, "por pedir datos", "pedir"],
@@ -1875,6 +1921,8 @@ function vAdminLive(tab){
       <button class="chip" data-atab="rechazados" aria-pressed="${tab==="rechazados"}">Rechazados</button>
       <button class="chip" data-atab="prospectos" aria-pressed="${tab==="prospectos"}">Prospectos mimx <small>${prospSi.length}</small></button>
       <button class="chip" data-atab="agregar" aria-pressed="${tab==="agregar"}">Agregar negocio</button>
+      <button class="chip" data-atab="semana" aria-pressed="${tab==="semana"}">Semana</button>
+      <button class="chip" data-atab="seguimiento" aria-pressed="${tab==="seguimiento"}">Seguimiento</button>
       <button class="chip" data-atab="metricas" aria-pressed="${tab==="metricas"}">Métricas</button>
       <button class="chip" data-atab="zonas" aria-pressed="${tab==="zonas"}">Zonas</button>
     </div>
@@ -2356,7 +2404,7 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0,0); })
 /* ===== Eventos ===== */
 document.addEventListener("click", e => {
   if(UTM && e.target.closest('a[href^="https://wa.me/"]')) metricaUtm("utm_wa");
-  const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-fzev],[data-verqr],[data-wa],[data-web],[data-evwa],[data-evlink],[data-compartir],[data-copy],[data-aprobar],[data-rechazar],[data-atab],[data-amet]");
+  const t = e.target.closest("[data-zona],[data-cat],[data-fz],[data-fzev],[data-verqr],[data-wa],[data-web],[data-evwa],[data-evlink],[data-compartir],[data-copy],[data-aprobar],[data-rechazar],[data-atab],[data-amet],[data-segf]");
   if(!t) return;
   if(t.dataset.compartir){
     const [k, id, cod] = t.dataset.compartir.split(":");
@@ -2402,6 +2450,7 @@ document.addEventListener("click", e => {
     const s = estado.solicitudes.splice(+t.dataset.rechazar, 1)[0];
     guardar("zq_solicitudes", estado.solicitudes); toast("Solicitud rechazada: " + s.nombre); render();
   }
+  else if(t.dataset.segf !== undefined){ segFiltro = t.dataset.segf; render(); }
   else if(t.dataset.atab){ adminTab = t.dataset.atab; render(); }
   else if(t.dataset.amet){ adminMet = t.dataset.amet; render(); }
 });
