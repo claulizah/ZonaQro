@@ -1111,8 +1111,8 @@ function vCupones(){
 }
 
 const slugNeg = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-/* Ids antiguos que llevaban un correo (SQL 27). Se guardan como huella para no repetir el dato; sus ligas viejas (#n-…) siguen abriendo la ficha con el id nuevo. */
-const ID_ANTERIORES = {"357297e5":"n-99344d46d5", "1ed6c479":"n-8419e1aa30", "10c3f727":"n-702ae7e48f"};
+/* Ids antiguos que llevaban un correo (SQL 27). Se guardan como huella para no repetir el dato; sus ligas viejas (#n-…, por id o por nombre) siguen abriendo la ficha con el id nuevo. */
+const ID_ANTERIORES = {"2961248":"n-8419e1aa30","357297e5":"n-99344d46d5","83be651":"n-99344d46d5","1ed6c479":"n-8419e1aa30","10c3f727":"n-702ae7e48f","2efdef2d":"n-702ae7e48f"};
 const huella = t => { let h = 0x811c9dc5; for(let i = 0; i < t.length; i++){ h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16); };
 function refNegocio(ref){ // una liga puede traer el id o el nombre ("#n-cafe-real"): el id siempre funciona, aunque el negocio cambie de nombre
   const l = negocios();

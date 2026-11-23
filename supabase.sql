@@ -469,38 +469,47 @@ grant execute on function public.registrar_evento(text, text) to anon, authentic
 -- ===== 27. Quitar correos de las ligas de los negocios (renombrar ids) =====
 -- QUÉ HACE: a los negocios cuyo id contiene un correo (gmail, hotmail, outlook, yahoo, icloud o "@") les pone un id nuevo
 --   neutro ("n-" + 10 caracteres). Reseñas, ediciones y métricas se mueven con ellos.
--- ANTES DE CAMBIAR NADA guarda un respaldo completo de cada fila en public.respaldo_ids_27 (negocio, reseñas, ediciones y
---   métricas). Esa tabla queda cerrada al público (RLS sin políticas); solo la ves tú en el SQL Editor.
+-- MODO ENSAYO: el script trae  ensayo constant boolean := true.  Así no guarda NADA: hace todo dentro de una sola
+--   transacción, cuenta cuántas filas tocaría y termina con un aviso rojo "ENSAYO - no se guardó nada: ..." (ese error es lo
+--   esperado: deshace todo). Para ejecutarlo de verdad, cambia  true  por  false  y córrelo otra vez.
+-- RESPALDO: antes de cambiar nada guarda cada fila completa (negocio, reseñas, ediciones y métricas) en
+--   public.respaldo_ids_27. Esa tabla queda cerrada al público (RLS sin políticas); solo la ves tú en el SQL Editor.
 -- IDEMPOTENTE: si lo corres otra vez, no vuelve a tocar lo ya renombrado.
--- ORDEN: córrelo ANTES de corregir los nombres a mano. No cambia nombres ni descripciones.
+-- ORDEN: 28, merge del PR, y luego este (27). Córrelo ANTES de corregir los nombres a mano. No cambia nombres ni descripciones.
 -- LIGAS VIEJAS: el sitio traduce los ids viejos a los nuevos (#n-<id viejo> sigue abriendo la ficha).
 -- DESHACER: al final hay un bloque comentado.
-create table if not exists public.respaldo_ids_27 (
-  id_anterior text primary key,
-  id_nuevo    text not null,
-  negocio     jsonb not null,
-  resenas     jsonb not null default '[]'::jsonb,
-  ediciones   jsonb not null default '[]'::jsonb,
-  metricas    jsonb not null default '[]'::jsonb,
-  creado      timestamptz not null default now()
-);
-alter table public.respaldo_ids_27 enable row level security;
-revoke all on public.respaldo_ids_27 from public, anon, authenticated;
+do $$
+declare
+  ensayo constant boolean := true;   -- true = ensayo (no guarda nada) | false = ejecutar de verdad
+  r record; nuevo text; k integer;
+  n_neg integer := 0; n_res integer := 0; n_edi integer := 0; n_met integer := 0;
+begin
+  create table if not exists public.respaldo_ids_27 (
+    id_anterior text primary key,
+    id_nuevo    text not null,
+    negocio     jsonb not null,
+    resenas     jsonb not null default '[]'::jsonb,
+    ediciones   jsonb not null default '[]'::jsonb,
+    metricas    jsonb not null default '[]'::jsonb,
+    creado      timestamptz not null default now()
+  );
+  alter table public.respaldo_ids_27 enable row level security;
+  revoke all on public.respaldo_ids_27 from public, anon, authenticated;
 
--- Las llaves foráneas hacia negocios(id) no seguían cambios de id: se recrean con "on update cascade".
-do $$ declare r record; begin
+  -- Las llaves foráneas hacia negocios(id) no seguían cambios de id: se recrean con "on update cascade".
   for r in select c.conrelid::regclass::text as tabla, c.conname from pg_constraint c
            where c.contype = 'f' and c.confrelid = 'public.negocios'::regclass and c.confupdtype <> 'c' loop
     execute format('alter table %s drop constraint %I', r.tabla, r.conname);
     execute format('alter table %s add constraint %I foreign key (negocio_id) references public.negocios(id) on update cascade on delete cascade', r.tabla, r.conname);
   end loop;
-end $$;
 
-do $$ declare r record; nuevo text; begin
   for r in select id from public.negocios
            where id ~* '(^|-)(gmail|hotmail|outlook|yahoo|icloud)(-|$)' or id like '%@%' loop
-    nuevo := 'n-' || substr(md5(r.id), 1, 10);
     if exists (select 1 from public.respaldo_ids_27 where id_anterior = r.id) then continue; end if;
+    nuevo := 'n-' || substr(md5(r.id), 1, 10);
+    n_neg := n_neg + 1;
+    select count(*) into k from public.resenas where negocio_id = r.id;   n_res := n_res + k;
+    select count(*) into k from public.ediciones where negocio_id = r.id; n_edi := n_edi + k;
     insert into public.respaldo_ids_27 (id_anterior, id_nuevo, negocio, resenas, ediciones, metricas)
     select r.id, nuevo,
       (select to_jsonb(n) from public.negocios n where n.id = r.id),
@@ -510,11 +519,18 @@ do $$ declare r record; nuevo text; begin
                 where (m.tipo in ('vista','wa','web','cupon') and m.ref = r.id) or (m.tipo = 'compartir' and m.ref like '%:' || r.id)), '[]'::jsonb);
     update public.negocios set id = nuevo where id = r.id;
     update public.metricas set ref = nuevo where tipo in ('vista','wa','web','cupon') and ref = r.id;
+    get diagnostics k = row_count; n_met := n_met + k;
     update public.metricas set ref = split_part(ref, ':', 1) || ':' || nuevo where tipo = 'compartir' and ref like '%:' || r.id;
+    get diagnostics k = row_count; n_met := n_met + k;
   end loop;
+
+  if ensayo then
+    raise exception 'ENSAYO - no se guardó nada. Negocios que se renombrarían: %. Reseñas que se moverían con ellos: %. Ediciones: %. Filas de métricas: %. Para ejecutar de verdad, cambia "ensayo constant boolean := true" por false.', n_neg, n_res, n_edi, n_met;
+  end if;
+  raise notice 'Listo. Negocios renombrados: %, reseñas: %, ediciones: %, filas de métricas: %.', n_neg, n_res, n_edi, n_met;
 end $$;
 
--- Para revisar el resultado:  select id_anterior is not null as respaldado, id_nuevo from public.respaldo_ids_27;
+-- Para revisar el resultado (después de ejecutarlo de verdad):  select id_nuevo, creado from public.respaldo_ids_27;
 
 -- DESHACER (quita los comentarios y córrelo; regresa los ids originales con sus reseñas, ediciones y métricas):
 -- do $$ declare r record; begin
