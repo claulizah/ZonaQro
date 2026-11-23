@@ -611,10 +611,12 @@ function enviar(tabla, fila, local, vista, box){
     .catch(err => { if(fila.fuente && /fuente/i.test(err.message)){ const f = Object.assign({}, fila); delete f.fuente; return post(f); } throw err; })
     .then(() => { metrica(tabla === "negocios" ? "registro_envio" : tabla === "eventos" ? "evento_envio" : "otro_envio", refOrigen()); if(tabla === "negocios") metricaUtm("utm_registro"); app.innerHTML = vista(true); window.scrollTo(0,0); })
     .catch(err => {
-      if(tabla === "negocios") metrica("registro_error", /zonas/i.test(String(err && err.message)) ? "zona" : /red|network|fetch|timeout/i.test(String(err && err.message)) ? "red" : "otro");
+      const msg = String((err && err.message) || ""), tope = /muchos env[ií]os|demasiados env[ií]os/i.test(msg);
+      if(tope) metrica("tope_envios", (tabla === "negocios" ? "negocios" : "eventos") + ":" + (/whatsapp/i.test(msg) ? "whatsapp" : "hora")); // el límite de envíos (SQL 29) se activó: se avisa en el admin
+      else if(tabla === "negocios") metrica("registro_error", /zonas/i.test(msg) ? "zona" : /red|network|fetch|timeout/i.test(msg) ? "red" : "otro");
       box.hidden = false;
       const lk = contactoHref("Hola, no pude enviar mi registro en ZonaQro" + (fila.nombre ? " (" + fila.nombre + ")" : "") + ". ¿Me ayudas?");
-      box.innerHTML = "No pudimos enviar tu solicitud. Revisa tu conexión e intenta de nuevo." + (lk ? ' Si sigue fallando, <a href="' + esc(lk) + '" target="_blank" rel="noopener">escríbenos por WhatsApp</a> y te ayudamos.' : "");
+      box.innerHTML = (tope ? esc(msg) : "No pudimos enviar tu solicitud. Revisa tu conexión e intenta de nuevo.") + (lk ? ' Si sigue fallando, <a href="' + esc(lk) + '" target="_blank" rel="noopener">escríbenos por WhatsApp</a> y te ayudamos.' : "");
       if(btn) btn.disabled = false;
     });
 }
@@ -649,6 +651,10 @@ function campanas(M){
 }
 /* ===== Admin: tablero semanal ===== */
 const isoDias = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+function avisoTope(A){
+  const n = (A.met || []).filter(m => m.tipo === "tope_envios" && m.dia >= isoDias(1)).reduce((a, m) => a + m.n, 0);
+  return n ? `<div class="notice err" role="alert"><b>Se activó el tope de envíos ${n === 1 ? "1 vez" : n + " veces"} (hoy o ayer).</b> Alguien no pudo enviar su registro o evento. Mira la pestaña <button class="chip" data-atab="semana" aria-pressed="false">Semana</button>: si no fue un ataque, puede estar frenando a gente real. Se ajusta en la sección 29a de supabase.sql.</div>` : "";
+}
 function tableroSemana(A){
   const M = A.met; if(!M) return '<div class="empty">Aún no hay métricas. Corre la sección 10 de <b>supabase.sql</b> en Supabase.</div>';
   const W = [{d:isoDias(6), h:isoDias(0)}, {d:isoDias(13), h:isoDias(7)}], enW = (f, w) => f && f >= W[w].d && f <= W[w].h;
@@ -658,7 +664,7 @@ function tableroSemana(A){
   const dl = (a, b) => a === b ? "=" : (a > b ? "▲ " : "▼ ") + Math.abs(a - b);
   const celda = (a, b) => `<td class="num"><b>${a}</b> <small class="muted">${dl(a, b)}</small></td>`;
   const delZona = (z, ref) => { const b = porId[ref]; return !!b && (b.zonas || []).includes(z); };
-  const tot = [["Visitas al sitio", w => sumaM("visita", w)], ["Registros enviados", w => regs(w)], ["Clics a WhatsApp", w => sumaM("wa", w)], ["Fichas vistas", w => sumaM("vista", w)]];
+  const tot = [["Envíos descartados por anti-spam", w => sumaM("envio_descartado", w)], ["Veces que se activó el tope de envíos", w => sumaM("tope_envios", w)], ["Visitas al sitio", w => sumaM("visita", w)], ["Registros enviados", w => regs(w)], ["Clics a WhatsApp", w => sumaM("wa", w)], ["Fichas vistas", w => sumaM("vista", w)]];
   const filas = ZONAS.map(z => { const v = [0, 1].map(w => ({r:regs(w, z), c:sumaM("wa", w, m => delZona(z, m.ref)), f:sumaM("vista", w, m => delZona(z, m.ref)), q:sumaM("zona", w, m => m.ref === z)})); return {z, v}; })
     .filter(x => x.v.some(w => w.r || w.c || w.f || w.q));
   return `<p class="muted" style="max-width:66ch">Esta semana = últimos 7 días (${W[0].d} al ${W[0].h}). Entre paréntesis, el cambio contra la semana anterior (${W[1].d} al ${W[1].h}). Son conteos anónimos.</p>
@@ -667,6 +673,7 @@ function tableroSemana(A){
     <div class="tbl-wrap"><table><thead><tr><th>Zona</th><th class="num">Registros</th><th class="num">Clics a WhatsApp</th><th class="num">Fichas vistas</th><th class="num">Consultas de la zona</th></tr></thead><tbody>
     ${filas.length ? filas.map(x => `<tr><td>${esc(x.z)}</td>${celda(x.v[0].r, x.v[1].r)}${celda(x.v[0].c, x.v[1].c)}${celda(x.v[0].f, x.v[1].f)}${celda(x.v[0].q, x.v[1].q)}</tr>`).join("") : '<tr><td colspan="5">Sin movimiento en las dos semanas.</td></tr>'}
     </tbody></table></div>
+    <p class="muted" style="font-size:.85rem"><b>Anti-spam:</b> "descartados" son envíos que el campo escondido o el tiempo mínimo (2.5 s) dejaron fuera (${sumaM("envio_descartado", 0, m => /trampa/.test(m.ref))} por campo escondido y ${sumaM("envio_descartado", 0, m => /rapido/.test(m.ref))} por rapidez esta semana). Si suben y los registros bajan, puede haber falsos positivos. Si el tope se activa, mira si fue un ataque o gente real.</p>
     <p class="muted" style="font-size:.85rem">Registros: negocios enviados por zona (un negocio en varias zonas cuenta en cada una). Clics y fichas vistas: de los negocios que atienden la zona. Consultas: veces que alguien eligió la zona. Las visitas al sitio no se miden por zona.</p>`;
 }
 /* ===== Admin: estado de seguimiento por negocio ===== */
@@ -1289,7 +1296,7 @@ function vRegistrar(enviado, adm){
         <div id="w-mimx" hidden><label class="opt"><input type="checkbox" id="r-mimx"><span>Me interesa que me contacten de mimx para hacerme una página en 48 horas, sin compromiso.</span></label></div>
       </fieldset>
       <label class="fld" for="r-mail">Correo (opcional, no se publica)<input id="r-mail" type="email" inputmode="email" autocomplete="email" placeholder="tunegocio@correo.com"></label>`}
-      ${adm ? "" : `<input type="text" id="r-hp" name="zq_hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0"><label class="opt"><input type="checkbox" id="r-ok"><span>Acepto los <a href="#terminos">términos de uso</a>, el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>`}
+      ${adm ? "" : `<input type="text" id="fx-r9k3" name="wq_k7p2" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0"><label class="opt"><input type="checkbox" id="r-ok"><span>Acepto los <a href="#terminos">términos de uso</a>, el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>`}
       <div id="r-err" class="notice err" hidden></div>
       <div><button class="btn" type="submit">${adm ? "Publicar negocio" : "Enviar solicitud"}</button></div>
     </form>
@@ -1721,7 +1728,8 @@ async function guardarFichas(ids){
 }
 document.addEventListener("input", e => {
   const c = e.target.closest && e.target.closest(".edit-card");
-  if(c){ c.dataset.dirty = "1"; const n = document.getElementById("edN"); if(n) n.textContent = document.querySelectorAll('.edit-card[data-dirty="1"]').length; }
+  /* elegir una foto no es un cambio de texto: si lo fuera, el admin bloquearía la foto con "Primero guarda tus cambios" */
+  if(c && e.target.type !== "file"){ c.dataset.dirty = "1"; const n = document.getElementById("edN"); if(n) n.textContent = document.querySelectorAll('.edit-card[data-dirty="1"]').length; }
   if(e.target.id === "edQ"){ const q = e.target.value.trim().toLowerCase(); document.querySelectorAll(".edit-card").forEach(k => { k.hidden = !!q && !k.dataset.nom.includes(q); }); }
 });
 document.addEventListener("click", e => {
@@ -1899,6 +1907,7 @@ function vAdminLive(tab){
   return `<section>
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:end"><div><p class="eyebrow">Solo para ti</p><h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Panel de administración</h1></div><button class="btn sm ghost" data-salir>Cerrar sesión</button></div>
     ${A.error ? `<div class="notice err">${esc(A.error)}</div>` : ""}
+    ${avisoTope(A)}
     ${panelHoy}
     <div class="stats">
       <div class="stat"><b>${A.neg.filter(x => x.estado === "aprobado").length}</b><span>Negocios publicados</span></div>
@@ -2219,7 +2228,7 @@ function vRegEvento(enviado){
       <label class="fld" for="e-web">Página o enlace del evento <small>(opcional: boletos, Instagram, Facebook o sitio web)</small><input id="e-web" type="url" inputmode="url" autocomplete="url" maxlength="200" placeholder="https://"></label>
       <label class="fld" for="e-desc">Descripción<textarea id="e-desc" maxlength="280" placeholder="Qué habrá, para quién es y qué hay que llevar."></textarea></label>
       <label class="opt"><input type="checkbox" id="e-mimx"><span>Quiero tener mi propia página para vender boletos o promocionar mis eventos. <small>Opcional: mimx te contacta por WhatsApp.</small></span></label>
-      <input type="text" id="e-hp" name="zq_hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0">
+      <input type="text" id="fx-e4m8" name="wq_k7p2" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0">
       <label class="opt"><input type="checkbox" id="e-ok"><span>Acepto los <a href="#terminos">términos de uso</a>, el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>
       <div id="e-err" class="notice err" hidden></div>
       <div><button class="btn" type="submit">Enviar evento</button></div>
@@ -2229,7 +2238,9 @@ function vRegEvento(enviado){
 /* Anti-spam sin captcha: un campo escondido que una persona no ve (si viene lleno) y un mínimo de 2.5 s desde que se abrió el formulario.
    Quien lo active ve la pantalla de gracias y no se manda nada, para no darle pistas a un robot. */
 let T_FORM = Date.now();
-const esBot = idHp => !!((document.getElementById(idHp) || {}).value) || (Date.now() - T_FORM) < 2500;
+const motivoBot = idHp => ((document.getElementById(idHp) || {}).value) ? "trampa" : (Date.now() - T_FORM) < 2500 ? "rapido" : "";
+/* Cada envío descartado se cuenta en métricas (envio_descartado) para detectar falsos positivos en el tablero. */
+function descartarEnvio(formulario, motivo, vista){ metrica("envio_descartado", formulario + ":" + motivo); app.innerHTML = vista(true); window.scrollTo(0,0); }
 function enviarEvento(){
   const v = id => document.getElementById(id).value.trim();
   const err = [];
@@ -2246,7 +2257,7 @@ function enviarEvento(){
   if(!document.getElementById("e-ok").checked) err.push("acepta los términos y el aviso de privacidad");
   const box = document.getElementById("e-err");
   if(err.length){ box.hidden = false; box.textContent = "Para enviar: " + err.join(", ") + "."; return; }
-  if(esBot("e-hp")){ app.innerHTML = vRegEvento(true); window.scrollTo(0,0); return; }
+  { const m = motivoBot("fx-e4m8"); if(m){ descartarEnvio("evento", m, vRegEvento); return; } }
   const filaEv = ({id:"ev-" + Date.now().toString(36), titulo:v("e-titulo"), tipo:v("e-tipo"), zona:v("e-zona"), lugar:v("e-lugar"), fecha:v("e-fecha"), hora:v("e-hora"), precio:v("e-precio") || "Por confirmar", organizador:v("e-org") || "Vecinos de la zona", whatsapp:v("e-wa"), descripcion:v("e-desc"), fuente:web, mimx:document.getElementById("e-mimx").checked});
   enviar("eventos", filaEv, () => { estado.evSolicitudes.push(filaEv); guardar("zq_ev_solicitudes", estado.evSolicitudes); }, vRegEvento, box);
 }
@@ -2656,7 +2667,7 @@ async function enviarRegistro(){
   const box = document.getElementById("r-err");
   if(errores.length){ box.hidden = false; box.textContent = "Para enviar: " + errores.join(", ") + "."; box.scrollIntoView({block:"nearest"}); return; }
   box.hidden = true;
-  if(!adm && esBot("r-hp")){ app.innerHTML = vRegistrar(true); window.scrollTo(0,0); return; }
+  if(!adm){ const m = motivoBot("fx-r9k3"); if(m){ descartarEnvio("registro", m, vRegistrar); return; } }
   const nombre = nombreBonito(v("r-nombre"));
   const id = nombre.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") + "-" + Date.now().toString(36);
   let fotos = [];
