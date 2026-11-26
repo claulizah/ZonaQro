@@ -744,6 +744,33 @@ create policy "admin gastos" on public.gastos_campana
   for all to authenticated using (public.es_admin()) with check (public.es_admin());
 -- DESHACER:  drop table public.gastos_campana;   (borra las capturas)
 
+-- ===== 33. Reclutamiento: prospectos (negocios que todavía no se registran; solo la administradora) =====
+-- Una fila por negocio que quieres invitar: nombre, WhatsApp (10 dígitos, único), zona, campaña (la "ola" del utm_campaign), estado
+-- (nuevo, contactado, respondio, registrado, no_interesa), fecha del último contacto, cuántos mensajes se le han mandado y una nota.
+-- Quien dice "no_interesa" se queda en la tabla para no volver a escribirle; el botón Borrar del admin lo quita (retención: por confirmar con revisión legal).
+-- Son datos de terceros: el público no puede ver ni escribir nada aquí (RLS solo para la administradora).
+-- Si no corres esta sección, la pestaña Reclutamiento del admin avisa que falta; el resto del sitio no cambia.
+create table if not exists public.prospectos (
+  id              uuid primary key default gen_random_uuid(),
+  nombre          text not null check (char_length(nombre) between 2 and 80),
+  whatsapp        text not null check (whatsapp ~ '^[0-9]{10}$'),
+  zona            text not null check (char_length(zona) between 2 and 40),
+  campana         text not null default '' check (campana ~ '^[a-z0-9_-]{0,24}$'),
+  estado          text not null default 'nuevo' check (estado in ('nuevo','contactado','respondio','registrado','no_interesa')),
+  ultimo_contacto date,
+  intentos        smallint not null default 0 check (intentos between 0 and 5),
+  nota            text not null default '' check (char_length(nota) <= 200),
+  created_at      timestamptz not null default now()
+);
+create unique index if not exists prospectos_whatsapp_uq on public.prospectos (whatsapp);
+create index if not exists prospectos_estado_idx on public.prospectos (estado, ultimo_contacto);
+alter table public.prospectos enable row level security;
+revoke all on public.prospectos from public, anon;
+drop policy if exists "admin prospectos" on public.prospectos;
+create policy "admin prospectos" on public.prospectos
+  for all to authenticated using (public.es_admin()) with check (public.es_admin());
+-- DESHACER:  drop table public.prospectos;   (borra la lista, incluidos los que dijeron que no les interesa)
+
 -- ===== 34. Reclamar ficha: dueños de negocios agregados por ZonaQro piden verificar la suya =====
 -- El dueño deja su WhatsApp en la ficha pública; solo la administradora ve los reclamos. Ella confirma a mano por WhatsApp y, al aprobar,
 -- el admin marca el negocio como verificado (columna que ya existe). Mientras tanto no cambia nada de la ficha.
@@ -790,4 +817,3 @@ drop trigger if exists limitar_reclamos_t on public.reclamos;
 create trigger limitar_reclamos_t before insert on public.reclamos for each row execute function public.limitar_reclamos();
 -- DESHACER:  drop table public.reclamos;   (borra los reclamos; las fichas ya verificadas se quedan verificadas)
 --            drop function public.limitar_reclamos();
-
