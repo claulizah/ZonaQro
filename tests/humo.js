@@ -177,7 +177,7 @@ async function utm(p, s, nombre){
   console.log(" Campaña " + nombre);
   const ref = "meta|cpc|" + nombre, url = "https://zonaqro.com/?utm_source=meta&utm_medium=cpc&utm_campaign=" + nombre + "#negocios";
   await p.goto(url); await p.waitForSelector("a.btn.wa"); await p.click("a.btn.wa", { noWaitAfter: true }).catch(() => {});
-  await p.click('a.btn[href="#registrar"]'); await p.waitForSelector("#r-nombre");
+  await p.click('a[href="#registrar"]'); await p.waitForSelector("#r-nombre");
   await p.fill("#r-nombre", "Negocio de campaña"); await p.check("#tipo-emprendimiento"); await p.selectOption("#r-cat", "tienda"); await p.check("#z-Zakia");
   await p.fill("#r-desc", "Pasteles y postres por encargo, entrega a domicilio en la zona."); await p.fill("#r-ent", "Entrega sin costo"); await p.fill("#r-wa", "4421234567"); await p.check("#r-ok");
   await p.waitForTimeout(2800); await p.click("#fReg button[type=submit]"); await p.waitForTimeout(800);
