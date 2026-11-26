@@ -362,6 +362,8 @@ input[type=file]{max-width:100%}
 .home-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:28px}
 .home-cols .evlado{gap:10px}
 .evlado .sec-head h2{font-size:1.25rem}
+.reclamo{margin:8px 0 0}
+.reclamo summary{cursor:pointer;font-weight:700;color:var(--agave);padding:6px 0}
 .tres-bloques{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));margin:6px 0 4px}
 .bloque{background:var(--card,#fff);border:1px solid var(--line,#e2e6df);border-radius:16px;padding:14px}
 .bloque .sec-head h2{font-size:1.15rem}.bloque .sec-head p{margin:2px 0 0;font-size:.82rem}
@@ -928,6 +930,7 @@ async function cargarAdmin(){
     A.neg = n; A.ev = ev; A.res = rs; A.error = "";
   }catch(err){ A.error = err.message; }
   try{ A.edic = await sb("/rest/v1/ediciones?select=*&order=created_at.desc&limit=100"); }catch(err){ A.edic = null; }
+  try{ A.reclamos = await sb("/rest/v1/reclamos?select=*&order=created_at.desc&limit=200"); }catch(err){ A.reclamos = null; }
   try{ A.prospectos = await sb("/rest/v1/prospectos?select=*&order=created_at.desc"); }catch(err){ A.prospectos = null; }
   try{ const r = await fetch("eventos-sugeridos.json?v=" + Date.now(), {cache:"no-store"}); A.sug = r.ok ? await r.json() : []; }catch(err){ A.sug = []; }
   try{ A.gastos = await sb("/rest/v1/gastos_campana?select=*&order=desde.desc,created_at.desc"); }catch(err){ A.gastos = null; }
@@ -1504,6 +1507,91 @@ function botonSitio(b){
   return `<a class="btn ghost" href="${esc(b.sitio_web)}" target="_blank" rel="noopener nofollow" data-web="${esc(b.id)}">${t}</a>`;
 }
 
+/* ===== Reclamar una ficha agregada por ZonaQro =====
+   El dueño deja su WhatsApp; la administradora lo confirma a mano por WhatsApp y, al aprobar, la ficha queda con la marca de verificado.
+   Mientras tanto no cambia nada. El número del reclamo solo lo ve la administradora. */
+const telReclamo = t => { let d = String(t || "").replace(/\D/g, ""); if(d.length === 13 && d.startsWith("521")) d = d.slice(3); else if(d.length === 12 && d.startsWith("52")) d = d.slice(2); return /^\d{10}$/.test(d) ? d : ""; }; // el nombre es propio de este bloque para no chocar con otros
+function panelReclamo(b){
+  const rec = contactoHref("Hola, soy el dueño de " + b.nombre + " y quiero reclamar mi ficha en ZonaQro.");
+  return `<details class="reclamo" id="reclamo"><summary>¿Es tu negocio? Reclámalo</summary>
+    <form class="reg" id="fReclamo" data-nid="${esc(b.id)}" novalidate>
+      <p class="muted" style="font-size:.88rem;margin:8px 0 0">Déjanos tu WhatsApp y confirmamos contigo que eres parte del negocio antes de cambiar nada. No publicamos tu número.</p>
+      <label class="fld" for="rm-nombre">Tu nombre (opcional)<input id="rm-nombre" type="text" maxlength="60" autocomplete="name"></label>
+      <label class="fld" for="rm-wa">Tu WhatsApp (10 dígitos)<input id="rm-wa" type="tel" inputmode="numeric" autocomplete="tel" placeholder="4421234567"></label>
+      <input type="text" id="fx-r2n5" name="wq_k7p2" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0">
+      <label class="opt"><input type="checkbox" id="rm-ok"><span>Acepto el <a href="#privacidad">aviso de privacidad</a>: usarán mi WhatsApp solo para verificar este reclamo.</span></label>
+      <div id="rm-err" class="notice err" role="alert" hidden></div>
+      <div><button class="btn" type="submit">Enviar reclamo</button></div>
+      ${rec ? `<p style="font-size:.85rem;margin:8px 0 0">¿Prefieres escribirnos? <a href="${esc(rec)}" target="_blank" rel="noopener">Reclamar por WhatsApp</a></p>` : ""}
+    </form></details>`;
+}
+async function enviarReclamo(f){
+  const v = id => document.getElementById(id).value.trim(), box = document.getElementById("rm-err"), err = [];
+  const wa = telReclamo(v("rm-wa")), nombre = v("rm-nombre");
+  if(!wa) err.push("el WhatsApp debe tener 10 dígitos");
+  if(!document.getElementById("rm-ok").checked) err.push("acepta el aviso de privacidad");
+  if(err.length){ box.hidden = false; box.textContent = "Para enviar: " + err.join(", ") + "."; return; }
+  box.hidden = true;
+  const gracias = '<div class="notice" role="status"><b>Recibimos tu reclamo.</b> Te escribimos por WhatsApp para confirmar que eres parte del negocio. Mientras tanto no cambiamos nada de la ficha.</div>';
+  const fin = () => { f.outerHTML = gracias; };
+  if(motivoBot("fx-r2n5")){ fin(); return; } // robots: se ve "gracias" y no se manda nada
+  if(!SB.ok){ fin(); return; }
+  const bt = f.querySelector("button[type=submit]"); bt.disabled = true;
+  try{ await sb("/rest/v1/reclamos", {method:"POST", body:{negocio_id:f.dataset.nid, whatsapp:wa, nombre}, prefer:"return=minimal", auth:false}); fin(); }
+  catch(x){
+    const m = String((x && x.message) || ""), b = negocios().find(n => n.id === f.dataset.nid) || {nombre:"mi negocio"};
+    const lk = contactoHref("Hola, soy el dueño de " + b.nombre + " y quiero reclamar mi ficha en ZonaQro.");
+    box.hidden = false; bt.disabled = false;
+    if(/muchos env[ií]os|demasiados env[ií]os/i.test(m)) box.textContent = m;
+    else if(/duplicate|23505|unique/i.test(m)) box.textContent = "Ya recibimos tu reclamo para este negocio. Te escribimos por WhatsApp.";
+    else { box.innerHTML = "Por ahora no pudimos recibir tu reclamo desde aquí." + (lk ? ' <a href="' + esc(lk) + '" target="_blank" rel="noopener">Reclámalo por WhatsApp</a> y lo revisamos.' : ""); }
+  }
+}
+document.addEventListener("submit", e => { if(e.target.id === "fReclamo"){ e.preventDefault(); enviarReclamo(e.target); } });
+
+/* ===== Admin: reclamos de fichas ===== */
+const RECLAMO_EST = {pendiente:"Reclamo pendiente", aprobado:"Aprobado", rechazado:"Rechazado"};
+const reclamosPend = A => (A.reclamos || []).filter(r => r.estado === "pendiente").length;
+function adminReclamos(A){
+  if(A.reclamos === null || A.reclamos === undefined) return '<div class="notice err">Falta correr la <b>sección 34</b> de supabase.sql en Supabase para recibir reclamos de fichas.</div>';
+  const negDe = r => (A.neg || []).find(b => b.id === r.negocio_id) || null;
+  const pend = A.reclamos.filter(r => r.estado === "pendiente"), res = A.reclamos.filter(r => r.estado !== "pendiente").slice(0, 15);
+  const quien = r => (r.nombre ? esc(r.nombre) + " · " : "") + esc(telFmt(r.whatsapp));
+  return `<p class="muted" style="max-width:68ch">Dueños que pidieron reclamar una ficha que agregó ZonaQro. <b>Confirma a mano por WhatsApp</b> que son parte del negocio (lo más seguro es escribir al número que ya está en la ficha) y luego aprueba: la ficha queda con la marca de verificado. Hasta entonces no cambia nada.</p>
+    <div class="notice">Reclamos por revisar: <b>${pend.length}</b></div>
+    ${pend.length ? pend.map(r => { const b = negDe(r), nom = b ? b.nombre : "(ficha ya no existe)";
+      const msgFicha = "Hola, soy de ZonaQro. Alguien pidió reclamar la ficha de " + nom + ". ¿Eres parte de este negocio? Si fuiste tú, respóndeme por aquí y la confirmamos; si no, no pasa nada: no cambiamos nada.";
+      const msgQuien = "Hola" + (r.nombre ? " " + r.nombre : "") + ", soy de ZonaQro. Recibimos tu solicitud para reclamar la ficha de " + nom + ". Para confirmar que eres parte del negocio, ¿me escribes desde el WhatsApp que aparece en la ficha o me mandas una foto del local o de su publicación? Gracias.";
+      return `<div class="req" data-reclamo="${esc(r.id)}"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(nom)}</h3><span class="badge b-promo">${RECLAMO_EST.pendiente}</span></div>
+        <p class="meta">Quien reclama: ${quien(r)} · ${esc(String(r.created_at || "").slice(0, 10))}${b && b.whatsapp ? ` · WhatsApp de la ficha: ${esc(telFmt(b.whatsapp))}` : " · la ficha no tiene WhatsApp"}</p>
+        <div class="req-actions">${b && b.whatsapp ? `<a class="btn sm wa" href="${esc(waTexto(b.whatsapp, msgFicha))}" target="_blank" rel="noopener">Confirmar con el WhatsApp de la ficha</a>` : ""}<a class="btn sm wa" href="${esc(waTexto(r.whatsapp, msgQuien))}" target="_blank" rel="noopener">Escribir a quien reclama</a>
+          <button type="button" class="btn sm" data-rapr="${esc(r.id)}">Aprobar y verificar</button><button type="button" class="btn sm danger" data-rrej="${esc(r.id)}">Rechazar</button></div></div>`; }).join("") : '<div class="empty">No hay reclamos por revisar.</div>'}
+    ${res.length ? `<h3 style="margin-top:18px">Ya resueltos</h3><div class="tbl-wrap"><table><thead><tr><th>Ficha</th><th>Quien reclamó</th><th>Estado</th><th></th></tr></thead><tbody>${res.map(r => { const b = negDe(r);
+      const enlace = r.estado === "aprobado" && b && b.token_edicion ? `<a class="btn sm wa" href="${esc(waTexto(r.whatsapp, "Hola, ya confirmamos tu negocio en ZonaQro. Con este enlace personal puedes actualizar tu horario, fotos y descripción: " + BASE_URL + "#editar-" + b.token_edicion + "\\nGuárdalo, es solo tuyo."))}" target="_blank" rel="noopener">Enviar enlace de edición</a>` : "";
+      return `<tr><td>${esc(b ? b.nombre : "(ficha ya no existe)")}</td><td>${quien(r)}</td><td>${esc(RECLAMO_EST[r.estado] || r.estado)}${r.nota ? ` <small class="muted">${esc(r.nota)}</small>` : ""}</td><td>${enlace}</td></tr>`; }).join("")}</tbody></table></div>` : ""}`;
+}
+document.addEventListener("click", async e => {
+  const ap = e.target.closest("[data-rapr]"), rj = e.target.closest("[data-rrej]"); if(!ap && !rj) return;
+  const A = estado.admin, id = (ap || rj).dataset.rapr || (ap || rj).dataset.rrej, r = (A.reclamos || []).find(x => x.id === id); if(!r) return;
+  const b = (A.neg || []).find(x => x.id === r.negocio_id);
+  const btn = ap || rj;
+  if(ap){
+    if(!b){ toast("La ficha ya no existe"); return; }
+    if(!confirm("¿Aprobar este reclamo y marcar «" + b.nombre + "» como verificado? Hazlo solo si ya confirmaste por WhatsApp que quien reclama es parte del negocio.")) return;
+    btn.disabled = true;
+    try{
+      const rr = await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(b.id), {method:"PATCH", body:{verificado:true}, prefer:"return=representation"});
+      if(!rr || !rr.length) throw new Error("no se aplicó (¿entraste como administradora?)");
+      await sb("/rest/v1/reclamos?id=eq." + encodeURIComponent(r.id), {method:"PATCH", body:{estado:"aprobado", resuelto_at:new Date().toISOString()}, prefer:"return=minimal"});
+      toast("Ficha verificada: " + b.nombre); await cargarAdmin(); render(); cargarPublico();
+    }catch(x){ btn.disabled = false; toast("No se pudo aprobar: " + x.message); }
+    return;
+  }
+  const motivo = prompt("Motivo del rechazo (opcional, solo lo ves tú):", ""); if(motivo === null) return;
+  btn.disabled = true;
+  try{ await sb("/rest/v1/reclamos?id=eq." + encodeURIComponent(r.id), {method:"PATCH", body:{estado:"rechazado", nota:String(motivo).trim().slice(0, 200), resuelto_at:new Date().toISOString()}, prefer:"return=minimal"}); toast("Reclamo rechazado"); await cargarAdmin(); render(); }
+  catch(x){ btn.disabled = false; toast("No se pudo rechazar: " + x.message); }
+});
 function estadoFicha(b){
   if(b.referencia){
     const act = contactoHref("Hola 👋 Soy el dueño de " + b.nombre + " y quiero activar mi ficha en ZonaQro.");
@@ -1512,8 +1600,7 @@ function estadoFicha(b){
   const baja = contactoHref("Hola 👋 Quiero pedir un cambio o la baja de la ficha de " + b.nombre + " en ZonaQro.");
   if(b.verificado) return '<p class="muted" style="font-size:.82rem"><strong>Verificado:</strong> ZonaQro confirmó esta ficha con el dueño.</p>' + (baja ? `<p style="font-size:.82rem"><a href="${esc(baja)}" target="_blank" rel="noopener">Pedir un cambio</a></p>` : "");
   if(b.origen === "zonaqro"){
-    const reclamar = contactoHref("Hola 👋 Soy el dueño de " + b.nombre + " y quiero verificar mi ficha en ZonaQro.");
-    return `<div class="notice" style="font-size:.85rem;font-weight:500">Esta ficha la agregó ZonaQro con información pública del negocio y todavía no la confirma el dueño.${reclamar ? ` <a href="${esc(reclamar)}" target="_blank" rel="noopener">¿Es tu negocio? Verifícalo aquí</a> o <a href="${esc(baja)}" target="_blank" rel="noopener">pide un cambio o la baja</a>.` : ""}</div>`;
+    return `<div class="notice" style="font-size:.85rem;font-weight:500">Esta ficha la agregó ZonaQro con información pública del negocio y todavía no la confirma el dueño.${baja ? ` Si algo está mal, <a href="${esc(baja)}" target="_blank" rel="noopener">pide un cambio o la baja</a>.` : ""}</div>${panelReclamo(b)}`;
   }
   return baja ? `<p style="font-size:.82rem"><a href="${esc(baja)}" target="_blank" rel="noopener">Pedir un cambio</a></p>` : "";
 }
@@ -2077,7 +2164,7 @@ function vAdminLive(tab){
     </form></section>`;
   const A = estado.admin;
   if(!A.cargado) return `<section><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1><p class="muted">Cargando…</p></section>`;
-  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas","semana","seguimiento","reclutamiento","gasto"].includes(tab) ? tab : "solicitudes";
+  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas","semana","seguimiento","reclutamiento","gasto","reclamos"].includes(tab) ? tab : "solicitudes";
   const RS = A.res || [];
   const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente"), pr = RS.filter(x => x.estado === "pendiente");
   const descartados = (() => { try{ return JSON.parse(localStorage.getItem("zq_desc") || "[]"); }catch(e){ return []; } })();
@@ -2114,6 +2201,7 @@ function vAdminLive(tab){
   if(tab === "semana") cuerpo = tableroSemana(A);
   if(tab === "reclutamiento") cuerpo = adminReclutamiento(A);
   if(tab === "gasto") cuerpo = adminGasto(A);
+  if(tab === "reclamos") cuerpo = adminReclamos(A);
   if(tab === "seguimiento") cuerpo = adminSeguimiento(A);
   if(tab === "cambios") cuerpo = adminCambios(A);
   if(tab === "rechazados"){
@@ -2195,6 +2283,7 @@ function vAdminLive(tab){
   const reales = A.neg.filter(x => x.estado === "aprobado" && !x.referencia);
   const hoyToca = [
     [pn.length, "negocios por aprobar", "solicitudes"], [pe.length, "eventos por aprobar", "eventos"], [pr.length, "opiniones por revisar", "opiniones"], [sug.length, "eventos sugeridos", "sugeridos"],
+    [reclamosPend(A), "reclamos de fichas por revisar", "reclamos"],
     [reales.filter(b => b.seguimiento === "sin_contactar").length, "negocios sin contactar", "seguimiento"],
     [prospPorHacer(A), "prospectos por escribir o recordar", "reclutamiento"],
     [reales.filter(b => nombreSospechoso(b.nombre)).length, "fichas con correo o teléfono como nombre", "editar"],
@@ -2236,6 +2325,7 @@ function vAdminLive(tab){
       <button class="chip" data-atab="seguimiento" aria-pressed="${tab==="seguimiento"}">Seguimiento</button>
       <button class="chip" data-atab="reclutamiento" aria-pressed="${tab==="reclutamiento"}">Reclutamiento${prospPorHacer(A) ? ` <small>${prospPorHacer(A)}</small>` : ""}</button>
       <button class="chip" data-atab="gasto" aria-pressed="${tab==="gasto"}">Gasto</button>
+      <button class="chip" data-atab="reclamos" aria-pressed="${tab==="reclamos"}">Reclamos${reclamosPend(A) ? ` <small>${reclamosPend(A)}</small>` : ""}</button>
       <button class="chip" data-atab="metricas" aria-pressed="${tab==="metricas"}">Métricas</button>
       <button class="chip" data-atab="zonas" aria-pressed="${tab==="zonas"}">Zonas</button>
     </div>
@@ -2749,7 +2839,7 @@ function render(){
   pintarZona(); pintarContacto(); vigilarBusqueda(h);
   if(h.startsWith("opinar-")) setTimeout(() => { try{ const d = document.querySelector("#opiniones .rev-form"); if(d){ d.open = true; document.getElementById("opiniones").scrollIntoView({block:"start"}); } }catch(err){} }, 60);
   try{ document.querySelectorAll('.chips.scrollrow .chip[aria-pressed="true"]').forEach(c => c.scrollIntoView({block:"nearest", inline:"center"})); }catch(err){}
-  if(h === "registrar" || h === "publicar-evento") T_FORM = Date.now();
+  if(h === "registrar" || h === "publicar-evento" || h.startsWith("n-")) T_FORM = Date.now();
   if(h === "registrar" || (h === "admin" && document.getElementById("fReg"))) prepararRegistro();
   else if(FOTOS.length){ FOTOS.forEach(f => URL.revokeObjectURL(f.url)); FOTOS = []; }
 }

@@ -770,3 +770,50 @@ drop policy if exists "admin prospectos" on public.prospectos;
 create policy "admin prospectos" on public.prospectos
   for all to authenticated using (public.es_admin()) with check (public.es_admin());
 -- DESHACER:  drop table public.prospectos;   (borra la lista, incluidos los que dijeron que no les interesa)
+
+-- ===== 34. Reclamar ficha: dueños de negocios agregados por ZonaQro piden verificar la suya =====
+-- El dueño deja su WhatsApp en la ficha pública; solo la administradora ve los reclamos. Ella confirma a mano por WhatsApp y, al aprobar,
+-- el admin marca el negocio como verificado (columna que ya existe). Mientras tanto no cambia nada de la ficha.
+-- Quién puede reclamar: visitantes, solo sobre negocios aprobados, agregados por ZonaQro, no de referencia y aún sin verificar.
+-- Límites: un reclamo pendiente por negocio y WhatsApp; máximo 3 por WhatsApp al día y 20 por hora en total.
+-- Si no corres esta sección, la ficha ofrece reclamar por WhatsApp y el admin avisa que falta; el resto del sitio no cambia.
+create table if not exists public.reclamos (
+  id          uuid primary key default gen_random_uuid(),
+  negocio_id  text not null references public.negocios(id) on delete cascade on update cascade,
+  whatsapp    text not null check (whatsapp ~ '^[0-9]{10}$'),
+  nombre      text not null default '' check (char_length(nombre) <= 60),
+  estado      text not null default 'pendiente' check (estado in ('pendiente','aprobado','rechazado')),
+  nota        text not null default '' check (char_length(nota) <= 200),
+  created_at  timestamptz not null default now(),
+  resuelto_at timestamptz
+);
+create unique index if not exists reclamos_pendiente_uq on public.reclamos (negocio_id, whatsapp) where estado = 'pendiente';
+create index if not exists reclamos_estado_idx on public.reclamos (estado, created_at desc);
+alter table public.reclamos enable row level security;
+revoke all on public.reclamos from public, anon;
+grant insert (negocio_id, whatsapp, nombre) on public.reclamos to anon;
+drop policy if exists "publico reclama ficha" on public.reclamos;
+create policy "publico reclama ficha" on public.reclamos
+  for insert to anon
+  with check (estado = 'pendiente' and nota = '' and resuelto_at is null
+    and exists (select 1 from public.negocios n where n.id = negocio_id and n.estado = 'aprobado' and n.origen = 'zonaqro' and n.verificado = false and n.referencia = false));
+drop policy if exists "admin reclamos" on public.reclamos;
+create policy "admin reclamos" on public.reclamos
+  for all to authenticated using (public.es_admin()) with check (public.es_admin());
+create or replace function public.limitar_reclamos()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if coalesce(current_setting('role', true), 'none') not in ('anon', 'authenticated') then return new; end if;
+  if public.es_admin() then return new; end if;
+  new.created_at := now();
+  if (select count(*) from public.reclamos where whatsapp = new.whatsapp and created_at > now() - interval '1 day') >= 3 then
+    raise exception 'Demasiados envíos con este WhatsApp. Escríbenos por WhatsApp y te ayudamos.'; end if;
+  if (select count(*) from public.reclamos where created_at > now() - interval '1 hour') >= 20 then
+    raise exception 'Hay muchos envíos en este momento. Intenta de nuevo en un rato.'; end if;
+  return new;
+end $$;
+revoke all on function public.limitar_reclamos() from public, anon, authenticated;
+drop trigger if exists limitar_reclamos_t on public.reclamos;
+create trigger limitar_reclamos_t before insert on public.reclamos for each row execute function public.limitar_reclamos();
+-- DESHACER:  drop table public.reclamos;   (borra los reclamos; las fichas ya verificadas se quedan verificadas)
+--            drop function public.limitar_reclamos();
