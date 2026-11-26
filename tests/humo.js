@@ -15,7 +15,7 @@ const fallos = []; let pruebas = 0;
 const ok = (cond, msg) => { pruebas++; if(!cond){ fallos.push(msg); console.log("  ✗ " + msg); } else console.log("  ✓ " + msg); };
 
 async function nuevaPagina(browser, vp){
-  const ctx = await browser.newContext({ viewport: vp, hasTouch: vp.width < 600 }), p = await ctx.newPage(), s = { errores: [], posts: [], rpc: [], fotos: [], rpcs: [], patches: [] };
+  const ctx = await browser.newContext({ viewport: vp, hasTouch: vp.width < 600 }), p = await ctx.newPage(), s = { errores: [], posts: [], rpc: [], fotos: [], rpcs: [], patches: [], intentos: 0, fallarInteres: false };
   p.on("console", m => { if(m.type() === "error" && !/ERR_|Failed to load resource/.test(m.text())) s.errores.push(m.text()); });
   p.on("pageerror", e => s.errores.push(String(e)));
   const json = body => ({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
@@ -23,7 +23,9 @@ async function nuevaPagina(browser, vp){
   await p.route("https://fonts.*/**", r => r.fulfill({ status: 200, body: "" }));
   await p.route("**/rest/v1/**", r => r.fulfill(json([]))); // lo que no se simule abajo se contesta vacío: ninguna prueba debe llegar al Supabase real
   await ctx.route(/^https:\/\/(wa\.me|api\.whatsapp\.com)\//, r => r.fulfill({ status: 200, contentType: "text/html", body: "<title>wa</title>" })); // las pestañas nuevas de WhatsApp tampoco salen a internet
-  await p.route("**/rest/v1/negocios*", r => { if(r.request().method() === "POST"){ s.posts.push(["negocios", JSON.parse(r.request().postData())]); r.fulfill({ status: 201, body: "" }); } else r.fulfill(json([])); });
+  await p.route("**/rest/v1/negocios*", r => { if(r.request().method() === "POST"){ const cuerpo = JSON.parse(r.request().postData()); s.intentos++;
+    if(s.fallarInteres && "interes" in cuerpo){ r.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ code: "PGRST204", message: "Could not find the 'interes' column of 'negocios' in the schema cache" }) }); return; }
+    s.posts.push(["negocios", cuerpo]); r.fulfill({ status: 201, body: "" }); } else r.fulfill(json([])); });
   await p.route("**/rest/v1/eventos*", r => { if(r.request().method() === "POST"){ s.posts.push(["eventos", JSON.parse(r.request().postData())]); r.fulfill({ status: 201, body: "" }); } else r.fulfill(json([])); });
   await p.route("**/rest/v1/resenas*", r => r.fulfill(json([])));
   await p.route("**/storage/v1/object/fotos/**", r => { const req = r.request(); s.fotos.push({ path: decodeURIComponent(req.url().split("/object/fotos/")[1]), auth: req.headers()["authorization"] || "", tipo: req.headers()["content-type"] || "" }); r.fulfill({ status: 200, contentType: "application/json", body: "{}" }); });
@@ -55,6 +57,7 @@ async function registro(p, s){
     ok(f.estado === "pendiente", "el negocio entra como pendiente");
     ok(f.nombre && f.whatsapp === "4421234567" && f.zonas.includes("Zakia"), "manda nombre, WhatsApp y zona");
     ok(!("token_edicion" in f) && !("notas" in f) && !("seguimiento" in f), "no manda campos de uso interno");
+    ok(!("interes" in f), "si no marca '¿Qué te serviría más?', no manda ese campo (es opcional)");
   }
   await p.waitForTimeout(300);
   ok(s.rpc.some(x => x.p_tipo === "registro_envio"), "cuenta el registro en métricas");
@@ -75,6 +78,54 @@ async function evento(p, s){
   ok(!!post, "envía el evento a Supabase");
   if(post) ok(post[1].estado === "pendiente" && post[1].destacado !== true, "el evento entra pendiente y sin destacar");
   ok(/Gracias|Recibimos/i.test(await p.textContent("#app")), "muestra la pantalla de gracias");
+}
+
+async function llenarRegistro(p, nombre){
+  await p.goto("https://zonaqro.com/#registrar"); await p.waitForSelector("#r-nombre");
+  await p.fill("#r-nombre", nombre); await p.check("#tipo-emprendimiento"); await p.selectOption("#r-cat", "tienda"); await p.check("#z-Zakia");
+  await p.fill("#r-desc", "Pasteles y postres por encargo, entrega a domicilio en la zona."); await p.fill("#r-ent", "Entrega sin costo"); await p.fill("#r-wa", "4421234567"); await p.check("#r-ok");
+}
+async function interes(p, s){
+  console.log(" Interés opcional y botón a mimx.store");
+  await llenarRegistro(p, "Negocio con interés");
+  ok(await p.isVisible("#f-interes"), "el registro muestra '¿Qué te serviría más?' con 3 opciones");
+  ok((await p.$$('input[name="interes"]')).length === 3, "son tres casillas: sitio web, WhatsApp Business y nada por ahora");
+  await p.check('input[value="nada"]'); await p.check('input[value="sitio_web"]');
+  ok(!(await p.isChecked('input[value="nada"]')), "marcar una opción desmarca 'Nada por ahora'");
+  await p.check('input[value="whatsapp_business"]'); await p.check('input[value="nada"]');
+  ok(!(await p.isChecked('input[value="sitio_web"]')) && !(await p.isChecked('input[value="whatsapp_business"]')), "'Nada por ahora' no se combina con las demás");
+  await p.check('input[value="sitio_web"]'); await p.check('input[value="whatsapp_business"]');
+  await p.waitForTimeout(2700); await p.click("#fReg button[type=submit]"); await p.waitForSelector("#g-mimx", { timeout: 5000 }).catch(() => {});
+  const f = (s.posts.find(x => x[0] === "negocios") || [])[1] || {};
+  ok(JSON.stringify((f.interes || []).slice().sort()) === JSON.stringify(["sitio_web", "whatsapp_business"]), "manda lo que marcó: sitio web y WhatsApp Business");
+  const href = await p.getAttribute("#g-mimx", "href").catch(() => "");
+  ok(/^https:\/\/mimx\.store\/\?.*utm_source=zonaqro/.test(href || ""), "la pantalla de gracias tiene el botón a mimx.store con utm_source=zonaqro (" + href + ")");
+  ok((await p.getAttribute("#g-mimx", "target")) === "_blank" && /noopener/.test(await p.getAttribute("#g-mimx", "rel")), "abre en otra pestaña con rel=noopener");
+  const t = await p.textContent("#app");
+  ok(!/\$|pesos|precio|oferta|descuento|garantiz/i.test(t), "sin precios ni promesas en la pantalla de gracias");
+}
+async function interesSinColumna(p, s){
+  console.log(" Si la base todavía no tiene la columna 'interes'");
+  s.fallarInteres = true;
+  await llenarRegistro(p, "Negocio sin columna"); await p.check('input[value="sitio_web"]');
+  await p.waitForTimeout(2700); await p.click("#fReg button[type=submit]"); await p.waitForSelector("#g-mimx", { timeout: 5000 }).catch(() => {});
+  ok(s.intentos === 2, "reintenta una vez sin ese campo (" + s.intentos + " intentos)");
+  ok(s.posts.length === 1 && !("interes" in s.posts[0][1]), "el registro se guarda igual, sin 'interes'");
+  ok(/Recibimos tu solicitud/.test(await p.textContent("#app")), "la persona ve la pantalla de gracias: el registro nunca se bloquea por este campo");
+}
+async function adminInteres(p, s){
+  console.log(" Admin: interés declarado");
+  await p.addInitScript(() => { try{ sessionStorage.setItem("zq_tok", "token-de-admin"); }catch(e){} });
+  const base = { estado: "aprobado", tipo: "local", categoria: "gastronomia", zonas: ["Zibatá"], descripcion: "Tacos al pastor y de guisado, desde 1998.", whatsapp: "4421234567", horario: "9 a 6", fotos: [], seguimiento: "sin_contactar", created_at: new Date().toISOString() };
+  const neg = [Object.assign({ id: "a1", nombre: "Uno", interes: ["sitio_web"] }, base), Object.assign({ id: "a2", nombre: "Dos", interes: ["sitio_web", "whatsapp_business"] }, base), Object.assign({ id: "a3", nombre: "Tres", interes: ["nada"] }, base), Object.assign({ id: "a4", nombre: "Cuatro", interes: [] }, base), Object.assign({ id: "a5", nombre: "Cinco" }, base)];
+  await p.route("**/rest/v1/negocios*", r => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(neg) }));
+  await p.route("**/rest/v1/metricas*", r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+  await p.route("**/rest/v1/ediciones*", r => r.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+  await p.goto("https://zonaqro.com/#admin"); await p.waitForSelector('[data-atab="seguimiento"]'); await p.click('[data-atab="seguimiento"]'); await p.waitForTimeout(300);
+  const r = await p.textContent("#resumen-interes");
+  ok(/Sitio web o tienda en línea 2/.test(r) && /WhatsApp Business bien configurado 1/.test(r) && /Nada por ahora 1/.test(r) && /Sin respuesta 2/.test(r), "el resumen cuenta: sitio web 2, WhatsApp Business 1, nada 1, sin respuesta 2");
+  const fila = await p.$$eval("table tbody tr", t => t.map(x => x.textContent.replace(/\s+/g, " ")));
+  ok(fila.some(x => /Dos/.test(x) && /Sitio web o tienda en línea · WhatsApp Business/.test(x)), "cada negocio muestra lo que marcó");
 }
 
 async function ficha(p, s){
@@ -174,7 +225,7 @@ async function robots(p, s){
   const browser = await chromium.launch();
   for(const [nombre, vp] of [["celular 390 px", { width: 390, height: 800 }], ["escritorio 1280 px", { width: 1280, height: 900 }]]){
     console.log("\n== " + nombre);
-    const lista = [[registro], [evento], [inicios], [ficha], [adminFoto], [fotoRegistro], [utm, "ola1-juriquilla"], [utm, "ola1-centro-sur"], [robots]];
+    const lista = [[registro], [interes], [interesSinColumna], [adminInteres], [evento], [inicios], [ficha], [adminFoto], [fotoRegistro], [utm, "ola1-juriquilla"], [utm, "ola1-centro-sur"], [robots]];
     for(const [prueba, ...args] of lista){
       const { ctx, p, s } = await nuevaPagina(browser, vp);
       try{ await prueba(p, s, ...args); }catch(e){ ok(false, "la prueba se rompió: " + String(e.message).split("\n")[0]); }
