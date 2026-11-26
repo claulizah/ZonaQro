@@ -721,7 +721,7 @@ const campanaProspecto = p => p.campana || limpiaCampana("rec-" + String(p.zona 
 const tel10 = t => { let d = String(t || "").replace(/\D/g, ""); if(d.length === 13 && d.startsWith("521")) d = d.slice(3); else if(d.length === 12 && d.startsWith("52")) d = d.slice(2); return /^\d{10}$/.test(d) ? d : ""; };
 const fichaDeProspecto = (A, p) => (A.neg || []).find(b => b.whatsapp === p.whatsapp && !b.referencia && b.estado !== "rechazado") || null; // ya se registró o ya tiene ficha
 function enlaceProspecto(A, p){
-  const b = fichaDeProspecto(A, p), utm = "?utm_source=whatsapp&utm_medium=reclutamiento&utm_campaign=" + campanaProspecto(p);
+  const b = fichaDeProspecto(A, p), utm = "?utm_source=whatsapp&utm_medium=reclutar&utm_campaign=" + campanaProspecto(p);
   return BASE_URL + utm + (b && b.estado === "aprobado" ? "#n-" + b.id : "#negocios");
 }
 function mensajeProspecto(A, p, recordatorio){
@@ -775,7 +775,7 @@ function adminReclutamiento(A){
           <button type="button" class="btn sm danger" data-pdel="${esc(p.id)}" aria-label="Borrar a ${esc(p.nombre)}">Borrar</button></td></tr>`;
     }).join("") : '<tr><td colspan="6">' + (todos.length ? "Ningún prospecto con ese filtro." : "Todavía no tienes prospectos. Agrega el primero arriba.") + '</td></tr>'}
     </tbody></table></div>
-    <p class="muted" style="font-size:.85rem;max-width:70ch">El enlace del mensaje lleva <code>utm_source=whatsapp</code>, <code>utm_medium=reclutamiento</code> y la campaña de cada prospecto, así que en <b>Métricas → Campañas</b> ves cuántos entraron y se registraron por ola. Los números de WhatsApp son datos de terceros: úsalos solo para esta invitación y borra a quien te lo pida (retención y aviso a prospectos: por confirmar con revisión legal).</p>`;
+    <p class="muted" style="font-size:.85rem;max-width:70ch">El enlace del mensaje lleva <code>utm_source=whatsapp</code>, <code>utm_medium=reclutar</code> y la campaña de cada prospecto, así que en <b>Métricas → Campañas</b> ves cuántos entraron y se registraron por ola. Los números de WhatsApp son datos de terceros: úsalos solo para esta invitación y borra a quien te lo pida (retención y aviso a prospectos: por confirmar con revisión legal).</p>`;
 }
 async function guardarProspecto(id, cambios, ok){
   const A = estado.admin, p = (A.prospectos || []).find(x => x.id === id); if(!p) return false;

@@ -31,7 +31,7 @@ Vuelve a correr **todo** `supabase.sql` en Supabase (es idempotente). Agrega:
 Flujo para invitar negocios que todavía no se registran:
 
 1. **Agregar prospecto**: negocio, WhatsApp (10 dígitos; acepta +52, espacios y guiones), zona, ola o campaña (opcional; si va vacía se usa `rec-<zona>`) y nota.
-2. **Mensaje listo**: el botón abre WhatsApp con un mensaje corto (ZonaQro es gratis, sin compromiso, con enlace y salida fácil: "dímelo y no te vuelvo a escribir"). El enlace lleva `utm_source=whatsapp&utm_medium=reclutamiento&utm_campaign=<ola>`, así que en **Métricas → Campañas** se ve cuántos entraron y se registraron por ola. Si el WhatsApp ya tiene ficha aprobada en ZonaQro, el mensaje enlaza a esa ficha.
+2. **Mensaje listo**: el botón abre WhatsApp con un mensaje corto (ZonaQro es gratis, sin compromiso, con enlace y salida fácil: "dímelo y no te vuelvo a escribir"). El enlace lleva `utm_source=whatsapp&utm_medium=reclutar&utm_campaign=<ola>`, así que en **Métricas → Campañas** se ve cuántos entraron y se registraron por ola. Si el WhatsApp ya tiene ficha aprobada en ZonaQro, el mensaje enlaza a esa ficha.
 3. **Seguimiento**: nuevo → contactado (al abrir WhatsApp, con fecha) → respondió / registrado / no le interesa. A los **5 días** sin respuesta sale **un solo** recordatorio; después ya no se insiste. "No le interesa" deja al prospecto marcado para no volver a escribirle. Si ya se escribió a 10 prospectos en un día, el admin sugiere pausar.
 
 Base de datos: **sección 33** de `supabase.sql` (tabla `prospectos`, solo la administradora). Si no se ha corrido, la pestaña lo avisa. Son números de terceros: úsalos solo para esta invitación y borra a quien lo pida (retención y aviso: por confirmar con revisión legal).

@@ -58,7 +58,9 @@ async function casos(browser, nombre, vp){
     const { ctx, p } = await pagina(browser, vp, { prospectos: [pr("Pasteles Lupita", { whatsapp: "4421234567" })] });
     const m = await textoMensaje(p, "Pasteles Lupita");
     ok(/Pasteles Lupita/.test(m) && /ZonaQro/.test(m) && /gratuito/.test(m), "dice quién escribe, el nombre del negocio y que es gratuito");
-    ok(/utm_source=whatsapp&utm_medium=reclutamiento&utm_campaign=rec-juriquilla/.test(m) && /#negocios/.test(m), "el enlace lleva utm de la ola (rec-juriquilla) y va a la página para negocios");
+    ok(/utm_source=whatsapp&utm_medium=reclutar&utm_campaign=rec-juriquilla/.test(m) && /#negocios/.test(m), "el enlace lleva utm de la ola (rec-juriquilla) y va a la página para negocios");
+    const q = new URLSearchParams(m.match(/\?(utm_[^# \n]+)/)[1]);
+    ok(q.get("utm_source").length <= 20 && q.get("utm_medium").length <= 12 && q.get("utm_campaign").length <= 24, "las tres etiquetas del enlace caben en los límites del sitio (20, 12 y 24 letras): si no, el sitio las recortaría");
     ok(/no te vuelvo a escribir/.test(m), "ofrece salida fácil: 'dímelo y no te vuelvo a escribir'");
     ok(m.length < 450 && !/mimx|\$|precio|pesos/i.test(m), "es corto (menos de 450 caracteres) y no habla de ventas ni de mimx");
     const href = await p.getAttribute("#t-prospectos a[data-pw]", "href");
