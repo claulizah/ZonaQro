@@ -1966,8 +1966,8 @@ function vAdminLive(tab){
       <p class="meta">${esc(s.fecha)} · ${esc(s.hora)} · ${esc(s.lugar)} · ${esc(s.precio)} · WhatsApp ${telFmt(esc(s.whatsapp))}</p>
       ${/^https?:\/\//i.test(s.fuente || "") ? `<p class="meta">Enlace: <a href="${esc(s.fuente)}" target="_blank" rel="noopener nofollow">${esc(s.fuente)}</a></p>` : ""}
       <div class="req-actions">${btn("aprobar","eventos",s.id,"","Aprobar y publicar")}${btn("rechazar","eventos",s.id,"","Rechazar","danger")}</div></div>`).join("") : '<div class="empty">No hay eventos pendientes.</div>';
-  if(tab === "sugeridos") cuerpo = `<p class="muted" style="max-width:62ch">Eventos que se encontraron solos en fuentes públicas. Nada se publica hasta que tú lo apruebes. Si el evento es de fuera de tus zonas, mejor descártalo.</p>` + (sug.length ? sug.map(x => `<div class="req">
-      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><h3>${esc(x.titulo)}</h3><span class="meta">${esc(TIPOS_EV[x.tipo] || x.tipo)}</span></div>
+  if(tab === "sugeridos") cuerpo = `<p class="muted" style="max-width:62ch">Eventos que se encontraron solos en fuentes públicas. Nada se publica hasta que tú lo apruebes. Si el evento es de fuera de tus zonas, mejor descártalo.</p>` + (sug.length ? `<div class="notice" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn sm ghost" data-sugsel="zonas">Marcar las de mis zonas</button><button class="btn sm ghost" data-sugsel="todas">Marcar todas</button><button class="btn sm ghost" data-sugsel="ninguna">Quitar marcas</button><button class="btn sm" data-sugl="ap">Aprobar marcadas</button><button class="btn sm danger" data-sugl="de">Descartar marcadas</button><span class="meta" id="sug-cuenta" aria-live="polite"></span></div>` + sug.map(x => `<div class="req">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" class="sug-ck" data-id="${esc(x.id)}" data-zona="${esc(x.zona || "")}" aria-label="Marcar ${esc(x.titulo)}"><h3>${esc(x.titulo)}</h3></label><span class="meta">${esc(TIPOS_EV[x.tipo] || x.tipo)}</span></div>
       <p class="muted">${esc(x.descripcion || "")}</p>
       <p class="meta">${esc(x.fecha)} · ${esc(x.hora)} · ${esc(x.lugar)} · ${esc(x.precio || "Por confirmar")}${x.organizador ? " · " + esc(x.organizador) : ""}</p>
       ${x.nota ? `<p class="meta">Nota: ${esc(x.nota)}</p>` : ""}
@@ -2454,6 +2454,29 @@ document.addEventListener("click", async e => {
     }catch(err){ toast("No se pudo: " + err.message); pm.disabled = false; }
     return;
   }
+  const ss = e.target.closest("[data-sugsel]");
+  if(ss){ document.querySelectorAll(".sug-ck").forEach(c => { c.checked = ss.dataset.sugsel === "todas" || (ss.dataset.sugsel === "zonas" && ZONAS_EV.includes(c.dataset.zona)); }); sugCuenta(); return; }
+  const sl = e.target.closest("[data-sugl]");
+  if(sl){
+    const ms = sugMarcadas(); if(!ms.length){ toast("Marca al menos un evento"); return; }
+    const A = estado.admin;
+    if(sl.dataset.sugl === "de"){
+      if(!confirm("¿Descartar " + ms.length + " eventos sugeridos?")) return;
+      try{ const d = JSON.parse(localStorage.getItem("zq_desc") || "[]"); ms.forEach(c => d.push(c.dataset.id)); localStorage.setItem("zq_desc", JSON.stringify(d.slice(-300))); }catch(err){}
+      render(); toast(ms.length + " descartados"); return;
+    }
+    const sinZona = ms.filter(c => !ZONAS_EV.includes(c.dataset.zona)), listas = ms.filter(c => ZONAS_EV.includes(c.dataset.zona));
+    if(!listas.length){ toast("Las marcadas no tienen zona: aprueba una por una eligiendo su zona"); return; }
+    if(!confirm("¿Publicar " + listas.length + " eventos" + (sinZona.length ? " (" + sinZona.length + " sin zona se quedan sin publicar)" : "") + "?")) return;
+    document.querySelectorAll("[data-sugl]").forEach(b => b.disabled = true);
+    let hechos = 0, fallos = 0;
+    for(const c of listas){
+      const x = (A.sug || []).find(v => v.id === c.dataset.id); if(!x) continue;
+      try{ await sugPublicar(x, c.dataset.zona); hechos++; }catch(err){ fallos++; }
+    }
+    toast(hechos + " publicados" + (fallos ? ", " + fallos + " con error (siguen en la lista)" : "") + (sinZona.length ? ", " + sinZona.length + " sin zona" : ""));
+    await cargarAdmin(); cargarPublico(); return;
+  }
   const sg = e.target.closest("[data-sug]");
   if(sg){
     const [ac, sid] = sg.dataset.sug.split(":"); const x = (estado.admin.sug || []).find(v => v.id === sid); if(!x) return;
@@ -2461,14 +2484,8 @@ document.addEventListener("click", async e => {
     const zona = (document.getElementById("sz-" + sid) || {}).value;
     if(!zona){ toast("Elige la zona del evento"); return; }
     sg.disabled = true;
-    const fila = {id:"ev-" + Math.random().toString(36).slice(2, 10), titulo:String(x.titulo).slice(0, 100), tipo:x.tipo, zona, lugar:String(x.lugar).slice(0, 160), fecha:x.fecha, hora:String(x.hora).slice(0, 40), precio:String(x.precio || "Por confirmar").slice(0, 60), organizador:String(x.organizador || "").slice(0, 80), whatsapp:RESP.wa, descripcion:String(x.descripcion || "").slice(0, 300), estado:"aprobado", mimx:false, destacado:false};
-    const fu = /^https?:\/\//i.test(x.fuente || "") ? String(x.fuente).slice(0, 200) : "";
-    try{
-      const ff = /^\d{4}-\d\d-\d\d$/.test(x.fecha_fin || "") && x.fecha_fin > x.fecha ? x.fecha_fin : "";
-      try{ await sb("/rest/v1/eventos", {method:"POST", body:Object.assign({}, fila, fu ? {fuente:fu} : {}, ff ? {fecha_fin:ff} : {}), prefer:"return=minimal"}); }
-      catch(err){ if((fu || ff) && /fuente|fecha_fin/i.test(err.message)) await sb("/rest/v1/eventos", {method:"POST", body:Object.assign({}, fila, fu && !/fuente/i.test(err.message) ? {fuente:fu} : {}), prefer:"return=minimal"}); else throw err; }
-      toast("Evento publicado"); await cargarAdmin(); cargarPublico();
-    }catch(err){ toast("No se pudo: " + err.message); sg.disabled = false; }
+    try{ await sugPublicar(x, zona); toast("Evento publicado"); await cargarAdmin(); cargarPublico(); }
+    catch(err){ toast("No se pudo: " + err.message); sg.disabled = false; }
     return;
   }
   const t = e.target.closest("[data-sb]"); if(!t) return;
@@ -2492,6 +2509,18 @@ document.addEventListener("click", async e => {
     toast("Listo"); await cargarAdmin(); cargarPublico();
   }catch(err){ toast("No se pudo: " + err.message); t.disabled = false; }
 });
+
+/* Publica una sugerencia como evento aprobado (una por una o en lote) */
+async function sugPublicar(x, zona){
+  const fila = {id:"ev-" + Math.random().toString(36).slice(2, 10), titulo:String(x.titulo).slice(0, 100), tipo:x.tipo, zona, lugar:String(x.lugar).slice(0, 160), fecha:x.fecha, hora:String(x.hora).slice(0, 40), precio:String(x.precio || "Por confirmar").slice(0, 60), organizador:String(x.organizador || "").slice(0, 80), whatsapp:RESP.wa, descripcion:String(x.descripcion || "").slice(0, 300), estado:"aprobado", mimx:false, destacado:false};
+  const fu = /^https?:\/\//i.test(x.fuente || "") ? String(x.fuente).slice(0, 200) : "";
+  const ff = /^\d{4}-\d\d-\d\d$/.test(x.fecha_fin || "") && x.fecha_fin > x.fecha ? x.fecha_fin : "";
+  try{ await sb("/rest/v1/eventos", {method:"POST", body:Object.assign({}, fila, fu ? {fuente:fu} : {}, ff ? {fecha_fin:ff} : {}), prefer:"return=minimal"}); }
+  catch(err){ if((fu || ff) && /fuente|fecha_fin/i.test(err.message)) await sb("/rest/v1/eventos", {method:"POST", body:Object.assign({}, fila, fu && !/fuente/i.test(err.message) ? {fuente:fu} : {}), prefer:"return=minimal"}); else throw err; }
+}
+function sugMarcadas(){ return [...document.querySelectorAll(".sug-ck:checked")]; }
+function sugCuenta(){ const c = document.getElementById("sug-cuenta"); if(c){ const n = sugMarcadas().length; c.textContent = n ? n + " marcadas" : ""; } }
+document.addEventListener("change", e => { if(e.target.classList && e.target.classList.contains("sug-ck")) sugCuenta(); });
 
 /* ===== Enrutador ===== */
 let adminTab = "solicitudes";
