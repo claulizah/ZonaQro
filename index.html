@@ -714,6 +714,120 @@ document.addEventListener("change", async e => {
   try{ const r = await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:{seguimiento:s.value}, prefer:"return=representation"}); if(!r || !r.length) throw new Error("no se aplicó (¿entraste como administradora?)"); b.seguimiento = s.value; toast("Guardado: " + SEG[s.value]); render(); }
   catch(err){ b.seguimiento = antes; s.value = antes; s.disabled = false; toast("No se pudo guardar: " + err.message); }
 });
+/* ===== Admin: reclutamiento de prospectos (negocios que todavía no se registran) =====
+   Flujo: agregar prospecto → mensaje de WhatsApp listo (corto, con enlace y salida fácil) → seguimiento
+   (nuevo / contactado / respondió / registrado / no le interesa) con fecha del último contacto y un solo recordatorio a los 5 días.
+   Quien dice "no le interesa" queda en la lista para no volver a escribirle. */
+const PROSPECTO_EST = {nuevo:"Nuevo", contactado:"Contactado", respondio:"Respondió", registrado:"Registrado", no_interesa:"No le interesa"};
+const DIAS_RECORDAR = 5, MAX_INTENTOS = 2, AVISO_DIARIO = 10; // 1 mensaje + 1 recordatorio; aviso suave a partir de 10 mensajes en un día
+let prospFiltro = "", prospZona = "";
+const limpiaCampana = t => String(t || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 24); // igual que el sitio arma el utm_campaign
+const campanaProspecto = p => p.campana || limpiaCampana("rec-" + String(p.zona || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-"));
+const tel10 = t => { let d = String(t || "").replace(/\D/g, ""); if(d.length === 13 && d.startsWith("521")) d = d.slice(3); else if(d.length === 12 && d.startsWith("52")) d = d.slice(2); return /^\d{10}$/.test(d) ? d : ""; };
+const fichaDeProspecto = (A, p) => (A.neg || []).find(b => b.whatsapp === p.whatsapp && !b.referencia && b.estado !== "rechazado") || null; // ya se registró o ya tiene ficha
+function enlaceProspecto(A, p){
+  const b = fichaDeProspecto(A, p), utm = "?utm_source=whatsapp&utm_medium=reclutar&utm_campaign=" + campanaProspecto(p);
+  return BASE_URL + utm + (b && b.estado === "aprobado" ? "#n-" + b.id : "#negocios");
+}
+function mensajeProspecto(A, p, recordatorio){
+  const b = fichaDeProspecto(A, p), tieneFicha = !!b && b.estado === "aprobado", enlace = enlaceProspecto(A, p);
+  if(recordatorio) return "Hola, te escribo una sola vez más por " + p.nombre + ". ZonaQro es un directorio gratuito de negocios de Querétaro. " + (tieneFicha ? "Aquí está su ficha" : "Aquí ves cómo funciona y te registras en 2 minutos") + ": " + enlace + "\nSi no te interesa, no pasa nada: dímelo y no te escribo más. ¡Gracias!";
+  if(tieneFicha) return "Hola, soy de ZonaQro, un directorio gratuito de negocios de Querétaro. Ya preparamos la ficha de " + p.nombre + "; así se ve: " + enlace + "\nSi quieres cambiar algo o prefieres que la quitemos, solo respóndeme por aquí. ¡Gracias!";
+  return "Hola, soy de ZonaQro, un directorio gratuito de negocios de Querétaro. Me gustaría que " + p.nombre + " aparezca ahí, sin costo y sin compromiso. Aquí ves cómo funciona y te registras en 2 minutos: " + enlace + "\nSi no te interesa, dímelo y no te vuelvo a escribir. ¡Gracias!";
+}
+function accionProspecto(p){
+  if(p.estado === "nuevo") return {k:"enviar", txt:"Enviar primer mensaje"};
+  if(p.estado !== "contactado") return {k:"nada", txt:p.estado === "no_interesa" ? "No escribirle más" : "—"};
+  if((p.intentos || 0) >= MAX_INTENTOS) return {k:"sinrespuesta", txt:"Sin respuesta (2 intentos)"};
+  const d = diasDesde(p.ultimo_contacto);
+  if(d !== null && d >= DIAS_RECORDAR) return {k:"recordar", txt:"Recordar hoy"};
+  return {k:"esperar", txt:"Esperar: recordar el " + (p.ultimo_contacto ? sumaDias(p.ultimo_contacto, DIAS_RECORDAR) : "—")};
+}
+const prospPorHacer = A => (A.prospectos || []).filter(p => ["enviar", "recordar"].includes(accionProspecto(p).k)).length;
+function adminReclutamiento(A){
+  if(A.prospectos === null || A.prospectos === undefined) return '<div class="notice err">Falta correr la <b>sección 33</b> de supabase.sql en Supabase para guardar a los prospectos.</div>';
+  const todos = A.prospectos, hoy = hoyISO(), hoyN = todos.filter(p => p.ultimo_contacto === hoy).length;
+  const cuenta = k => todos.filter(p => p.estado === k).length, porHacer = prospPorHacer(A);
+  const lista = todos.filter(p => (!prospFiltro || p.estado === prospFiltro) && (!prospZona || p.zona === prospZona));
+  const zonas = [...new Set(todos.map(p => p.zona))].sort();
+  return `<p class="muted" style="max-width:68ch">Negocios que quieres invitar y que todavía no se registran. Toca el botón, se abre WhatsApp con el mensaje listo y el prospecto queda como contactado. A los ${DIAS_RECORDAR} días te sale <b>un solo</b> recordatorio; después ya no. Quien diga que no le interesa queda marcado para no volver a escribirle.</p>
+    ${hoyN >= AVISO_DIARIO ? `<div class="notice" role="status">Hoy ya les escribiste a <b>${hoyN}</b> prospectos. Mejor pausa y sigue mañana para no parecer spam.</div>` : ""}
+    <div class="notice">Por escribir o recordar: <b>${porHacer}</b> · ${Object.entries(PROSPECTO_EST).map(([k, t]) => `${esc(t)} ${cuenta(k)}`).join(" · ")}</div>
+    <form class="reg" id="fProspecto" novalidate style="max-width:760px">
+      <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+        <label class="fld" for="p-nombre">Negocio<input id="p-nombre" type="text" maxlength="80" autocomplete="off"></label>
+        <label class="fld" for="p-wa">WhatsApp (10 dígitos)<input id="p-wa" type="tel" inputmode="numeric" autocomplete="off" placeholder="4421234567"></label>
+        <label class="fld" for="p-zona">Zona<select id="p-zona">${ZONAS.filter(z => z !== ZONA_TODO).map(z => `<option value="${esc(z)}">${esc(z)}</option>`).join("")}</select></label>
+        <label class="fld" for="p-campana">Ola o campaña (opcional)<input id="p-campana" type="text" maxlength="24" placeholder="rec-juriquilla" autocomplete="off"></label>
+        <label class="fld" for="p-nota" style="grid-column:1/-1">Nota (opcional, solo tú la ves)<input id="p-nota" type="text" maxlength="200" autocomplete="off"></label>
+      </div>
+      <div id="p-err" class="notice err" hidden></div>
+      <div><button class="btn" type="submit">Agregar prospecto</button></div>
+    </form>
+    <div class="tabs" role="group" aria-label="Filtrar por estado" style="margin-top:14px"><button class="chip" data-pf="" aria-pressed="${!prospFiltro}">Todos <small>${todos.length}</small></button>${Object.entries(PROSPECTO_EST).map(([k, t]) => `<button class="chip" data-pf="${k}" aria-pressed="${prospFiltro === k}">${esc(t)} <small>${cuenta(k)}</small></button>`).join("")}
+      <label class="fld" style="display:inline-flex;align-items:center;gap:6px;margin-left:8px"><span class="meta">Zona</span><select id="p-fzona" aria-label="Filtrar por zona"><option value="">Todas</option>${zonas.map(z => `<option value="${esc(z)}"${prospZona === z ? " selected" : ""}>${esc(z)}</option>`).join("")}</select></label></div>
+    <div class="tbl-wrap"><table id="t-prospectos"><thead><tr><th>Prospecto</th><th>Zona</th><th>Estado</th><th>Último contacto</th><th>Siguiente paso</th><th></th></tr></thead><tbody>
+    ${lista.length ? lista.map(p => {
+      const a = accionProspecto(p), b = fichaDeProspecto(A, p), yaRegistrado = !!b && ["nuevo", "contactado", "respondio"].includes(p.estado);
+      const msg = mensajeProspecto(A, p, a.k === "recordar"), puede = a.k === "enviar" || a.k === "recordar";
+      return `<tr data-prosp="${esc(p.id)}"><td><b>${esc(p.nombre)}</b>${p.nota ? `<br><small class="muted">${esc(p.nota)}</small>` : ""}${yaRegistrado ? `<br><span class="badge b-promo">${b.estado === "aprobado" ? "Ya tiene ficha en ZonaQro" : "Ya se registró (pendiente)"}</span> <button type="button" class="btn sm ghost" data-preg="${esc(p.id)}">Marcar registrado</button>` : ""}</td>
+        <td>${esc(p.zona)}</td>
+        <td><select data-pest="${esc(p.id)}" aria-label="Estado de ${esc(p.nombre)}">${Object.entries(PROSPECTO_EST).map(([k, t]) => `<option value="${k}"${p.estado === k ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></td>
+        <td>${esc(p.ultimo_contacto || "—")}${p.intentos ? ` <small class="muted">(${p.intentos} ${p.intentos === 1 ? "mensaje" : "mensajes"})</small>` : ""}</td>
+        <td>${esc(a.txt)}</td>
+        <td>${puede ? `<a class="btn sm wa" href="${esc(waTexto(p.whatsapp, msg))}" target="_blank" rel="noopener" data-pw="${esc(p.id)}">${a.k === "recordar" ? "Recordar por WhatsApp" : "Escribir por WhatsApp"}</a>` : ""}
+          <details><summary class="meta">Ver mensaje</summary><p class="meta" style="white-space:pre-wrap;max-width:46ch">${esc(sinEmoji(msg))}</p></details>
+          <button type="button" class="btn sm danger" data-pdel="${esc(p.id)}" aria-label="Borrar a ${esc(p.nombre)}">Borrar</button></td></tr>`;
+    }).join("") : '<tr><td colspan="6">' + (todos.length ? "Ningún prospecto con ese filtro." : "Todavía no tienes prospectos. Agrega el primero arriba.") + '</td></tr>'}
+    </tbody></table></div>
+    <p class="muted" style="font-size:.85rem;max-width:70ch">El enlace del mensaje lleva <code>utm_source=whatsapp</code>, <code>utm_medium=reclutar</code> y la campaña de cada prospecto, así que en <b>Métricas → Campañas</b> ves cuántos entraron y se registraron por ola. Los números de WhatsApp son datos de terceros: úsalos solo para esta invitación y borra a quien te lo pida (retención y aviso a prospectos: por confirmar con revisión legal).</p>`;
+}
+async function guardarProspecto(id, cambios, ok){
+  const A = estado.admin, p = (A.prospectos || []).find(x => x.id === id); if(!p) return false;
+  try{ const r = await sb("/rest/v1/prospectos?id=eq." + encodeURIComponent(id), {method:"PATCH", body:cambios, prefer:"return=representation"}); if(!r || !r.length) throw new Error("no se aplicó (¿entraste como administradora?)"); Object.assign(p, r[0]); if(ok) toast(ok); return true; }
+  catch(err){ toast("No se pudo guardar: " + err.message); return false; }
+}
+document.addEventListener("submit", async e => {
+  if(e.target.id !== "fProspecto") return; e.preventDefault();
+  const A = estado.admin, er = document.getElementById("p-err"), v = id => document.getElementById(id).value.trim(), err = [];
+  const nombre = v("p-nombre"), wa = tel10(v("p-wa")), zona = v("p-zona"), campana = limpiaCampana(v("p-campana")), nota = v("p-nota");
+  if(nombre.length < 2) err.push("escribe el nombre del negocio");
+  if(!wa) err.push("el WhatsApp debe tener 10 dígitos (puedes pegarlo con +52, espacios o guiones)");
+  else if((A.prospectos || []).some(p => p.whatsapp === wa)) err.push("ese WhatsApp ya está en tu lista (si dijo que no le interesa, no se le vuelve a escribir)");
+  if(err.length){ er.hidden = false; er.textContent = "Para agregar: " + err.join(", ") + "."; return; }
+  er.hidden = true; const bt = e.target.querySelector("button[type=submit]"); bt.disabled = true;
+  try{ await sb("/rest/v1/prospectos", {method:"POST", body:{nombre, whatsapp:wa, zona, campana, nota}, prefer:"return=minimal"}); toast("Prospecto agregado: " + nombre); await cargarAdmin(); render(); }
+  catch(x){ er.hidden = false; er.textContent = /duplicate|23505|unique/i.test(x.message) ? "Ese WhatsApp ya está en tu lista." : "No se pudo guardar: " + x.message; bt.disabled = false; }
+});
+document.addEventListener("click", async e => {
+  const w = e.target.closest("[data-pw]");
+  if(w){ // el enlace de WhatsApp se abre solo; aquí se anota el contacto
+    const A = estado.admin, p = (A.prospectos || []).find(x => x.id === w.dataset.pw); if(!p) return;
+    if(await guardarProspecto(p.id, {estado:"contactado", ultimo_contacto:hoyISO(), intentos:Math.min(5, (p.intentos || 0) + 1)}, "Anotado: contactado hoy")) render();
+    return;
+  }
+  const r = e.target.closest("[data-preg]");
+  if(r){ if(await guardarProspecto(r.dataset.preg, {estado:"registrado"}, "Marcado como registrado")) render(); return; }
+  const f = e.target.closest("[data-pf]");
+  if(f){ prospFiltro = f.dataset.pf; render(); return; }
+  const d = e.target.closest("[data-pdel]");
+  if(d){
+    const p = (estado.admin.prospectos || []).find(x => x.id === d.dataset.pdel); if(!p) return;
+    if(!confirm("¿Borrar a " + p.nombre + " de tus prospectos? Si lo borras, ya no quedará marcado para no volver a escribirle. No se puede deshacer.")) return;
+    d.disabled = true;
+    try{ await sb("/rest/v1/prospectos?id=eq." + encodeURIComponent(p.id), {method:"DELETE", prefer:"return=minimal"}); toast("Prospecto borrado"); await cargarAdmin(); render(); }
+    catch(x){ d.disabled = false; toast("No se pudo borrar: " + x.message); }
+  }
+});
+document.addEventListener("change", async e => {
+  const s = e.target.closest("[data-pest]");
+  if(s){
+    const A = estado.admin, p = (A.prospectos || []).find(x => x.id === s.dataset.pest); if(!p || !PROSPECTO_EST[s.value]) return;
+    const cambios = {estado:s.value}; if(s.value === "contactado" && !p.ultimo_contacto){ cambios.ultimo_contacto = hoyISO(); cambios.intentos = Math.max(1, p.intentos || 0); }
+    s.disabled = true; const ok = await guardarProspecto(p.id, cambios, "Guardado: " + PROSPECTO_EST[s.value]); if(!ok){ s.value = p.estado; s.disabled = false; return; } render(); return;
+  }
+  if(e.target.id === "p-fzona"){ prospZona = e.target.value; render(); }
+});
 /* ===== Admin: gasto de campañas y costo por registro =====
    El gasto se captura a mano (campaña = el utm_campaign del enlace, fechas y monto; puede haber varias capturas por campaña).
    Los registros, clics a WhatsApp y visitas salen del propio sitio (métricas utm_*), solo de los días de la captura. No se importa nada de Meta. */
@@ -819,6 +933,7 @@ async function cargarAdmin(){
     A.neg = n; A.ev = ev; A.res = rs; A.error = "";
   }catch(err){ A.error = err.message; }
   try{ A.edic = await sb("/rest/v1/ediciones?select=*&order=created_at.desc&limit=100"); }catch(err){ A.edic = null; }
+  try{ A.prospectos = await sb("/rest/v1/prospectos?select=*&order=created_at.desc"); }catch(err){ A.prospectos = null; }
   try{ const r = await fetch("eventos-sugeridos.json?v=" + Date.now(), {cache:"no-store"}); A.sug = r.ok ? await r.json() : []; }catch(err){ A.sug = []; }
   try{ A.gastos = await sb("/rest/v1/gastos_campana?select=*&order=desde.desc,created_at.desc"); }catch(err){ A.gastos = null; }
   try{
@@ -1967,7 +2082,7 @@ function vAdminLive(tab){
     </form></section>`;
   const A = estado.admin;
   if(!A.cargado) return `<section><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1><p class="muted">Cargando…</p></section>`;
-  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas","semana","seguimiento","gasto"].includes(tab) ? tab : "solicitudes";
+  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas","semana","seguimiento","reclutamiento","gasto"].includes(tab) ? tab : "solicitudes";
   const RS = A.res || [];
   const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente"), pr = RS.filter(x => x.estado === "pendiente");
   const descartados = (() => { try{ return JSON.parse(localStorage.getItem("zq_desc") || "[]"); }catch(e){ return []; } })();
@@ -2002,6 +2117,7 @@ function vAdminLive(tab){
   if(tab === "reportes") cuerpo = adminReportes(A);
   if(tab === "pedir") cuerpo = adminPedir(A);
   if(tab === "semana") cuerpo = tableroSemana(A);
+  if(tab === "reclutamiento") cuerpo = adminReclutamiento(A);
   if(tab === "gasto") cuerpo = adminGasto(A);
   if(tab === "seguimiento") cuerpo = adminSeguimiento(A);
   if(tab === "cambios") cuerpo = adminCambios(A);
@@ -2085,6 +2201,7 @@ function vAdminLive(tab){
   const hoyToca = [
     [pn.length, "negocios por aprobar", "solicitudes"], [pe.length, "eventos por aprobar", "eventos"], [pr.length, "opiniones por revisar", "opiniones"], [sug.length, "eventos sugeridos", "sugeridos"],
     [reales.filter(b => b.seguimiento === "sin_contactar").length, "negocios sin contactar", "seguimiento"],
+    [prospPorHacer(A), "prospectos por escribir o recordar", "reclutamiento"],
     [reales.filter(b => nombreSospechoso(b.nombre)).length, "fichas con correo o teléfono como nombre", "editar"],
     [reales.filter(b => faltasDe(b).length).length, "fichas incompletas", "editar"],
     [colaDe(A).filter(x => x.etapa === "pedir" || x.etapa === "recordar").length, "por pedir datos", "pedir"],
@@ -2122,6 +2239,7 @@ function vAdminLive(tab){
       <button class="chip" data-atab="agregar" aria-pressed="${tab==="agregar"}">Agregar negocio</button>
       <button class="chip" data-atab="semana" aria-pressed="${tab==="semana"}">Semana</button>
       <button class="chip" data-atab="seguimiento" aria-pressed="${tab==="seguimiento"}">Seguimiento</button>
+      <button class="chip" data-atab="reclutamiento" aria-pressed="${tab==="reclutamiento"}">Reclutamiento${prospPorHacer(A) ? ` <small>${prospPorHacer(A)}</small>` : ""}</button>
       <button class="chip" data-atab="gasto" aria-pressed="${tab==="gasto"}">Gasto</button>
       <button class="chip" data-atab="metricas" aria-pressed="${tab==="metricas"}">Métricas</button>
       <button class="chip" data-atab="zonas" aria-pressed="${tab==="zonas"}">Zonas</button>

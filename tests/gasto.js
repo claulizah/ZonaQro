@@ -31,6 +31,7 @@ async function pagina(browser, vp, o = {}){
   const json = (body, status = 200) => ({ status, contentType: "application/json", body: JSON.stringify(body) });
   await p.route("https://zonaqro.com/**", r => r.fulfill(r.request().url().includes("/rest/") ? json([]) : { status: 200, contentType: "text/html", body: html }));
   await p.route("https://fonts.*/**", r => r.fulfill({ status: 200, body: "" }));
+  await p.route("**/rest/v1/**", r => r.fulfill(json([]))); // lo que no se simule abajo se contesta vacío: ninguna prueba debe llegar al Supabase real
   await p.route("**/rest/v1/negocios*", r => r.fulfill(json(neg)));
   await p.route("**/rest/v1/eventos*", r => r.fulfill(json([])));
   await p.route("**/rest/v1/resenas*", r => r.fulfill(json([])));
