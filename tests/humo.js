@@ -21,6 +21,7 @@ async function nuevaPagina(browser, vp){
   const json = body => ({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   await p.route("https://zonaqro.com/**", r => r.fulfill(r.request().url().includes("/rest/") ? json([]) : { status: 200, contentType: "text/html", body: html }));
   await p.route("https://fonts.*/**", r => r.fulfill({ status: 200, body: "" }));
+  await p.route("**/rest/v1/**", r => r.fulfill(json([]))); // lo que no se simule abajo se contesta vacío: ninguna prueba debe llegar al Supabase real
   await p.route("**/rest/v1/negocios*", r => { if(r.request().method() === "POST"){ const cuerpo = JSON.parse(r.request().postData()); s.intentos++;
     if(s.fallarInteres && "interes" in cuerpo){ r.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ code: "PGRST204", message: "Could not find the 'interes' column of 'negocios' in the schema cache" }) }); return; }
     s.posts.push(["negocios", cuerpo]); r.fulfill({ status: 201, body: "" }); } else r.fulfill(json([])); });

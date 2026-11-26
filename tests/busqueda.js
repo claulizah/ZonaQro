@@ -29,6 +29,7 @@ async function pagina(browser, vp, negocios, o = {}){
   if(o.init) await p.addInitScript(o.init);
   await p.route("https://zonaqro.com/**", r => { const u = r.request().url(); r.fulfill(u.includes("/rest/") ? json([]) : u.endsWith("sinonimos.json") ? (o.sin === undefined ? { status: 200, contentType: "application/json", body: SIN_REAL } : o.sin === null ? { status: 404, body: "no" } : { status: 200, contentType: "application/json", body: o.sin }) : { status: 200, contentType: "text/html", body: html }); });
   await p.route("https://fonts.*/**", r => r.fulfill({ status: 200, body: "" }));
+  await p.route("**/rest/v1/**", r => r.fulfill(json([]))); // lo que no se simule abajo se contesta vacío: ninguna prueba debe llegar al Supabase real
   await p.route("**/rest/v1/negocios*", r => r.fulfill(json(negocios)));
   await p.route("**/rest/v1/eventos*", r => r.fulfill(json([])));
   await p.route("**/rest/v1/resenas*", r => r.fulfill(json([])));
