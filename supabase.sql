@@ -684,6 +684,45 @@ create policy "publico sube fotos" on storage.objects
 --       as $f$ update public.negocios set clics = clics + 1 where id = nid and estado = 'aprobado' $f$;
 --   29b métricas: vuelve a correr la sección 26 de este archivo (deja registrar_evento y el filtro de tipos como antes; los tipos nuevos dejarán de contarse).
 
+-- ===== 30. Búsquedas sin resultado (para saber qué buscan y no encuentran) =====
+-- Tipo nuevo de métrica: busqueda_vacia, con referencia "texto|zona" (texto en minúsculas y sin acentos, máx. 30 letras).
+-- La función rechaza lo que parezca teléfono (4 o más dígitos seguidos), correo o enlace, y respeta el tope de 300 referencias nuevas por día.
+-- Si no la corres, el sitio sigue igual: la métrica simplemente se ignora. Se ve en Admin > Métricas.
+alter table public.metricas drop constraint if exists metricas_tipo_check;
+alter table public.metricas add constraint metricas_tipo_check
+  check (tipo in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir','registro_vista','registro_inicio','registro_envio','registro_error','evento_vista','evento_inicio','evento_envio','otro_envio','utm_visita','utm_wa','utm_registro','envio_descartado','tope_envios','busqueda_vacia'));
+create or replace function public.registrar_evento(p_tipo text, p_ref text default '')
+returns void language plpgsql security definer set search_path = public as $$
+declare v_ref text := left(coalesce(p_ref, ''), 60);
+begin
+  if p_tipo not in ('visita','vista','wa','web','cupon','evento_wa','evento_link','zona','cat','compartir','registro_vista','registro_inicio','registro_envio','registro_error','evento_vista','evento_inicio','evento_envio','otro_envio','utm_visita','utm_wa','utm_registro','envio_descartado','tope_envios','busqueda_vacia') then return; end if;
+  if p_tipo = 'envio_descartado' and v_ref !~ '^(registro|evento):(trampa|rapido)$' then return; end if;
+  if p_tipo = 'tope_envios' and v_ref !~ '^(negocios|eventos):(hora|whatsapp)$' then return; end if;
+  if p_tipo = 'busqueda_vacia' and (v_ref !~ '^[a-z0-9ñ ]{3,30}\|[A-Za-zÁÉÍÓÚÜáéíóúüñÑ: -]{1,28}$' or v_ref ~ '[0-9]{4,}' or v_ref ~* '(@|http|www)') then return; end if;
+  if p_tipo in ('vista','wa','web','cupon') and not exists (select 1 from public.negocios where id = v_ref) then return; end if;
+  if p_tipo in ('evento_wa','evento_link') and not exists (select 1 from public.eventos where id = v_ref) then return; end if;
+  if p_tipo = 'compartir' and v_ref !~ '^[nep]:[A-Za-z0-9_-]{1,50}$' then return; end if;
+  if p_tipo like 'utm\_%' and v_ref !~ '^[a-z0-9_-]{0,20}\|[a-z0-9_-]{0,12}\|[a-z0-9_-]{0,24}$' then return; end if;
+  if not exists (select 1 from public.metricas m where m.dia = current_date and m.tipo = p_tipo and m.ref = v_ref)
+     and (select count(*) from public.metricas m where m.dia = current_date and m.tipo = p_tipo) >= 300 then return; end if;
+  insert into public.metricas (dia, tipo, ref, n) values (current_date, p_tipo, v_ref, 1)
+  on conflict (dia, tipo, ref) do update set n = public.metricas.n + 1;
+end $$;
+revoke all on function public.registrar_evento(text, text) from public;
+grant execute on function public.registrar_evento(text, text) to anon, authenticated;
+-- Para revisar:  select tipo, ref, sum(n) from public.metricas where tipo = 'busqueda_vacia' group by 1, 2 order by 3 desc;
+-- DESHACER: vuelve a correr la sección 29b (deja la función como antes; la métrica deja de contarse).
+
+-- ===== 31. Interés declarado en el registro: "¿Qué te serviría más?" (solo lo ve la administradora) =====
+-- Valores: sitio_web, whatsapp_business, nada (se puede marcar más de uno, salvo "nada" que va solo). Es opcional.
+-- La columna NO está en la lista pública (sección 7): el público no puede leerla. El sitio sigue registrando aunque no hayas corrido esto
+-- (si la columna no existe, reintenta sin ese campo).
+alter table public.negocios add column if not exists interes text[] not null default '{}';
+alter table public.negocios drop constraint if exists negocios_interes_check;
+alter table public.negocios add constraint negocios_interes_check
+  check (interes <@ array['sitio_web','whatsapp_business','nada']::text[] and cardinality(interes) <= 3);
+-- DESHACER:  alter table public.negocios drop column interes;   (borra las respuestas)
+
 -- ===== 32. Gasto de campañas (captura manual; solo la administradora) =====
 -- Una fila por captura: campaña (el utm_campaign del enlace), fecha de inicio, fecha de fin y monto en pesos. Puede haber varias por campaña.
 -- Los registros y clics para calcular el costo salen de las métricas del sitio (utm_registro, utm_wa), no de Meta.
@@ -704,4 +743,3 @@ drop policy if exists "admin gastos" on public.gastos_campana;
 create policy "admin gastos" on public.gastos_campana
   for all to authenticated using (public.es_admin()) with check (public.es_admin());
 -- DESHACER:  drop table public.gastos_campana;   (borra las capturas)
-
