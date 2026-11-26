@@ -723,6 +723,27 @@ alter table public.negocios add constraint negocios_interes_check
   check (interes <@ array['sitio_web','whatsapp_business','nada']::text[] and cardinality(interes) <= 3);
 -- DESHACER:  alter table public.negocios drop column interes;   (borra las respuestas)
 
+-- ===== 32. Gasto de campañas (captura manual; solo la administradora) =====
+-- Una fila por captura: campaña (el utm_campaign del enlace), fecha de inicio, fecha de fin y monto en pesos. Puede haber varias por campaña.
+-- Los registros y clics para calcular el costo salen de las métricas del sitio (utm_registro, utm_wa), no de Meta.
+-- El público no puede ver ni escribir nada aquí (RLS solo para la administradora).
+create table if not exists public.gastos_campana (
+  id         uuid primary key default gen_random_uuid(),
+  campana    text not null check (campana ~ '^[a-z0-9_-]{1,24}$'),
+  desde      date not null,
+  hasta      date not null,
+  monto      numeric(12,2) not null check (monto > 0 and monto <= 1000000),
+  created_at timestamptz not null default now(),
+  check (hasta >= desde and hasta - desde <= 366)
+);
+create index if not exists gastos_campana_idx on public.gastos_campana (campana, desde);
+alter table public.gastos_campana enable row level security;
+revoke all on public.gastos_campana from public, anon;
+drop policy if exists "admin gastos" on public.gastos_campana;
+create policy "admin gastos" on public.gastos_campana
+  for all to authenticated using (public.es_admin()) with check (public.es_admin());
+-- DESHACER:  drop table public.gastos_campana;   (borra las capturas)
+
 -- ===== 33. Reclutamiento: prospectos (negocios que todavía no se registran; solo la administradora) =====
 -- Una fila por negocio que quieres invitar: nombre, WhatsApp (10 dígitos, único), zona, campaña (la "ola" del utm_campaign), estado
 -- (nuevo, contactado, respondio, registrado, no_interesa), fecha del último contacto, cuántos mensajes se le han mandado y una nota.
