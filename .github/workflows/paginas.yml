@@ -20,5 +20,5 @@ jobs:
         run: |
           git config user.name "ZonaQro bot"
           git config user.email "noreply@github.com"
-          git add -A n sitemap.xml robots.txt
+          git add -A n z sitemap.xml robots.txt
           if ! git diff --cached --quiet; then git commit -m "Actualizar páginas y sitemap"; git push; fi

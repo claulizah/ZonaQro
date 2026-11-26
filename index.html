@@ -786,6 +786,60 @@ function busquedasVacias(M){
     <p class="muted" style="font-size:.85rem;margin-bottom:8px">Lo que la gente buscó y no encontró, últimos 30 días (sin datos personales). Úsalo para decidir qué negocios reclutar o qué sinónimos agregar en <code>sinonimos.json</code>.</p>
     <div class="tbl-wrap"><table><thead><tr><th>Búsqueda</th><th>Zona</th><th class="num">Veces</th></tr></thead><tbody>${f.length ? f.map(([k, n]) => { const [t, z] = k.split("|"); return `<tr><td>${esc(t)}</td><td>${esc(z === "todas" ? "Todas" : z)}</td><td class="num">${n}</td></tr>`; }).join("") : '<tr><td colspan="3">Todavía no hay búsquedas sin resultado.</td></tr>'}</tbody></table></div></div>`;
 }
+/* ===== Material para compartir =====
+   Admin → Compartir: texto listo para grupos vecinales (corto, aclara que es gratis, sin emojis) con el enlace de la zona y sus etiquetas utm.
+   Edición por enlace: botón "Compartir mi ficha" para que el negocio la mande a sus clientes. */
+const slugZona = t => String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "zona"; // igual que el de scripts/generar-paginas.js
+const limpiaUtm = (t, n) => String(t || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, n); // mismos límites que el sitio al leer el utm
+let compZona = "", compCamp = "";
+function enlaceZona(z, defecto){ return BASE_URL + "z/" + slugZona(z) + "/?utm_source=grupo&utm_medium=vecinal&utm_campaign=" + (limpiaUtm(compCamp, 24) || limpiaUtm(defecto + "-" + slugZona(z), 24)); }
+const textoVecinos = z => "Hola vecinos de " + z + ". Les comparto ZonaQro, un directorio gratuito de negocios, servicios y eventos de Querétaro, con contacto directo por WhatsApp. Si buscas algo en tu zona, aquí lo encuentras; si tienes un negocio, puedes aparecer sin costo.\n" + enlaceZona(z, "vec");
+const textoNegocios = z => "Hola, ¿tienes un negocio en " + z + "? ZonaQro es un directorio gratuito donde tus vecinos te encuentran y te escriben directo por WhatsApp. Registrarte no cuesta nada y toma 2 minutos.\n" + enlaceZona(z, "neg");
+function adminCompartir(A){
+  const todas = MACROS.reduce((a, m) => a.concat(m.zonas), []), z = todas.includes(compZona) ? compZona : (zonasVisibles()[0] || todas[0]), activa = zonasVisibles().includes(z);
+  const bloque = (id, titulo, txt) => `<div class="panel" style="margin-top:12px"><h3>${titulo}</h3><textarea id="${id}" readonly rows="6" style="width:100%;font:inherit" aria-label="${titulo}">${esc(txt)}</textarea>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center"><button type="button" class="btn sm" data-cop="${id}">Copiar texto</button><small class="muted" id="${id}-n">${txt.length} caracteres</small></div></div>`;
+  return `<p class="muted" style="max-width:68ch">Textos listos para publicar en grupos vecinales. <b>Revisa las reglas de cada grupo y publica una sola vez</b>; si el grupo no permite publicidad, pide permiso a quien lo administra. El enlace abre una página de la zona con su imagen y lleva <code>utm_source=grupo</code> y <code>utm_medium=vecinal</code>, así que en <b>Métricas → Campañas</b> ves cuántos entran y se registran.</p>
+    <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));max-width:620px">
+      <label class="fld" for="comp-zona">Zona<select id="comp-zona" data-compzona>${MACROS.map(m => `<optgroup label="${esc(m.nombre)}">${m.zonas.map(x => `<option value="${esc(x)}"${x === z ? " selected" : ""}>${esc(x)}</option>`).join("")}</optgroup>`).join("")}</select></label>
+      <label class="fld" for="comp-camp">Ola o campaña (opcional)<input id="comp-camp" data-compcamp type="text" maxlength="24" value="${esc(limpiaUtm(compCamp, 24))}" placeholder="vec-${esc(slugZona(z)).slice(0, 20)}" autocomplete="off"></label>
+    </div>
+    ${activa ? "" : `<div class="notice" role="status" style="margin-top:10px">${esc(z)} todavía no está activa (faltan ${faltanZona(z)} fichas completas): su página invita a registrar negocios. Usa el texto para negocios.</div>`}
+    ${bloque("comp-vec", "Para vecinos (grupos de la colonia o fraccionamiento)", textoVecinos(z))}
+    ${bloque("comp-neg", "Para negocios (grupos de emprendedores)", textoNegocios(z))}
+    <div class="panel" style="margin-top:12px"><h3>Imagen para compartir de ${esc(z)}</h3><p class="muted" style="font-size:.88rem">Es la que se ve cuando alguien pega el enlace. También puedes descargarla y publicarla.</p>
+      <img src="og/${esc(slugZona(z))}.png" alt="Imagen para compartir de ${esc(z)}" style="max-width:100%;width:420px;border:1px solid var(--line);border-radius:10px" loading="lazy">
+      <p style="margin-top:8px"><a class="btn sm ghost" href="og/${esc(slugZona(z))}.png" download="zonaqro-${esc(slugZona(z))}.png">Descargar imagen</a></p></div>`;
+}
+function pintarTextosCompartir(){ // actualiza los textos sin repintar la pantalla (así no se pierde el clic en "Copiar" ni el cursor)
+  const z = (document.getElementById("comp-zona") || {}).value; if(!z) return;
+  for(const [id, txt] of [["comp-vec", textoVecinos(z)], ["comp-neg", textoNegocios(z)]]){ const a = document.getElementById(id), n = document.getElementById(id + "-n"); if(a) a.value = txt; if(n) n.textContent = txt.length + " caracteres"; }
+}
+document.addEventListener("input", e => { if(e.target.matches && e.target.matches("[data-compcamp]")){ compCamp = limpiaUtm(e.target.value, 24); pintarTextosCompartir(); } });
+document.addEventListener("change", e => {
+  if(!e.target.matches) return;
+  if(e.target.matches("[data-compzona]")){ compZona = e.target.value; render(); }
+  else if(e.target.matches("[data-compcamp]")){ e.target.value = compCamp; } // al salir del campo se muestra ya limpio
+});
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-cop]"); if(!b) return;
+  const ta = document.getElementById(b.dataset.cop); if(!ta) return;
+  try{ await navigator.clipboard.writeText(ta.value); }catch(err){ ta.select(); try{ document.execCommand("copy"); }catch(x){} }
+  toast("Texto copiado");
+});
+function panelCompartirMiFicha(d){
+  if(d.estado !== "aprobado") return '<div class="panel" id="comp-mi"><h3>Comparte tu ficha</h3><p class="muted">Cuando tu ficha esté publicada, aquí podrás compartirla con tus clientes.</p></div>';
+  const url = BASE_URL + "?utm_source=compartir&utm_medium=negocio&utm_campaign=mi-ficha#n-" + d.id, txt = "Ya estoy en ZonaQro, el directorio gratuito de negocios de Querétaro. Escríbeme directo por WhatsApp desde mi ficha:\n" + url;
+  return `<div class="panel" id="comp-mi"><h3>Comparte tu ficha</h3><p class="muted">Mándala por WhatsApp a tus clientes o publícala en tus redes.</p>
+    <textarea id="comp-mi-txt" readonly rows="4" style="width:100%;font:inherit" aria-label="Texto para compartir tu ficha">${esc(txt)}</textarea>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn wa" data-comp-mi="${esc(d.id)}">Compartir mi ficha</button><button type="button" class="btn ghost" data-cop="comp-mi-txt">Copiar texto</button></div></div>`;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-comp-mi]"); if(!b) return;
+  const ta = document.getElementById("comp-mi-txt"); if(!ta) return;
+  const [txt, url] = [ta.value.split("\n")[0], ta.value.split("\n")[1]];
+  compartir(txt, url); metrica("compartir", "n:" + b.dataset.compMi);
+});
 function embudo(M){
   const s = t => M.filter(m => m.tipo === t).reduce((a, m) => a + m.n, 0);
   const pct = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
@@ -1587,6 +1641,7 @@ function vEditarProp(){
         <button type="button" data-epshare="${esc(d.nombre)}" data-ref="${esc((negocios().find(x => x.id === d.id) ? enlaceNeg(negocios().find(x => x.id === d.id)) : d.id))}"><i>📲</i><b>Comparte tu ficha</b><span>Mándala por WhatsApp a tus clientes</span></button>
       </div></div>
     <div class="panel ep-prog" id="epProg" aria-live="polite"></div>
+    ${panelCompartirMiFicha(d)}
     <form class="reg" id="fEdit" novalidate>
       <label class="fld" for="ep-desc">Descripción (qué vendes o qué servicio das)<textarea id="ep-desc" maxlength="300">${esc(d.descripcion)}</textarea></label>
       ${d.tipo === "local" ? `<label class="fld" for="ep-dir">Dirección del local<input id="ep-dir" type="text" maxlength="160" value="${esc(d.direccion)}"></label>` : ""}
@@ -1962,7 +2017,7 @@ function vAdminLive(tab){
     </form></section>`;
   const A = estado.admin;
   if(!A.cargado) return `<section><h1 style="font-size:clamp(1.8rem,5vw,2.4rem)">Panel de administración</h1><p class="muted">Cargando…</p></section>`;
-  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas","semana","seguimiento","gasto"].includes(tab) ? tab : "solicitudes";
+  tab = ["solicitudes","eventos","sugeridos","promos","opiniones","publicados","editar","pedir","cambios","reportes","rechazados","prospectos","agregar","metricas","zonas","semana","seguimiento","gasto","compartir"].includes(tab) ? tab : "solicitudes";
   const RS = A.res || [];
   const pn = A.neg.filter(x => x.estado === "pendiente"), pe = A.ev.filter(x => x.estado === "pendiente"), pr = RS.filter(x => x.estado === "pendiente");
   const descartados = (() => { try{ return JSON.parse(localStorage.getItem("zq_desc") || "[]"); }catch(e){ return []; } })();
@@ -1998,6 +2053,7 @@ function vAdminLive(tab){
   if(tab === "pedir") cuerpo = adminPedir(A);
   if(tab === "semana") cuerpo = tableroSemana(A);
   if(tab === "gasto") cuerpo = adminGasto(A);
+  if(tab === "compartir") cuerpo = adminCompartir(A);
   if(tab === "seguimiento") cuerpo = adminSeguimiento(A);
   if(tab === "cambios") cuerpo = adminCambios(A);
   if(tab === "rechazados"){
@@ -2118,6 +2174,7 @@ function vAdminLive(tab){
       <button class="chip" data-atab="semana" aria-pressed="${tab==="semana"}">Semana</button>
       <button class="chip" data-atab="seguimiento" aria-pressed="${tab==="seguimiento"}">Seguimiento</button>
       <button class="chip" data-atab="gasto" aria-pressed="${tab==="gasto"}">Gasto</button>
+      <button class="chip" data-atab="compartir" aria-pressed="${tab==="compartir"}">Compartir</button>
       <button class="chip" data-atab="metricas" aria-pressed="${tab==="metricas"}">Métricas</button>
       <button class="chip" data-atab="zonas" aria-pressed="${tab==="zonas"}">Zonas</button>
     </div>
@@ -2926,6 +2983,7 @@ async function enviarRegistro(){
   enviar("negocios", fila, () => { estado.solicitudes.push(fila); guardar("zq_solicitudes", estado.solicitudes); }, ok => { if(ok) FOTOS = []; return vRegistrar(ok); }, box);
 }
 
+try{ const zq = zonaValida(new URLSearchParams(location.search).get("zona")); if(zq){ estado.f.zona = zq; guardar("zq_zona", zq); } }catch(e){} // enlaces para compartir: ?zona=Juriquilla
 if(!ZONAS.includes(estado.f.zona) && !String(estado.f.zona || "").startsWith(MP)) estado.f.zona = "";
 render();
 cargarPublico();

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-/* Genera páginas estáticas por negocio (/n/<slug>/), sitemap.xml y robots.txt a partir de los datos públicos de Supabase.
+/* Genera páginas estáticas por negocio (/n/<slug>/) y por zona (/z/<slug>/, con su imagen para compartir en /og/<slug>.png), sitemap.xml y robots.txt
+   a partir de los datos públicos de Supabase.
    Uso: node scripts/generar-paginas.js [--datos archivo.json] [--salida carpeta]
    Solo usa la llave pública (anon) que ya está en index.html y las mismas columnas que lee el sitio. */
 const fs = require("fs"), path = require("path");
@@ -9,6 +10,7 @@ const src = fs.readFileSync(path.join(RAIZ, "index.html"), "utf8");
 const tomar = r => { const m = src.match(r); if(!m) throw new Error("No encontré " + r); return m[1]; };
 const SB_URL = tomar(/const SB_URL = "([^"]+)"/), SB_KEY = tomar(/const SB_KEY = "([^"]+)"/), BASE = tomar(/const BASE_URL = "([^"]+)"/).replace(/\/$/, "");
 const CATS = eval(tomar(/const CATEGORIAS = (\[[\s\S]*?\n\]);/));
+const MACROS = eval(tomar(/const MACROS = (\[[\s\S]*?\n\]);/));
 const catNombre = id => (CATS.find(c => c.id === id) || {}).nombre || id;
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const slug = t => String(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "negocio";
@@ -77,6 +79,48 @@ ${web ? `<p style="margin:.2em 0"><strong>Sitio web:</strong> <a href="${esc(web
 </body></html>`;
 }
 
+/* ===== Páginas por zona: sirven para compartir (imagen og propia de cada zona) y para buscar "negocios en <zona>" ===== */
+const MIN_ZONA = 3; // una zona está activa con 3 negocios con ficha completa (igual que el sitio)
+const compDe = b => !b.referencia && !!(horarios(b) || b.horario) && (b.descripcion || "").trim().length >= 30 && String(b.whatsapp || "").replace(/\D/g, "").length >= 10;
+function paginaZona(zona, macro, activa, n, url){
+  const sl = slug(zona), og = `${BASE}/og/${sl}.png`, dest = `${BASE}/?zona=${encodeURIComponent(zona)}`;
+  const titulo = activa ? `${zona}: negocios y servicios | ZonaQro` : `${zona}: próximamente en ZonaQro`;
+  const desc = activa ? `${n} negocios y servicios de ${zona}, Querétaro, con su horario y contacto directo por WhatsApp. Directorio gratuito.` : `ZonaQro está sumando los primeros negocios de ${zona}, Querétaro. Si tienes uno, puedes aparecer gratis y que te escriban directo por WhatsApp.`;
+  const h1 = activa ? `Negocios y servicios en ${zona}` : `ZonaQro llega pronto a ${zona}`;
+  const texto = activa ? `${n} negocios de ${zona} con su ficha completa. Busca por categoría, mira su horario y escríbeles directo por WhatsApp, sin intermediarios.` : `Estamos sumando los primeros negocios de ${zona}. Si tienes uno, puedes aparecer gratis y tus vecinos te encontrarán y te escribirán directo por WhatsApp.`;
+  const prim = activa ? [`${dest}#directorio`, `Ver negocios en ${zona}`] : [`${dest}#negocios`, "Registra tu negocio gratis"];
+  const sec = activa ? [`${dest}#negocios`, "Registra tu negocio gratis"] : [`${BASE}/#directorio`, "Ver negocios de Querétaro"];
+  return `<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(titulo)}</title>
+<meta name="description" content="${esc(desc)}">
+<link rel="canonical" href="${esc(url)}">
+${activa ? "" : '<meta name="robots" content="noindex, follow">\n'}<meta property="og:type" content="website"><meta property="og:site_name" content="ZonaQro"><meta property="og:title" content="${esc(titulo)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(url)}">
+<meta property="og:image" content="${esc(og)}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+<style>
+:root{--bg:#F4F7F2;--ink:#17231C;--muted:#56665B;--line:#D9E2D6;--agave:#2C674B}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:#fff;border-bottom:1px solid var(--line);padding:12px 16px}header a{color:var(--agave);font-weight:800;text-decoration:none;font-size:1.1rem}
+main{max-width:720px;margin:0 auto;padding:28px 16px 40px}h1{font-size:1.9rem;line-height:1.2;margin:.2em 0 .4em}.eyebrow{color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:.8rem;margin:0}
+.btn{display:block;text-align:center;padding:14px;border-radius:12px;font-weight:700;text-decoration:none;margin:10px 0;border:2px solid var(--agave);color:var(--agave);background:#fff}.btn.p{background:var(--agave);color:#fff}
+footer{color:var(--muted);font-size:.9rem;text-align:center;padding:20px 16px}footer a{color:var(--agave)}
+</style></head><body>
+<header><a href="/">ZonaQro</a></header>
+<main>
+<p class="eyebrow">${esc(macro)} · Querétaro</p>
+<h1>${esc(h1)}</h1>
+<p>${esc(texto)}</p>
+<a class="btn p" href="${esc(prim[0])}" data-utm>${esc(prim[1])}</a>
+<a class="btn" href="${esc(sec[0])}" data-utm>${esc(sec[1])}</a>
+</main>
+<footer>ZonaQro · directorio gratuito de negocios, servicios y eventos de Querétaro.</footer>
+<script>/* conserva las etiquetas utm_* del enlace con el que llegaron, para medir cada ola */
+try{ var q = new URLSearchParams(location.search), u = new URLSearchParams(); ["utm_source","utm_medium","utm_campaign"].forEach(function(k){ if(q.get(k)) u.set(k, q.get(k)); });
+  if([...u.keys()].length) document.querySelectorAll("a[data-utm]").forEach(function(a){ var x = new URL(a.href); u.forEach(function(v, k){ x.searchParams.set(k, v); }); a.href = x.href; }); }catch(e){}</script>
+</body></html>`;
+}
+
 async function datos(){
   const f = arg("--datos"); if(f) return JSON.parse(fs.readFileSync(f, "utf8"));
   const cols = "id,nombre,categoria,tipo,zonas,descripcion,whatsapp,direccion,horario,horarios,entrega,envio,fotos,sitio_web,referencia,alta";
@@ -94,8 +138,15 @@ async function datos(){
     let s = slug(b.nombre + " " + (b.zonas || [])[0]); if(usados.has(s)) s += "-" + slug(String(b.id)).slice(0, 6); usados.add(s);
     const url = `${BASE}/n/${s}/`; fs.mkdirSync(path.join(dirN, s), {recursive:true}); fs.writeFileSync(path.join(dirN, s, "index.html"), pagina(b, url)); urls.push(url);
   }
+  // páginas por zona (todas, para poder compartirlas; las que aún no están activas llevan noindex y no entran al sitemap)
+  const dirZ = path.join(SAL, "z"); fs.rmSync(dirZ, {recursive:true, force:true}); fs.mkdirSync(dirZ, {recursive:true});
+  const urlsZ = [];
+  for(const m of MACROS) for(const z of m.zonas){
+    const n = todos.filter(b => compDe(b) && (b.zonas || []).includes(z)).length, activa = n >= MIN_ZONA, s = slug(z), url = `${BASE}/z/${s}/`;
+    fs.mkdirSync(path.join(dirZ, s), {recursive:true}); fs.writeFileSync(path.join(dirZ, s, "index.html"), paginaZona(z, m.nombre, activa, n, url)); if(activa) urlsZ.push(url);
+  }
   const hoy = new Date().toISOString().slice(0, 10);
-  fs.writeFileSync(path.join(SAL, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${BASE}/</loc><lastmod>${hoy}</lastmod><priority>1.0</priority></url>\n${urls.map(u => `  <url><loc>${u}</loc><lastmod>${hoy}</lastmod></url>`).join("\n")}\n</urlset>\n`);
+  fs.writeFileSync(path.join(SAL, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${BASE}/</loc><lastmod>${hoy}</lastmod><priority>1.0</priority></url>\n${urlsZ.concat(urls).map(u => `  <url><loc>${u}</loc><lastmod>${hoy}</lastmod></url>`).join("\n")}\n</urlset>\n`);
   fs.writeFileSync(path.join(SAL, "robots.txt"), `User-agent: *\nAllow: /\n\nSitemap: ${BASE}/sitemap.xml\n`);
-  console.log(`${lista.length} páginas de ${todos.length} negocios (omitidos: ${todos.length - lista.length} sin ficha completa)`);
+  console.log(`${lista.length} páginas de ${todos.length} negocios (omitidos: ${todos.length - lista.length} sin ficha completa) y ${MACROS.reduce((a, m) => a + m.zonas.length, 0)} páginas de zona (${urlsZ.length} activas)`);
 })().catch(e => { console.error(e.message); process.exit(1); });
