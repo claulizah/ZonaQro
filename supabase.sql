@@ -712,3 +712,13 @@ revoke all on function public.registrar_evento(text, text) from public;
 grant execute on function public.registrar_evento(text, text) to anon, authenticated;
 -- Para revisar:  select tipo, ref, sum(n) from public.metricas where tipo = 'busqueda_vacia' group by 1, 2 order by 3 desc;
 -- DESHACER: vuelve a correr la sección 29b (deja la función como antes; la métrica deja de contarse).
+
+-- ===== 31. Interés declarado en el registro: "¿Qué te serviría más?" (solo lo ve la administradora) =====
+-- Valores: sitio_web, whatsapp_business, nada (se puede marcar más de uno, salvo "nada" que va solo). Es opcional.
+-- La columna NO está en la lista pública (sección 7): el público no puede leerla. El sitio sigue registrando aunque no hayas corrido esto
+-- (si la columna no existe, reintenta sin ese campo).
+alter table public.negocios add column if not exists interes text[] not null default '{}';
+alter table public.negocios drop constraint if exists negocios_interes_check;
+alter table public.negocios add constraint negocios_interes_check
+  check (interes <@ array['sitio_web','whatsapp_business','nada']::text[] and cardinality(interes) <= 3);
+-- DESHACER:  alter table public.negocios drop column interes;   (borra las respuestas)
