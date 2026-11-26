@@ -1,0 +1,221 @@
+{
+ "_ayuda": "Aquí editas los sinónimos de la búsqueda. 'grupos': palabras que significan lo mismo (basta la raíz: 'plom' cubre plomero y plomería). 'categorias': palabras generales que llevan a TODOS los negocios de esa categoría (la clave es el id de la categoría). Sin acentos, en minúsculas; la ñ sí cuenta. Si te equivocas en el formato, el sitio usa la lista que trae de fábrica.",
+ "grupos": [
+  [
+   "plom",
+   "fontan",
+   "fuga",
+   "tuberia"
+  ],
+  [
+   "taco",
+   "taqu"
+  ],
+  [
+   "pastel",
+   "repost",
+   "postre",
+   "pan"
+  ],
+  [
+   "uña",
+   "manicur",
+   "pedicur",
+   "gel",
+   "acrilic"
+  ],
+  [
+   "pelo",
+   "cabell",
+   "peluqu",
+   "barber",
+   "estetic",
+   "corte"
+  ],
+  [
+   "fiesta",
+   "evento",
+   "mesa dulces",
+   "pinata",
+   "salon"
+  ],
+  [
+   "coche",
+   "auto",
+   "mecanic",
+   "carro"
+  ],
+  [
+   "perro",
+   "mascota",
+   "veterin",
+   "canin",
+   "gato"
+  ],
+  [
+   "comida",
+   "gastronom",
+   "restaurant",
+   "antojo",
+   "cocina"
+  ],
+  [
+   "clase",
+   "educac",
+   "curso",
+   "maestr",
+   "tarea",
+   "regulariz"
+  ],
+  [
+   "electric",
+   "luz",
+   "instalac"
+  ],
+  [
+   "limpie",
+   "aseo",
+   "sanitiz",
+   "domestic"
+  ],
+  [
+   "jardin",
+   "pasto",
+   "poda"
+  ],
+  [
+   "foto",
+   "video",
+   "fotograf"
+  ],
+  [
+   "doctor",
+   "medic",
+   "salud",
+   "dentist",
+   "psicolog",
+   "nutri"
+  ],
+  [
+   "constru",
+   "remodel",
+   "albañil",
+   "pintur",
+   "herrer"
+  ]
+ ],
+ "categorias": {
+  "gastronomia": [
+   "comida",
+   "restaurante",
+   "antojitos",
+   "cocina",
+   "comer",
+   "cafeteria",
+   "desayuno",
+   "cenar"
+  ],
+  "hogar": [
+   "hogar",
+   "casa",
+   "reparaciones",
+   "mantenimiento",
+   "domestico"
+  ],
+  "salud": [
+   "salud",
+   "medico",
+   "doctor",
+   "clinica",
+   "consultorio",
+   "terapia"
+  ],
+  "belleza": [
+   "belleza",
+   "estetica",
+   "spa",
+   "bienestar"
+  ],
+  "mascotas": [
+   "mascota",
+   "mascotas",
+   "veterinaria"
+  ],
+  "educacion": [
+   "clases",
+   "curso",
+   "cursos",
+   "tutorias",
+   "idiomas",
+   "escuela"
+  ],
+  "autos": [
+   "auto",
+   "coche",
+   "carro",
+   "vehiculo",
+   "taller"
+  ],
+  "tienda": [
+   "tienda",
+   "regalo",
+   "regalos",
+   "ropa",
+   "detalles"
+  ],
+  "fiestas": [
+   "fiesta",
+   "fiestas",
+   "evento",
+   "eventos",
+   "celebracion"
+  ],
+  "profesional": [
+   "profesional",
+   "consultoria",
+   "contabilidad",
+   "marketing",
+   "diseño"
+  ],
+  "tecnologia": [
+   "tecnologia",
+   "computadora",
+   "celular",
+   "reparacion",
+   "internet"
+  ],
+  "deporte": [
+   "gimnasio",
+   "gym",
+   "fitness",
+   "entrenador",
+   "deporte"
+  ],
+  "transporte": [
+   "flete",
+   "mudanza",
+   "transporte",
+   "paqueteria",
+   "chofer"
+  ],
+  "cuidado": [
+   "niñera",
+   "guarderia",
+   "cuidador",
+   "estancia",
+   "cuidado"
+  ],
+  "construccion": [
+   "construccion",
+   "albañil",
+   "remodelacion",
+   "obra"
+  ],
+  "foto": [
+   "fotografo",
+   "fotografia",
+   "video",
+   "dron"
+  ]
+ }
+}

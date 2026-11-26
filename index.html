@@ -525,6 +525,8 @@ const EVENTOS = [
 /* ===== Almacenamiento seguro (solo para la demo) ===== */
 function leer(k, def){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
 function guardar(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+/* Zona recordada: si lo guardado ya no existe (zona renombrada o quitada), se ignora en vez de dejar la pantalla vacía */
+function zonaValida(z){ z = String(z || ""); if(!z) return ""; if(z.startsWith("macro:")) return MACROS.some(m => "macro:" + m.id === z) ? z : ""; return ZONAS.includes(z) ? z : ""; }
 const estado = {
   solicitudes: leer("zq_solicitudes", []),
   evSolicitudes: leer("zq_ev_solicitudes", []),
@@ -533,7 +535,7 @@ const estado = {
   aprobados: leer("zq_aprobados", []),
   clics: leer("zq_clics", {}),
   vistasCupon: leer("zq_vistas", {}),
-  f: {q:"", zona:leer("zq_zona",""), cat:"", tipo:""}
+  f: {q:"", zona:zonaValida(leer("zq_zona","")), cat:"", tipo:""}
 };
 
 /* ===== Supabase (base de datos real) ===== */
@@ -707,6 +709,13 @@ document.addEventListener("change", async e => {
   try{ const r = await sb("/rest/v1/negocios?id=eq." + encodeURIComponent(id), {method:"PATCH", body:{seguimiento:s.value}, prefer:"return=representation"}); if(!r || !r.length) throw new Error("no se aplicó (¿entraste como administradora?)"); b.seguimiento = s.value; toast("Guardado: " + SEG[s.value]); render(); }
   catch(err){ b.seguimiento = antes; s.value = antes; s.disabled = false; toast("No se pudo guardar: " + err.message); }
 });
+function busquedasVacias(M){
+  const o = {}; M.filter(m => m.tipo === "busqueda_vacia").forEach(m => { o[m.ref] = (o[m.ref] || 0) + m.n; });
+  const f = Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 20);
+  return `<div class="panel" style="margin:14px 0"><h3 style="margin-bottom:6px">Búsquedas sin resultado</h3>
+    <p class="muted" style="font-size:.85rem;margin-bottom:8px">Lo que la gente buscó y no encontró, últimos 30 días (sin datos personales). Úsalo para decidir qué negocios reclutar o qué sinónimos agregar en <code>sinonimos.json</code>.</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Búsqueda</th><th>Zona</th><th class="num">Veces</th></tr></thead><tbody>${f.length ? f.map(([k, n]) => { const [t, z] = k.split("|"); return `<tr><td>${esc(t)}</td><td>${esc(z === "todas" ? "Todas" : z)}</td><td class="num">${n}</td></tr>`; }).join("") : '<tr><td colspan="3">Todavía no hay búsquedas sin resultado.</td></tr>'}</tbody></table></div></div>`;
+}
 function embudo(M){
   const s = t => M.filter(m => m.tipo === t).reduce((a, m) => a + m.n, 0);
   const pct = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
@@ -907,9 +916,27 @@ function prontoCorto(){
   const p = zonasPronto().filter(m => m.nombre !== "Otras zonas" && m.zonas.length === (MACROS.find(x => x.nombre === m.nombre) || {zonas:[]}).zonas.length); if(!p.length) return "";
   return `<p class="muted" style="font-size:.85rem;margin:6px 0 0">Próximamente: ${p.map(m => m.nombre).join(", ")}. <a href="#registrar">Registra tu negocio</a> o <a href="#recomendar">recomienda uno</a>.</p>`;
 }
+/* Cuántos negocios con ficha completa faltan para activar una zona, y qué zonas activas quedan cerca (las de su misma macrozona primero; CERCANAS_EXTRA permite afinar a mano) */
+const CERCANAS_EXTRA = {}; // ej. {"Juriquilla":["Jurica"]}: zonas que quieres sugerir primero
+const faltanZona = z => Math.max(0, minFichas() - statsZona(z).completos);
+function zonasCercanas(z){
+  const v = zonasVisibles(), m = macroDe(z) || MACROS.find(x => "macro:" + x.id === z);
+  const orden = (CERCANAS_EXTRA[z] || []).concat(m ? m.zonas : [], v);
+  return orden.filter((x, i) => v.includes(x) && x !== z && orden.indexOf(x) === i).slice(0, 4);
+}
+function zonaInactiva(z){
+  if(!z || z === ZONA_TODO || z === ZONA_OTRA) return null;
+  if(z.startsWith(MP)){ const m = MACROS.find(x => x.id === z.slice(MP.length)); if(!m || m.zonas.some(x => zonasVisibles().includes(x))) return null; const cerca = m.zonas.slice().sort((a, b) => faltanZona(a) - faltanZona(b))[0]; return {nombre:m.nombre, zona:cerca, faltan:faltanZona(cerca)}; }
+  return zonasVisibles().includes(z) ? null : {nombre:z, zona:z, faltan:faltanZona(z)};
+}
+function avisoZonaInactiva(z){
+  const i = zonaInactiva(z); if(!i) return "";
+  const cerca = zonasCercanas(z).map(x => `<button type="button" class="btn sm ghost" data-fz="${esc(x)}">${esc(x)}</button>`).join(" ");
+  return `<div class="notice" role="status"><b>Aún no activamos ${esc(i.nombre)}.</b> Faltan ${i.faltan} para activar ${esc(i.zona)}. ${cerca ? `Mira estas zonas cerca: ${cerca} ` : ""}<a class="btn sm" href="#registrar">Registra tu negocio</a></div>`;
+}
 function prontoHtml(){
   const p = zonasPronto(); if(!p.length) return "";
-  return `<div class="pronto"><p class="eyebrow">Próximamente</p><p class="muted">${p.map(m => `<b>${m.nombre}:</b> ${m.zonas.join(", ")}`).join(" · ")}</p><p><a class="btn sm ghost" href="#registrar">Registra tu negocio en estas zonas</a> <a class="btn sm ghost" href="#recomendar">Recomienda un negocio</a></p></div>`;
+  return `<div class="pronto"><p class="eyebrow">Próximamente</p><p class="muted" style="font-size:.85rem;margin-bottom:4px">Cada zona se activa con ${minFichas()} negocios con ficha completa.</p><p class="muted">${p.map(m => `<b>${m.nombre}:</b> ${m.zonas.map(z => `${esc(z)} <small>(faltan ${faltanZona(z)})</small>`).join(", ")}`).join(" · ")}</p><p><a class="btn sm ghost" href="#registrar">Registra tu negocio en estas zonas</a> <a class="btn sm ghost" href="#recomendar">Recomienda un negocio</a></p></div>`;
 }
 /* Casillas de zona del registro, agrupadas por macrozona */
 function zonasChecks(){
@@ -928,8 +955,12 @@ function textoZona(z){
 function porCat(c){ return negocios().filter(b => b.categoria === c).length; }
 function catsVisibles(sel){ return CATEGORIAS.filter(c => porCat(c.id) >= minFichas() || c.id === sel); }
 const puntosFicha = b => (b.verificado ? 2 : 0) + (fotosDe(b).length ? 2 : 0) + (horariosDe(b) || b.horario ? 1 : 0) + ((b.descripcion || "").length >= 30 ? 1 : 0); // las fichas completas salen primero
+/* Orden justo: lugares de referencia al final, promocionados (hoy ninguno) y fichas completas primero; el resto rota al azar.
+   El azar es el mismo durante toda la sesión (no se mueve al navegar) y cambia en cada visita. No cuenta clics: así los que llegaron primero no se quedan siempre arriba. */
+const SEMILLA = (() => { let t = ""; try{ t = sessionStorage.getItem("zq_sem") || ""; if(!t){ t = Math.random().toString(36).slice(2, 10); sessionStorage.setItem("zq_sem", t); } }catch(e){} return t || Math.random().toString(36).slice(2, 10); })();
+const azarDe = id => parseInt(huella(SEMILLA + id), 16);
 function ordenar(lista, fav){
-  return lista.slice().sort((a,b) => (a.referencia?1:0) - (b.referencia?1:0) || (b.promocionado?1:0) - (a.promocionado?1:0) || (fav.has(b.id)?1:0) - (fav.has(a.id)?1:0) || puntosFicha(b) - puntosFicha(a) || totalClics(b) - totalClics(a));
+  return lista.slice().sort((a, b) => (a.referencia ? 1 : 0) - (b.referencia ? 1 : 0) || (b.promocionado ? 1 : 0) - (a.promocionado ? 1 : 0) || (compDe(b).ok ? 1 : 0) - (compDe(a).ok ? 1 : 0) || azarDe(a.id) - azarDe(b.id));
 }
 function toast(msg){ const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2400); }
 function waLink(b, texto){ return "https://wa.me/52" + b.whatsapp + "?text=" + encodeURIComponent(texto || ("Hola, vi " + b.nombre + " en ZonaQro.")); }
@@ -1065,14 +1096,33 @@ function vInicio(){
 }
 
 /* Búsqueda tolerante: sin acentos, plurales y oficios (plomero = plomería), con algunos sinónimos */
-const normB = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9ñ ]/g, " ").replace(/\s+/g, " ").trim();
+const normB = t => String(t || "").toLowerCase().replace(/ñ/g, "\u0001").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\u0001/g, "ñ").replace(/[^a-z0-9ñ ]/g, " ").replace(/\s+/g, " ").trim(); // sin acentos, pero la ñ se conserva (uñas ≠ unas)
 const raizB = w => { const r = w.replace(/(erias|eria|eros|eras|ero|era|istas|ista|iones|ion|ias|ia|es|s)$/, ""); return r.length >= 3 ? r : w; };
-const SINB = [["plom","fontan","fuga","tuberia"],["taco","taqu"],["pastel","repost","postre","pan"],["uña","manicur","unas"],["pelo","cabell","peluqu","barber","estetic","corte"],["fiesta","evento","mesa dulces","pinata","salon"],["coche","auto","mecanic","carro"],["perro","mascota","veterin","canin","gato"],["comida","gastronom","restaurant","antojo","cocina"],["clase","educac","curso","maestr","tarea","regulariz"],["electric","luz","instalac"],["limpie","aseo","sanitiz","domestic"],["jardin","pasto","poda"],["foto","video","fotograf"],["doctor","medic","salud","dentist","psicolog","nutri"],["constru","remodel","albañil","pintur","herrer"]];
+/* Sinónimos de la búsqueda. Se editan en sinonimos.json (en la raíz del repo): "grupos" = palabras que significan lo mismo;
+   "categorias" = palabras generales que llevan a todos los negocios de una categoría. Si el archivo no carga, se usa esta copia. */
+const SIN_BASE = {"grupos": [["plom", "fontan", "fuga", "tuberia"], ["taco", "taqu"], ["pastel", "repost", "postre", "pan"], ["uña", "manicur", "pedicur", "gel", "acrilic"], ["pelo", "cabell", "peluqu", "barber", "estetic", "corte"], ["fiesta", "evento", "mesa dulces", "pinata", "salon"], ["coche", "auto", "mecanic", "carro"], ["perro", "mascota", "veterin", "canin", "gato"], ["comida", "gastronom", "restaurant", "antojo", "cocina"], ["clase", "educac", "curso", "maestr", "tarea", "regulariz"], ["electric", "luz", "instalac"], ["limpie", "aseo", "sanitiz", "domestic"], ["jardin", "pasto", "poda"], ["foto", "video", "fotograf"], ["doctor", "medic", "salud", "dentist", "psicolog", "nutri"], ["constru", "remodel", "albañil", "pintur", "herrer"]], "categorias": {"gastronomia": ["comida", "restaurante", "antojitos", "cocina", "comer", "cafeteria", "desayuno", "cenar"], "hogar": ["hogar", "casa", "reparaciones", "mantenimiento", "domestico"], "salud": ["salud", "medico", "doctor", "clinica", "consultorio", "terapia"], "belleza": ["belleza", "estetica", "spa", "bienestar"], "mascotas": ["mascota", "mascotas", "veterinaria"], "educacion": ["clases", "curso", "cursos", "tutorias", "idiomas", "escuela"], "autos": ["auto", "coche", "carro", "vehiculo", "taller"], "tienda": ["tienda", "regalo", "regalos", "ropa", "detalles"], "fiestas": ["fiesta", "fiestas", "evento", "eventos", "celebracion"], "profesional": ["profesional", "consultoria", "contabilidad", "marketing", "diseño"], "tecnologia": ["tecnologia", "computadora", "celular", "reparacion", "internet"], "deporte": ["gimnasio", "gym", "fitness", "entrenador", "deporte"], "transporte": ["flete", "mudanza", "transporte", "paqueteria", "chofer"], "cuidado": ["niñera", "guarderia", "cuidador", "estancia", "cuidado"], "construccion": ["construccion", "albañil", "remodelacion", "obra"], "foto": ["fotografo", "fotografia", "video", "dron"]}};
+const limpiaSin = a => (Array.isArray(a) ? a : []).map(x => raizB(normB(x))).filter(x => x.length >= 2);
+function prepararSin(o){
+  const g = (o && Array.isArray(o.grupos) ? o.grupos : []).map(limpiaSin).filter(x => x.length >= 2), c = {};
+  if(o && o.categorias && typeof o.categorias === "object") for(const k of Object.keys(o.categorias)) c[k] = limpiaSin(o.categorias[k]);
+  return {grupos:g, categorias:c};
+}
+let SIN = prepararSin(SIN_BASE);
+async function cargarSinonimos(){
+  try{ const r = await fetch("sinonimos.json", {cache:"no-cache"}); if(!r.ok) return; const nuevo = prepararSin(await r.json()); if(!nuevo.grupos.length && !Object.keys(nuevo.categorias).length) return; SIN = nuevo; if(estado.f.q) render(); }catch(e){}
+}
+const PARO_B = ["de","del","la","las","el","los","en","y","para","por","zibata","zakia","juriquilla","refugio","pradera","vista","queretaro"];
+const mismoSin = (r, s) => r === s || r.replace(/ñ/g, "n") === s.replace(/ñ/g, "n") || (r.length >= 4 && s.startsWith(r)) || (s.length >= 3 && r.startsWith(s));
 function coincideB(b, q){
   const hay = normB(b.nombre + " " + b.descripcion + " " + catNombre(b.categoria) + " " + b.categoria);
-  return normB(q).split(" ").filter(w => w && !["de","del","la","las","el","los","en","y","para","por","zibata","zakia","juriquilla","refugio","pradera","vista","queretaro"].includes(w)).every(w => {
-    const r = raizB(w), grupo = SINB.find(g => g.some(x => r.startsWith(x) || x.startsWith(r) && r.length >= 4));
-    return hay.includes(r) || (grupo ? grupo.some(x => hay.includes(x)) : false);
+  const hayEn = x => x.length >= 4 ? hay.includes(x) : (" " + hay).includes(" " + x); // palabras cortas solo al inicio de una palabra (así "uñas" no encuentra "una")
+  const catKw = SIN.categorias[b.categoria] || [];
+  return normB(q).split(" ").filter(w => w && !PARO_B.includes(w)).every(w => {
+    const r = raizB(w);
+    if(catKw.some(x => mismoSin(r, x))) return true; // palabra general de su categoría
+    const grupos = SIN.grupos.filter(g => g.some(x => mismoSin(r, x)));
+    if(grupos.length) return grupos.some(g => g.some(hayEn)) || (r.length >= 4 && hay.includes(r));
+    return hayEn(r);
   });
 }
 function vDirectorio(soloVecinos){
@@ -1089,11 +1139,13 @@ function vDirectorio(soloVecinos){
     (soloVecinos || !f.mostrar || (f.mostrar === "ver" ? b.verificado : f.mostrar === "cup" ? cupDe(b).length : f.mostrar === "nue" ? esNuevo(b) : fav.has(b.id))) &&
     (!q || coincideB(b, q)));
   lista = ordenar(lista, fav);
+  estado.ultBusqueda = {q:f.q, n:lista.length, zona:f.zona};
   return `
   <section>
     <div><p class="eyebrow">${soloVecinos ? "Emprendedores" : "Directorio"}</p>
     <h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">${soloVecinos ? "Apoya el comercio local: hecho por tus vecinos" : "Encuentra negocios y servicios"}</h1>
     ${bannerReclutar()}
+    ${avisoZonaInactiva(f.zona)}
     ${soloVecinos ? '<p class="muted" style="margin-top:8px;max-width:60ch">Playeras, repostería, accesorios, mesas de dulces para fiestas y más. Pide directo por WhatsApp.</p>' : ""}</div>
     <div class="filters">
       <div class="chips scrollrow" role="group" aria-label="Zona">
@@ -1113,7 +1165,7 @@ function vDirectorio(soloVecinos){
       </div></details>`}
     </div>
     <p class="count">${(() => { const nr = lista.filter(b => b.referencia).length, nn = lista.length - nr; return nr && nn ? nn + (nn === 1 ? " negocio" : " negocios") + " + " + nr + (nr === 1 ? " lugar de referencia" : " lugares de referencia") : lista.length + " " + (lista.length === 1 ? "resultado" : "resultados"); })()}${hf ? " · solo negocios que registraron su horario" : ""}</p>
-    ${lista.length ? `<div class="grid">${lista.map(b => tarjeta(b, fav)).join("")}</div>` : `<div class="empty">${DATA.live && negocios().length === 0 ? "Estamos sumando los primeros negocios de la zona. ¿Tienes uno? <a href=\"#registrar\">Regístralo gratis</a>." : (f.zona ? `Aún no hay negocios con esos filtros en ${esc(nombreFiltro(f.zona))}. Mira también las otras zonas cercanas. <button type="button" class="btn sm" data-fz="">Ver todas las zonas</button>` : "No encontramos negocios con esos filtros. Prueba con otra categoría.")}</div>`}
+    ${lista.length ? `<div class="grid">${lista.map(b => tarjeta(b, fav)).join("")}</div>` : `<div class="empty">${DATA.live && negocios().length === 0 ? "Estamos sumando los primeros negocios de la zona. ¿Tienes uno? <a href=\"#registrar\">Regístralo gratis</a>." : (f.zona ? `Aún no hay negocios con esos filtros en ${esc(nombreFiltro(f.zona))}. ${zonasCercanas(f.zona).length ? "Mira también: " + zonasCercanas(f.zona).map(x => `<button type="button" class="btn sm ghost" data-fz="${esc(x)}">${esc(x)}</button>`).join(" ") + " " : ""}<button type="button" class="btn sm" data-fz="">Ver todas las zonas</button>` : "No encontramos negocios con esos filtros. Prueba con otra categoría.")}</div>`}
     ${soloVecinos ? `<div class="banner"><p><strong>¿Vendes desde casa?</strong> Convierte tu menú de WhatsApp en una tienda en línea profesional en 48 horas con nuestro aliado mimx.</p><a class="btn" href="https://mimx.store" target="_blank" rel="noopener">Conocer mimx</a></div>` : ""}
   </section>`;
 }
@@ -1931,7 +1983,7 @@ function vAdminLive(tab){
       const rep = msgReporte;
       cuerpo = `<p class="muted">Últimos 30 días. Conteos anónimos: no guardamos IP ni datos de las personas.</p>
         <div class="stats"><div class="stat"><b>${sum("visita").toLocaleString("es-MX")}</b><span>Visitas al sitio</span></div><div class="stat"><b>${sum("vista").toLocaleString("es-MX")}</b><span>Fichas vistas</span></div><div class="stat"><b>${sum("wa").toLocaleString("es-MX")}</b><span>Clics a WhatsApp</span></div><div class="stat"><b>${(sum("evento_wa") + sum("evento_link")).toLocaleString("es-MX")}</b><span>Clics en eventos</span></div></div>
-        ${graficaDias(M)}${embudo(M)}${campanas(M)}
+        ${graficaDias(M)}${embudo(M)}${campanas(M)}${busquedasVacias(M)}
         <p class="meta">Cómo llegaron (visitas): ${porOrigen("visita")}</p><p class="meta">Registros enviados por origen: ${porOrigen("registro_envio")}</p><p class="meta">Zonas más consultadas: ${top("zona")}</p><p class="meta">Categorías más consultadas: ${top("cat")}</p><p class="meta">Veces compartido: ${sum("compartir")}</p>
         <div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th class="num">Vistas</th><th class="num">WhatsApp</th><th class="num">Web</th><th class="num">Promos</th><th></th></tr></thead><tbody>${filas.length ? filas.map(x => `<tr><td>${esc(x.b.nombre)}</td><td class="num">${x.v}</td><td class="num">${x.w}</td><td class="num">${x.web}</td><td class="num">${x.c}</td><td>${(x.v || x.w) && !x.b.referencia && x.b.whatsapp ? `<a class="btn sm wa" target="_blank" rel="noopener" href="${waTexto(esc(x.b.whatsapp), rep(x))}">Enviar reporte</a>` : `<span class="meta">${x.b.referencia || !x.b.whatsapp ? "Lugar de referencia (sin WhatsApp)" : "Sin visitas todavía"}</span>`}</td></tr>`).join("") : '<tr><td colspan="6">Todavía no hay negocios publicados.</td></tr>'}</tbody></table></div>`;
     }
@@ -2460,12 +2512,25 @@ function render(){
   if(h !== "admin" && !h.startsWith("editar-") && PROD && SB.ok && DATA.live){ if(unaVez("visita")){ metrica("visita", refOrigen() || "sitio"); metricaUtm("utm_visita"); } if((h.startsWith("n-") || h.startsWith("opinar-")) && unaVez("v" + h)) metrica("vista", (refNegocio(h.slice(h.indexOf("-")+1)) || {id: h.slice(h.indexOf("-")+1)}).id); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
   if(h === "admin" && SB.ok && SB.token && !estado.admin.cargado && !estado.admin.cargando){ estado.admin.cargando = true; cargarAdmin().finally(() => { estado.admin.cargando = false; }); }
   document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
-  pintarZona(); pintarContacto();
+  pintarZona(); pintarContacto(); vigilarBusqueda(h);
   if(h.startsWith("opinar-")) setTimeout(() => { try{ const d = document.querySelector("#opiniones .rev-form"); if(d){ d.open = true; document.getElementById("opiniones").scrollIntoView({block:"start"}); } }catch(err){} }, 60);
   try{ document.querySelectorAll('.chips.scrollrow .chip[aria-pressed="true"]').forEach(c => c.scrollIntoView({block:"nearest", inline:"center"})); }catch(err){}
   if(h === "registrar" || h === "publicar-evento") T_FORM = Date.now();
   if(h === "registrar" || (h === "admin" && document.getElementById("fReg"))) prepararRegistro();
   else if(FOTOS.length){ FOTOS.forEach(f => URL.revokeObjectURL(f.url)); FOTOS = []; }
+}
+/* Búsquedas sin resultado: se cuenta el texto (en minúsculas, sin acentos, máx. 30 letras) y la zona, una vez por sesión y solo si
+   la persona se queda 1.5 s con el resultado vacío. No se manda nada que parezca teléfono, correo o enlace. */
+let _tBusq = null;
+function refBusqueda(q, zona){
+  const t = normB(q); if(t.length < 3 || /\d{4,}/.test(t) || /@|https?|www\./i.test(String(q))) return "";
+  return t.slice(0, 30).trim() + "|" + (zona ? String(zona).slice(0, 28) : "todas");
+}
+function vigilarBusqueda(h){
+  clearTimeout(_tBusq);
+  const u = estado.ultBusqueda; if((h !== "directorio" && h !== "vecinos") || !u || u.n !== 0) return;
+  const ref = refBusqueda(u.q, u.zona); if(!ref) return;
+  _tBusq = setTimeout(() => { if(unaVez("bq:" + ref)) metrica("busqueda_vacia", ref); }, 1500);
 }
 function irA(hash){ if(location.hash === hash) render(); else location.hash = hash; window.scrollTo(0,0); }
 window.addEventListener("hashchange", () => { render(); window.scrollTo(0,0); });
@@ -2748,4 +2813,5 @@ async function enviarRegistro(){
 if(!ZONAS.includes(estado.f.zona) && !String(estado.f.zona || "").startsWith(MP)) estado.f.zona = "";
 render();
 cargarPublico();
+cargarSinonimos();
 </script>
