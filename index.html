@@ -362,6 +362,11 @@ input[type=file]{max-width:100%}
 .home-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:28px}
 .home-cols .evlado{gap:10px}
 .evlado .sec-head h2{font-size:1.25rem}
+.ben3{list-style:none;padding:0;margin:14px 0;display:grid;gap:10px;max-width:70ch}
+.ben3 li{position:relative;padding-left:30px;line-height:1.45}
+.ben3 li::before{content:"✓";position:absolute;left:0;top:0;width:22px;height:22px;border-radius:50%;background:var(--agave);color:var(--agave-ink);font-weight:800;font-size:.8rem;display:grid;place-items:center}
+.ejemplo{border:2px dashed var(--agave);max-width:520px}
+.ejemplo-tag{margin:0 0 10px;font-size:.82rem;color:var(--agave)}
 .tres-bloques{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));margin:6px 0 4px}
 .bloque{background:var(--card,#fff);border:1px solid var(--line,#e2e6df);border-radius:16px;padding:14px}
 .bloque .sec-head h2{font-size:1.15rem}.bloque .sec-head p{margin:2px 0 0;font-size:.82rem}
@@ -2328,39 +2333,95 @@ function vRecomendar(){
       <p class="muted" style="font-size:.85rem">Se abre WhatsApp con tu mensaje listo para enviarlo a ZonaQro. No compartimos tus datos con el negocio.</p>
     </form></section>`;
 }
+/* ===== Página para negocios (#negocios): beneficios, ejemplo de ficha, registro corto, cómo funciona y preguntas ===== */
+const telMx = t => { let d = String(t || "").replace(/\D/g, ""); if(d.length === 13 && d.startsWith("521")) d = d.slice(3); else if(d.length === 12 && d.startsWith("52")) d = d.slice(2); return /^\d{10}$/.test(d) ? d : ""; };
 function vParaNegocios(){
-  const hola = contactoHref("Hola 👋 Tengo un negocio en mi zona y quiero saber cómo aparecer en ZonaQro.");
+  const hola = contactoHref("Hola, tengo un negocio en mi zona y quiero saber cómo aparecer en ZonaQro.");
   const paso = (n, t, d) => `<div class="panel"><p class="eyebrow">Paso ${n}</p><h3>${t}</h3><p class="muted">${d}</p></div>`;
   const ben = (t, d) => `<div class="panel"><h3>${t}</h3><p class="muted">${d}</p></div>`;
+  const opZona = MACROS.map(m => `<optgroup label="${esc(m.nombre)}">${m.zonas.map(z => `<option value="${esc(z)}">${esc(z)}</option>`).join("")}</optgroup>`).join("") + `<option value="${esc(ZONA_OTRA)}">${esc(ZONA_OTRA)}</option><option value="${esc(ZONA_TODO)}">${esc(ZONA_TODO)} (solo a domicilio)</option>`;
   return `<section style="max-width:900px">
     <p class="eyebrow">Para negocios de tu zona</p>
     <h1 style="font-size:clamp(1.8rem,5vw,2.6rem)">Aparece gratis en ZonaQro</h1>
     <p style="font-size:1.15rem;font-weight:600;margin:0 0 8px">Que tus vecinos te encuentren y te escriban directo</p>
-    <p class="muted" style="font-size:1.05rem">ZonaQro es el directorio de negocios y servicios de tu zona en Querétaro. Registrarte es gratis, y en un par de minutos ya apareces.</p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 22px"><a class="btn" href="#registrar">Regístrate gratis</a>${hola ? `<a class="btn wa" href="${esc(hola)}" target="_blank" rel="noopener">Escríbenos por WhatsApp</a>` : ""}</div>
-    <h2>Qué te llevas</h2>
+    <ul class="ben3" aria-label="Lo esencial">
+      <li><b>Te encuentran y te escriben directo.</b> Tus vecinos buscan por zona y categoría y te mandan WhatsApp, sin intermediarios.</li>
+      <li><b>Gratis y sin plazo.</b> Registrarte no cuesta y no cobramos comisión por tus ventas.</li>
+      <li><b>Tú decides qué se publica.</b> Horario, fotos y promos los pones tú, y puedes pedir cambios o la baja cuando quieras.</li>
+    </ul>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 22px"><button type="button" class="btn" data-ir="registro-rapido">Regístrate gratis</button>${hola ? `<a class="btn wa" href="${esc(hola)}" target="_blank" rel="noopener">Escríbenos por WhatsApp</a>` : ""}</div>
+
+    <h2>Así se ve tu ficha</h2>
+    <article class="card ejemplo" aria-label="Ejemplo de ficha, con un negocio inventado">
+      <p class="ejemplo-tag"><b>Ejemplo</b> · negocio inventado, solo para mostrar cómo se ve</p>
+      <div class="card-top"><div class="avatar" style="background:#2C674B" aria-hidden="true">PE</div>
+        <div><h3>Panadería La Espiga</h3><div class="meta">Gastronomía · Local · Tu zona</div></div></div>
+      <p style="margin:10px 0 6px">Pan de pueblo y repostería hecha cada mañana. Pedidos por WhatsApp para fiestas y reuniones.</p>
+      <p class="meta" style="margin:0 0 10px">Lun a sáb, 7:00 am a 8:00 pm</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="btn sm wa" aria-hidden="true">WhatsApp</span><span class="btn sm ghost" aria-hidden="true">Cómo llegar</span></div>
+      <p class="meta" style="margin:10px 0 0">Los botones son de muestra. En tu ficha el botón de WhatsApp lleva a tu número.</p>
+    </article>
+
+    <section id="registro-rapido" class="panel" style="margin-top:22px;scroll-margin-top:90px">
+      <h2 style="margin-top:0">Regístrate en 2 minutos</h2>
+      <p class="muted" style="max-width:60ch">Solo necesitamos estos datos. Revisamos tu solicitud y te escribimos por WhatsApp para completar tu horario y tus fotos.</p>
+      <form class="reg" id="fRapido" novalidate>
+        <label class="fld" for="q-nombre">Nombre del negocio<input id="q-nombre" type="text" maxlength="80" autocomplete="organization"></label>
+        <label class="fld" for="q-wa">WhatsApp (10 dígitos)<input id="q-wa" type="tel" inputmode="numeric" autocomplete="tel" placeholder="4421234567"></label>
+        <label class="fld" for="q-zona">Zona<select id="q-zona"><option value="">Elige tu zona</option>${opZona}</select></label>
+        <label class="fld" for="q-cat">Categoría<select id="q-cat"><option value="">Elige una categoría</option>${CATEGORIAS.map(c => `<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join("")}</select></label>
+        <label class="fld" for="q-tipo">¿Cómo atiendes?<select id="q-tipo">${Object.entries(TIPOS).map(([k, t]) => `<option value="${k}">${esc(t.nombre)}</option>`).join("")}</select></label>
+        <input type="text" id="fx-q7m1" name="wq_k7p2" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0">
+        <label class="opt"><input type="checkbox" id="q-ok"><span>Acepto los <a href="#terminos">términos de uso</a>, el <a href="#privacidad">aviso de privacidad</a> y que ZonaQro publique estos datos.</span></label>
+        <div id="q-err" class="notice err" role="alert" hidden></div>
+        <div><button class="btn" type="submit">Enviar mi registro</button></div>
+      </form>
+      <p class="muted" style="font-size:.9rem;margin-top:12px">¿Prefieres llenar todo de una vez (descripción, horario y fotos)? <a href="#registrar">Abre el formulario completo</a>.</p>
+    </section>
+
+    <h2 style="margin-top:26px">Qué te llevas</h2>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
       ${ben("Clientes que te escriben directo", "Tu ficha tiene botón de WhatsApp. Sin intermediarios ni comisiones: la gente te escribe a ti.")}
-      ${ben("Cupones y promociones", "Publica una promo con vigencia y que tus vecinos la vean en el apartado de cupones.")}
-      ${ben("Resumen de cómo te fue", "Te mandamos cuántas personas vieron tu ficha y cuántas te escribieron, para que sepas si te funciona.")}
+      ${ben("Promos con vigencia", "Si tienes una promoción, la publicamos con su fecha de vencimiento en el apartado de cupones y promos.")}
+      ${ben("Resumen de cómo te fue", "Cuando tu ficha tiene visitas, te podemos mandar cuántas personas la vieron y cuántas te escribieron.")}
       ${ben("Para negocios con o sin local", "Locales, servicios a domicilio y emprendimientos. Si no tienes local, no publicamos tu dirección.")}
     </div>
     <h2 style="margin-top:26px">Cómo funciona</h2>
     <div class="grid">
-      ${paso(1, "Te registras", "Llenas un formulario corto con tu nombre, giro, zona, WhatsApp y horario.")}
-      ${paso(2, "Revisamos tu ficha", "La revisamos para que todo se vea bien y la publicamos.")}
-      ${paso(3, "Te encuentran", "Apareces en el directorio de tu zona y puedes sumar cupones cuando quieras.")}
+      ${paso(1, "Te registras", "Nombre, WhatsApp, zona y categoría. Son 2 minutos.")}
+      ${paso(2, "Revisamos tu ficha", "La revisamos y te escribimos por WhatsApp para completar tu horario y tus fotos con tu enlace personal.")}
+      ${paso(3, "Te encuentran", "Apareces en el directorio de tu zona y, si quieres, sumamos tus promos.")}
     </div>
     <h2 style="margin-top:26px">Preguntas frecuentes</h2>
-    <div class="panel"><h3>¿Cuesta algo?</h3><p class="muted">Registrarte en ZonaQro es gratis y sin compromiso.</p></div>
-    <div class="panel" style="margin-top:12px"><h3>¿Qué datos publican?</h3><p class="muted">Solo lo que tú pones en el formulario. Puedes pedir un cambio o la baja de tu ficha cuando quieras por WhatsApp.</p></div>
+    <div class="panel"><h3>¿Cuesta algo?</h3><p class="muted">No. Registrarte en ZonaQro es gratis, sin plazo y sin compromiso.</p></div>
+    <div class="panel" style="margin-top:12px"><h3>¿Qué datos publican?</h3><p class="muted">Solo lo que tú pones. Tu WhatsApp se publica para que te escriban; tu correo, si lo das, no. Puedes pedir un cambio o la baja de tu ficha cuando quieras por WhatsApp.</p></div>
     <div class="panel" style="margin-top:12px"><h3>¿Y si ya aparezco como "lugar de referencia"?</h3><p class="muted">Algunos lugares conocidos se muestran temporalmente solo como referencia, sin WhatsApp. Si es tu negocio, regístrate o escríbenos y activamos tu ficha completa.</p></div>
-    <div class="mimx" style="margin-top:22px">
-      <div><h3>¿Quieres también tu propia página web?</h3><p class="muted">Con mimx te hacemos una página con tu dominio, sin compromiso.</p></div>
-      <a class="btn ghost" href="https://mimx.store" target="_blank" rel="noopener">Conocer mimx</a>
-    </div>
   </section>`;
 }
+/* Registro corto de #negocios: crea la solicitud (pendiente) con lo mínimo; el horario y las fotos se completan después con el enlace personal */
+function enviarRapido(){
+  const v = id => document.getElementById(id).value.trim(), box = document.getElementById("q-err"), err = [];
+  const nombre = v("q-nombre"), wa = telMx(v("q-wa")), zona = v("q-zona"), cat = v("q-cat"), tipo = v("q-tipo");
+  if(nombre.length < 2) err.push("escribe el nombre de tu negocio"); else if(nombreSospechoso(nombre)) err.push("en el nombre pon el nombre de tu negocio, no un correo ni un teléfono");
+  if(!wa) err.push("el WhatsApp debe tener 10 dígitos");
+  if(!zona) err.push("elige tu zona");
+  else if(tipo === "local" && zona === ZONA_TODO) err.push("un local físico va en una sola zona (si atiendes en todo Querétaro, elige \"Servicio a domicilio\")");
+  if(!cat) err.push("elige una categoría");
+  if(!TIPOS[tipo]) err.push("elige cómo atiendes");
+  if(!document.getElementById("q-ok").checked) err.push("acepta los términos y el aviso de privacidad");
+  if(err.length){ box.hidden = false; box.textContent = "Para enviar: " + err.join(", ") + "."; box.scrollIntoView({block:"nearest"}); return; }
+  box.hidden = true;
+  { const m = motivoBot("fx-q7m1"); if(m){ descartarEnvio("registro", m, vRegistrar); return; } }
+  const nom = nombreBonito(nombre), id = nom.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Date.now().toString(36);
+  const fila = {id, nombre:nom, categoria:cat, tipo, zonas:[zona], whatsapp:wa, descripcion:""};
+  enviar("negocios", fila, () => { estado.solicitudes.push(fila); guardar("zq_solicitudes", estado.solicitudes); }, vRegistrar, box);
+}
+document.addEventListener("submit", e => { if(e.target.id === "fRapido"){ e.preventDefault(); enviarRapido(); } });
+document.addEventListener("click", e => { // "Regístrate gratis" lleva al formulario corto de la misma página
+  const t = e.target.closest("[data-ir]"); if(!t) return;
+  const el = document.getElementById(t.dataset.ir); if(!el) return;
+  el.scrollIntoView({behavior:"smooth", block:"start"}); const f = el.querySelector("input,select"); if(f) setTimeout(() => f.focus({preventScroll:true}), 350);
+});
 
 function vTerminos(){
   const cont = RESP.wa ? "por WhatsApp al " + telFmt(RESP.wa) : "", mail = RESP.correo ? "por correo a " + esc(RESP.correo) : "";
@@ -2736,20 +2797,20 @@ function render(){
   app.innerHTML = html;
   if(h.startsWith("editar-")) try{ avanceEd(); }catch(err){}
   try{
-    const TT = {directorio:"Directorio de negocios y servicios", vecinos:"Hecho por tus vecinos", cupones:"Cupones y promociones", eventos:"Eventos y qué hacer", "publicar-evento":"Publica tu evento", registrar:"Registra tu negocio gratis", ayuda:"Preguntas frecuentes", recomendar:"Recomienda un negocio", negocios:"Para negocios", terminos:"Términos de uso", privacidad:"Aviso de privacidad", admin:"Administración"};
+    const TT = {directorio:"Directorio de negocios y servicios", vecinos:"Hecho por tus vecinos", cupones:"Cupones y promociones", eventos:"Eventos y qué hacer", "publicar-evento":"Publica tu evento", registrar:"Registra tu negocio gratis", ayuda:"Preguntas frecuentes", recomendar:"Recomienda un negocio", negocios:"Aparece gratis en ZonaQro", terminos:"Términos de uso", privacidad:"Aviso de privacidad", admin:"Administración"};
     const nb = (h.startsWith("n-") || h.startsWith("opinar-")) ? refNegocio(h.slice(h.indexOf("-")+1)) : null;
     document.body.classList.toggle("modo-edicion", h.startsWith("editar-"));
     let rb = document.querySelector('meta[name="robots"]'); if(!rb){ rb = document.createElement("meta"); rb.name = "robots"; document.head.appendChild(rb); } rb.content = h.startsWith("editar-") || h.startsWith("opinar-") || h === "admin" ? "noindex, nofollow" : "index, follow";
     if(h.startsWith("editar-")){ document.title = "Editar tu ficha | ZonaQro"; if(ED.token !== h.slice(7) && !ED.cargando){ ED.datos = null; ED.error = ""; cargarEdicion(h.slice(7)); } } else
     document.title = nb ? nb.nombre + " en " + nb.zonas.join(", ") + " | ZonaQro" : TT[h] ? TT[h] + " | ZonaQro" : "ZonaQro: negocios, servicios y cupones en tu zona";
   }catch(err){}
-  if(h !== "admin" && !h.startsWith("editar-") && PROD && SB.ok && DATA.live){ if(unaVez("visita")){ metrica("visita", refOrigen() || "sitio"); metricaUtm("utm_visita"); } if((h.startsWith("n-") || h.startsWith("opinar-")) && unaVez("v" + h)) metrica("vista", (refNegocio(h.slice(h.indexOf("-")+1)) || {id: h.slice(h.indexOf("-")+1)}).id); if(h === "registrar" && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
+  if(h !== "admin" && !h.startsWith("editar-") && PROD && SB.ok && DATA.live){ if(unaVez("visita")){ metrica("visita", refOrigen() || "sitio"); metricaUtm("utm_visita"); } if((h.startsWith("n-") || h.startsWith("opinar-")) && unaVez("v" + h)) metrica("vista", (refNegocio(h.slice(h.indexOf("-")+1)) || {id: h.slice(h.indexOf("-")+1)}).id); if((h === "registrar" || h === "negocios") && unaVez("rv")) metrica("registro_vista", "negocio"); if(h === "publicar-evento" && unaVez("ev")) metrica("evento_vista", "evento"); }
   if(h === "admin" && SB.ok && SB.token && !estado.admin.cargado && !estado.admin.cargando){ estado.admin.cargando = true; cargarAdmin().finally(() => { estado.admin.cargando = false; }); }
   document.querySelectorAll("nav.main a, nav.tabbar a").forEach(a => { if(a.dataset.nav === nav) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
   pintarZona(); pintarContacto(); vigilarBusqueda(h);
   if(h.startsWith("opinar-")) setTimeout(() => { try{ const d = document.querySelector("#opiniones .rev-form"); if(d){ d.open = true; document.getElementById("opiniones").scrollIntoView({block:"start"}); } }catch(err){} }, 60);
   try{ document.querySelectorAll('.chips.scrollrow .chip[aria-pressed="true"]').forEach(c => c.scrollIntoView({block:"nearest", inline:"center"})); }catch(err){}
-  if(h === "registrar" || h === "publicar-evento") T_FORM = Date.now();
+  if(h === "registrar" || h === "publicar-evento" || h === "negocios") T_FORM = Date.now();
   if(h === "registrar" || (h === "admin" && document.getElementById("fReg"))) prepararRegistro();
   else if(FOTOS.length){ FOTOS.forEach(f => URL.revokeObjectURL(f.url)); FOTOS = []; }
 }
@@ -2842,8 +2903,8 @@ document.addEventListener("submit", e => {
 document.addEventListener("change", e => { if(e.target.id === "rc-z"){ const l = document.getElementById("rc-ol"); if(l) l.hidden = e.target.value !== "otra"; } });
 
 function formIniciado(e){
-  const f = e.target.closest && e.target.closest("#fReg,#fEv"); if(!f || f.dataset.admin) return;
-  if(f.id === "fReg" && unaVez("ri")) metrica("registro_inicio", "negocio");
+  const f = e.target.closest && e.target.closest("#fReg,#fEv,#fRapido"); if(!f || f.dataset.admin) return;
+  if((f.id === "fReg" || f.id === "fRapido") && unaVez("ri")) metrica("registro_inicio", "negocio");
   if(f.id === "fEv" && unaVez("ei")) metrica("evento_inicio", "evento");
 }
 document.addEventListener("input", e => {
